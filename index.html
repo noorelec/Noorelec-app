@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Devis Électrique Pro - Gestion par Pièces</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            color: #495057;
+        }
+
+        .tab:hover {
+            background: #e9ecef;
+        }
+
+        .tab.active {
+            background: white;
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 12px;
+            border-left: 5px solid #667eea;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .section h3 {
+            color: #495057;
+            margin: 20px 0 15px 0;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 600;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .room-card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            border: 2px solid #dee2e6;
+        }
+
+        .room-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #dee2e6;
+        }
+
+        .room-title {
+            font-size: 1.5em;
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .item-list {
+            margin-top: 15px;
+        }
+
+        .item {
+            background: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-details {
+            flex: 1;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
+        .price-display {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .price-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .price-row.total {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+            border-top: 3px solid #667eea;
+            margin-top: 10px;
+            padding-top: 15px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .discount-section {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+
+        .discount-controls {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+            .tabs, .btn, .tab-content:not(.active) {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Devis Électrique Professionnel</h1>
+            <p>Gestion complète par pièces avec calcul automatique</p>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('client')">👤 Client</button>
+            <button class="tab" onclick="switchTab('devis')">📋 Devis par Pièce</button>
+            <button class="tab" onclick="switchTab('admin')">📄 Administratif</button>
+            <button class="tab" onclick="switchTab('parametres')">⚙️ Paramètres</button>
+            <button class="tab" onclick="switchTab('generation')">📄 Génération</button>
+        </div>
+
+        <!-- ONGLET CLIENT -->
+        <div id="client" class="tab-content active">
+            <div class="section">
+                <h2>Informations Client</h2>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Nom complet</label>
+                        <input type="text" id="clientName" placeholder="Jean Dupont">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="clientEmail" placeholder="jean.dupont@email.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Téléphone</label>
+                        <input type="text" id="clientPhone" placeholder="+32 XXX XX XX XX">
+                    </div>
+                    <div class="form-group">
+                        <label>Adresse</label>
+                        <input type="text" id="clientAddress" placeholder="Rue, numéro, code postal, ville">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Configuration Email Professionnel</h2>
+                <div class="alert alert-info">
+                    <strong>ℹ️ Configuration requise :</strong> Pour envoyer les devis automatiquement, vous devez configurer votre email professionnel ci-dessous.
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Votre email professionnel</label>
+                        <input type="email" id="proEmail" placeholder="votre.email@entreprise.be">
+                    </div>
+                    <div class="form-group">
+                        <label>Nom de votre entreprise</label>
+                        <input type="text" id="companyName" placeholder="ElectroPro SPRL">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ONGLET DEVIS PAR PIÈCE -->
+        <div id="devis" class="tab-content">
+            <div class="section">
+                <h2>Gestion des Pièces</h2>
+                
+                <div class="form-group">
+                    <label>Nom de la nouvelle pièce</label>
+                    <input type="text" id="newRoomName" placeholder="Ex: Cuisine, Salon, Chambre 1...">
+                    <button class="btn btn-success" onclick="addRoom()" style="margin-top: 10px;">➕ Ajouter une Pièce</button>
+                </div>
+
+                <div id="roomsList"></div>
+            </div>
+        </div>
+
+        <!-- ONGLET ADMINISTRATIF -->
+        <div id="admin" class="tab-content">
+            <div class="section">
+                <h2>Services Administratifs</h2>
+                
+                <div class="checkbox-group">
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="schemaElec" onchange="calculateTotal()">
+                        <label for="schemaElec">Schéma électrique unifilaire (250€)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="conformite" onchange="calculateTotal()">
+                        <label for="conformite">Mise en conformité (350€)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="ouvertureCompteur" onchange="calculateTotal()">
+                        <label for="ouvertureCompteur">Ouverture compteur (150€)</label>
+                    </div>
+                    <div class="checkbox-item">
+                        <input type="checkbox" id="certifConf" onchange="calculateTotal()">
+                        <label for="certifConf">Certificat de conformité (200€)</label>
+                    </div>
+                </div>
+
+                <h3>Pack All-In</h3>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="packAllIn" onchange="togglePackAllIn()">
+                    <label for="packAllIn">Pack All-In : Tout inclus (prix personnalisé)</label>
+                </div>
+                <div class="form-group" id="packPriceGroup" style="display: none; margin-top: 15px;">
+                    <label>Prix du Pack All-In (€)</label>
+                    <input type="number" id="packAllInPrice" value="800" onchange="calculateTotal()">
+                    <small style="display: block; margin-top: 5px; color: #666;">
+                        Inclut : Schéma électrique, mise en conformité, ouverture compteur, certificat de conformité
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- ONGLET PARAMÈTRES -->
+        <div id="parametres" class="tab-content">
+            <div class="section">
+                <h2>Tarifs des Équipements</h2>
+                
+                <h3>Prises</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Article</th>
+                            <th>Prix (€)</th>
+                            <th>Temps installation (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pricesPrises"></tbody>
+                </table>
+
+                <h3>Interrupteurs</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Article</th>
+                            <th>Prix (€)</th>
+                            <th>Temps installation (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pricesInterrupteurs"></tbody>
+                </table>
+
+                <h3>Lampes</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Article</th>
+                            <th>Prix (€)</th>
+                            <th>Temps installation (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pricesLampes"></tbody>
+                </table>
+
+                <h3>Câbles</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Prix par mètre (€)</th>
+                            <th>Temps par mètre (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pricesCables"></tbody>
+                </table>
+
+                <h3>Tableaux et Protection</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Article</th>
+                            <th>Prix (€)</th>
+                            <th>Temps installation (h)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pricesTableaux"></tbody>
+                </table>
+
+                <h3>Main d'œuvre</h3>
+                <div class="form-group">
+                    <label>Taux horaire (€/h)</label>
+                    <input type="number" id="tauxHoraire" value="45" onchange="saveSettings()">
+                </div>
+            </div>
+        </div>
+
+        <!-- ONGLET GÉNÉRATION -->
+        <div id="generation" class="tab-content">
+            <div class="section">
+                <h2>Génération du Devis</h2>
+
+                <div class="discount-section">
+                    <h3>💰 Ristournes Exceptionnelles</h3>
+                    <div class="checkbox-group">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="discount24h" onchange="toggleDiscount('24h')">
+                            <label for="discount24h">Ristourne 24h</label>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="discount48h" onchange="toggleDiscount('48h')">
+                            <label for="discount48h">Ristourne 48h</label>
+                        </div>
+                    </div>
+
+                    <div id="discount24hControls" style="display: none; margin-top: 15px;">
+                        <label>Pourcentage ristourne 24h (%)</label>
+                        <select id="discount24hPercent" onchange="calculateTotal()">
+                            <option value="5">5%</option>
+                            <option value="10">10%</option>
+                            <option value="15" selected>15%</option>
+                            <option value="20">20%</option>
+                            <option value="25">25%</option>
+                            <option value="30">30%</option>
+                        </select>
+                    </div>
+
+                    <div id="discount48hControls" style="display: none; margin-top: 15px;">
+                        <label>Pourcentage ristourne 48h (%)</label>
+                        <select id="discount48hPercent" onchange="calculateTotal()">
+                            <option value="5" selected>5%</option>
+                            <option value="10">10%</option>
+                            <option value="15">15%</option>
+                            <option value="20">20%</option>
+                            <option value="25">25%</option>
+                            <option value="30">30%</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="price-display">
+                    <h3>Récapitulatif des Prix</h3>
+                    <div id="priceBreakdown"></div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <button class="btn btn-primary" onclick="generatePDF()">📄 Générer le PDF</button>
+                    <button class="btn btn-success" onclick="sendEmail()">📧 Envoyer par Email</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration par défaut
+        let config = {
+            prices: {
+                prises: {
+                    'Prise Niko blanc': { price: 8, time: 0.5 },
+                    'Prise Niko noir': { price: 10, time: 0.5 },
+                    'Prise Niko inox': { price: 12, time: 0.5 },
+                    'Prise USB Niko': { price: 25, time: 0.75 }
+                },
+                interrupteurs: {
+                    'Interrupteur simple Niko blanc': { price: 6, time: 0.33 },
+                    'Interrupteur simple Niko noir': { price: 8, time: 0.33 },
+                    'Interrupteur double Niko blanc': { price: 10, time: 0.5 },
+                    'Interrupteur double Niko noir': { price: 12, time: 0.5 },
+                    'Va-et-vient Niko blanc': { price: 12, time: 0.5 },
+                    'Variateur Niko': { price: 35, time: 0.75 }
+                },
+                lampes: {
+                    'Lampe LED encastrable': { price: 15, time: 0.75 },
+                    'Lampe LED plafonnier': { price: 25, time: 0.5 },
+                    'Spot LED orientable': { price: 20, time: 0.75 },
+                    'Réglette LED': { price: 30, time: 0.5 }
+                },
+                cables: {
+                    'XVB 3G2.5 (prises)': { pricePerMeter: 2.5, timePerMeter: 0.08 },
+                    'XVB 3G1.5 (éclairage)': { pricePerMeter: 1.8, timePerMeter: 0.08 },
+                    'XVB 5G2.5': { pricePerMeter: 4, timePerMeter: 0.1 },
+                    'XVB 5G6': { pricePerMeter: 8, timePerMeter: 0.15 }
+                },
+                tableaux: {
+                    'Tableau 2 rangées': { price: 80, time: 2 },
+                    'Tableau 3 rangées': { price: 120, time: 3 },
+                    'Tableau 4 rangées': { price: 160, time: 4 },
+                    'Disjoncteur 16A': { price: 12, time: 0.25 },
+                    'Disjoncteur 20A': { price: 15, time: 0.25 },
+                    'Disjoncteur 32A': { price: 20, time: 0.25 },
+                    'Différentiel 30mA 40A': { price: 45, time: 0.5 },
+                    'Différentiel 30mA 63A': { price: 65, time: 0.5 }
+                }
+            },
+            tauxHoraire: 45
+        };
+
+        let rooms = [];
+
+        // Charger les paramètres sauvegardés
+        function loadSettings() {
+            const saved = localStorage.getItem('devisElecConfig');
+            if (saved) {
+                config = JSON.parse(saved);
+                document.getElementById('tauxHoraire').value = config.tauxHoraire;
+            }
+            
+            const savedRooms = localStorage.getItem('devisElecRooms');
+            if (savedRooms) {
+                rooms = JSON.parse(savedRooms);
+            }
+
+            updatePricesTables();
+            renderRooms();
+        }
+
+        // Sauvegarder les paramètres
+        function saveSettings() {
+            config.tauxHoraire = parseFloat(document.getElementById('tauxHoraire').value);
+            localStorage.setItem('devisElecConfig', JSON.stringify(config));
+            calculateTotal();
+        }
+
+        // Mettre à jour les tableaux de prix
+        function updatePricesTables() {
+            // Prises
+            let html = '';
+            for (let [name, data] of Object.entries(config.prices.prises)) {
+                html += `
+                    <tr>
+                        <td>${name}</td>
+                        <td><input type="number" step="0.1" value="${data.price}" onchange="updatePrice('prises', '${name}', 'price', this.value)" style="width: 100px;"></td>
+                        <td><input type="number" step="0.05" value="${data.time}" onchange="updatePrice('prises', '${name}', 'time', this.value)" style="width: 100px;"></td>
+                    </tr>
+                `;
+            }
+            document.getElementById('pricesPrises').innerHTML = html;
+
+            // Interrupteurs
+            html = '';
+            for (let [name, data] of Object.entries(config.prices.interrupteurs)) {
+                html += `
+                    <tr>
+                        <td>${name}</td>
+                        <td><input type="number" step="0.1" value="${data.price}" onchange="updatePrice('interrupteurs', '${name}', 'price', this.value)" style="width: 100px;"></td>
+                        <td><input type="number" step="0.05" value="${data.time}" onchange="updatePrice('interrupteurs', '${name}', 'time', this.value)" style="width: 100px;"></td>
+                    </tr>
+                `;
+            }
+            document.getElementById('pricesInterrupteurs').innerHTML = html;
+
+            // Lampes
+            html = '';
+            for (let [name, data] of Object.entries(config.prices.lampes)) {
+                html += `
+                    <tr>
+                        <td>${name}</td>
+                        <td><input type="number" step="0.1" value="${data.price}" onchange="updatePrice('lampes', '${name}', 'price', this.value)" style="width: 100px;"></td>
+                        <td><input type="number" step="0.05" value="${data.time}" onchange="updatePrice('lampes', '${name}', 'time', this.value)" style="width: 100px;"></td>
+                    </tr>
+                `;
+            }
+            document.getElementById('pricesLampes').innerHTML = html;
+
+            // Câbles
+            html = '';
+            for (let [name, data] of Object.entries(config.prices.cables)) {
+                html += `
+                    <tr>
+                        <td>${name}</td>
+                        <td><input type="number" step="0.1" value="${data.pricePerMeter}" onchange="updatePrice('cables', '${name}', 'pricePerMeter', this.value)" style="width: 100px;"></td>
+                        <td><input type="number" step="0.01" value="${data.timePerMeter}" onchange="updatePrice('cables', '${name}', 'timePerMeter', this.value)" style="width: 100px;"></td>
+                    </tr>
+                `;
+            }
+            document.getElementById('pricesCables').innerHTML = html;
+
+            // Tableaux
+            html = '';
+            for (let [name, data] of Object.entries(config.prices.tableaux)) {
+                html += `
+                    <tr>
+                        <td>${name}</td>
+                        <td><input type="number" step="0.1" value="${data.price}" onchange="updatePrice('tableaux', '${name}', 'price', this.value)" style="width: 100px;"></td>
+                        <td><input type="number" step="0.05" value="${data.time}" onchange="updatePrice('tableaux', '${name}', 'time', this.value)" style="width: 100px;"></td>
+                    </tr>
+                `;
+            }
+            document.getElementById('pricesTableaux').innerHTML = html;
+        }
+
+        // Mettre à jour un prix
+        function updatePrice(category, itemName, field, value) {
+            config.prices[category][itemName][field] = parseFloat(value);
+            saveSettings();
+        }
+
+        // Ajouter une pièce
+        function addRoom() {
+            const name = document.getElementById('newRoomName').value.trim();
+            if (!name) {
+                alert('Veuillez entrer un nom de pièce');
+                return;
+            }
+
+            rooms.push({
+                id: Date.now(),
+                name: name,
+                items: [],
+                cables: [],
+                cablesToPanel: []
+            });
+
+            document.getElementById('newRoomName').value = '';
+            saveRooms();
+            renderRooms();
+        }
+
+        // Sauvegarder les pièces
+        function saveRooms() {
+            localStorage.setItem('devisElecRooms', JSON.stringify(rooms));
+            calculateTotal();
+        }
+
+        // Afficher les pièces
+        function renderRooms() {
+            const container = document.getElementById('roomsList');
+            if (rooms.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; padding: 40px;">Aucune pièce ajoutée. Commencez par créer une pièce ci-dessus.</p>';
+                return;
+            }
+
+            let html = '';
+            rooms.forEach((room, index) => {
+                html += `
+                    <div class="room-card">
+                        <div class="room-header">
+                            <span class="room-title">🏠 ${room.name}</span>
+                            <button class="btn btn-danger" onclick="deleteRoom(${index})">🗑️ Supprimer</button>
+                        </div>
+
+                        <h3>Équipements</h3>
+                        <div class="grid-3">
+                            <div class="form-group">
+                                <label>Type</label>
+                                <select id="itemType${room.id}">
+                                    ${Object.keys(config.prices.prises).map(p => `<option value="prises:${p}">${p}</option>`).join('')}
+                                    ${Object.keys(config.prices.interrupteurs).map(i => `<option value="interrupteurs:${i}">${i}</option>`).join('')}
+                                    ${Object.keys(config.prices.lampes).map(l => `<option value="lampes:${l}">${l}</option>`).join('')}
+                                    ${Object.keys(config.prices.tableaux).map(t => `<option value="tableaux:${t}">${t}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Quantité</label>
+                                <input type="number" id="itemQty${room.id}" value="1" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-success" onclick="addItemToRoom(${index})">➕ Ajouter</button>
+                            </div>
+                        </div>
+
+                        <div class="item-list">
+                            ${room.items.map((item, itemIndex) => {
+                                const [category, name] = item.type.split(':');
+                                const itemData = config.prices[category][name];
+                                const totalPrice = itemData.price * item.qty;
+                                const totalTime = itemData.time * item.qty;
+                                const laborCost = totalTime * config.tauxHoraire;
+                                return `
+                                    <div class="item">
+                                        <div class="item-details">
+                                            <strong>${name}</strong> x${item.qty}<br>
+                                            <small>Matériel: ${totalPrice.toFixed(2)}€ | Main d'œuvre: ${laborCost.toFixed(2)}€ (${totalTime.toFixed(2)}h)</small>
+                                        </div>
+                                        <button class="btn btn-danger" onclick="deleteItemFromRoom(${index}, ${itemIndex})">🗑️</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <h3>Câbles entre appareils</h3>
+                        <div class="grid-3">
+                            <div class="form-group">
+                                <label>Type de câble</label>
+                                <select id="cableType${room.id}">
+                                    ${Object.keys(config.prices.cables).map(c => `<option value="${c}">${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Longueur (m)</label>
+                                <input type="number" id="cableLength${room.id}" value="5" min="0.5" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-success" onclick="addCableToRoom(${index})">➕ Ajouter câble</button>
+                            </div>
+                        </div>
+
+                        <div class="item-list">
+                            ${room.cables.map((cable, cableIndex) => {
+                                const cableData = config.prices.cables[cable.type];
+                                const totalPrice = cableData.pricePerMeter * cable.length;
+                                const totalTime = cableData.timePerMeter * cable.length;
+                                const laborCost = totalTime * config.tauxHoraire;
+                                return `
+                                    <div class="item">
+                                        <div class="item-details">
+                                            <strong>${cable.type}</strong> - ${cable.length}m<br>
+                                            <small>Matériel: ${totalPrice.toFixed(2)}€ | Main d'œuvre: ${laborCost.toFixed(2)}€ (${totalTime.toFixed(2)}h)</small>
+                                        </div>
+                                        <button class="btn btn-danger" onclick="deleteCableFromRoom(${index}, ${cableIndex})">🗑️</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <h3>Câbles vers le tableau</h3>
+                        <div class="grid-3">
+                            <div class="form-group">
+                                <label>Type de câble</label>
+                                <select id="cablePanelType${room.id}">
+                                    ${Object.keys(config.prices.cables).map(c => `<option value="${c}">${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Longueur (m)</label>
+                                <input type="number" id="cablePanelLength${room.id}" value="10" min="0.5" step="0.5">
+                            </div>
+                            <div class="form-group">
+                                <label>&nbsp;</label>
+                                <button class="btn btn-success" onclick="addCableToPanelRoom(${index})">➕ Ajouter câble</button>
+                            </div>
+                        </div>
+
+                        <div class="item-list">
+                            ${room.cablesToPanel.map((cable, cableIndex) => {
+                                const cableData = config.prices.cables[cable.type];
+                                const totalPrice = cableData.pricePerMeter * cable.length;
+                                const totalTime = cableData.timePerMeter * cable.length;
+                                const laborCost = totalTime * config.tauxHoraire;
+                                return `
+                                    <div class="item">
+                                        <div class="item-details">
+                                            <strong>${cable.type}</strong> vers tableau - ${cable.length}m<br>
+                                            <small>Matériel: ${totalPrice.toFixed(2)}€ | Main d'œuvre: ${laborCost.toFixed(2)}€ (${totalTime.toFixed(2)}h)</small>
+                                        </div>
+                                        <button class="btn btn-danger" onclick="deleteCableToPanelRoom(${index}, ${cableIndex})">🗑️</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+
+                        <div class="price-display" style="margin-top: 20px;">
+                            <div class="price-row">
+                                <strong>Total pièce "${room.name}":</strong>
+                                <strong>${calculateRoomTotal(room).toFixed(2)}€</strong>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Calculer le total d'une pièce
+        function calculateRoomTotal(room) {
+            let total = 0;
+
+            // Équipements
+            room.items.forEach(item => {
+                const [category, name] = item.type.split(':');
+                const itemData = config.prices[category][name];
+                const materialCost = itemData.price * item.qty;
+                const laborCost = itemData.time * item.qty * config.tauxHoraire;
+                total += materialCost + laborCost;
+            });
+
+            // Câbles entre appareils
+            room.cables.forEach(cable => {
+                const cableData = config.prices.cables[cable.type];
+                const materialCost = cableData.pricePerMeter * cable.length;
+                const laborCost = cableData.timePerMeter * cable.length * config.tauxHoraire;
+                total += materialCost + laborCost;
+            });
+
+            // Câbles vers tableau
+            room.cablesToPanel.forEach(cable => {
+                const cableData = config.prices.cables[cable.type];
+                const materialCost = cableData.pricePerMeter * cable.length;
+                const laborCost = cableData.timePerMeter * cable.length * config.tauxHoraire;
+                total += materialCost + laborCost;
+            });
+
+            return total;
+        }
+
+        // Ajouter un équipement à une pièce
+        function addItemToRoom(roomIndex) {
+            const room = rooms[roomIndex];
+            const type = document.getElementById(`itemType${room.id}`).value;
+            const qty = parseInt(document.getElementById(`itemQty${room.id}`).value);
+
+            room.items.push({ type, qty });
+            saveRooms();
+            renderRooms();
+        }
+
+        // Ajouter un câble à une pièce
+        function addCableToRoom(roomIndex) {
+            const room = rooms[roomIndex];
+            const type = document.getElementById(`cableType${room.id}`).value;
+            const length = parseFloat(document.getElementById(`cableLength${room.id}`).value);
+
+            room.cables.push({ type, length });
+            saveRooms();
+            renderRooms();
+        }
+
+        // Ajouter un câble vers tableau
+        function addCableToPanelRoom(roomIndex) {
+            const room = rooms[roomIndex];
+            const type = document.getElementById(`cablePanelType${room.id}`).value;
+            const length = parseFloat(document.getElementById(`cablePanelLength${room.id}`).value);
+
+            room.cablesToPanel.push({ type, length });
+            saveRooms();
+            renderRooms();
+        }
+
+        // Supprimer une pièce
+        function deleteRoom(index) {
+            if (confirm(`Voulez-vous vraiment supprimer la pièce "${rooms[index].name}" ?`)) {
+                rooms.splice(index, 1);
+                saveRooms();
+                renderRooms();
+            }
+        }
+
+        // Supprimer un équipement
+        function deleteItemFromRoom(roomIndex, itemIndex) {
+            rooms[roomIndex].items.splice(itemIndex, 1);
+            saveRooms();
+            renderRooms();
+        }
+
+        // Supprimer un câble
+        function deleteCableFromRoom(roomIndex, cableIndex) {
+            rooms[roomIndex].cables.splice(cableIndex, 1);
+            saveRooms();
+            renderRooms();
+        }
+
+        // Supprimer un câble vers tableau
+        function deleteCableToPanelRoom(roomIndex, cableIndex) {
+            rooms[roomIndex].cablesToPanel.splice(cableIndex, 1);
+            saveRooms();
+            renderRooms();
+        }
+
+        // Basculer pack all-in
+        function togglePackAllIn() {
+            const checked = document.getElementById('packAllIn').checked;
+            document.getElementById('packPriceGroup').style.display = checked ? 'block' : 'none';
+            
+            // Décocher les services individuels si pack activé
+            if (checked) {
+                document.getElementById('schemaElec').checked = false;
+                document.getElementById('conformite').checked = false;
+                document.getElementById('ouvertureCompteur').checked = false;
+                document.getElementById('certifConf').checked = false;
+            }
+            
+            calculateTotal();
+        }
+
+        // Basculer les ristournes
+        function toggleDiscount(type) {
+            const checked = document.getElementById(`discount${type}`).checked;
+            document.getElementById(`discount${type}Controls`).style.display = checked ? 'block' : 'none';
+            calculateTotal();
+        }
+
+        // Calculer le temps estimé
+        function calculateEstimatedTime() {
+            let totalHours = 0;
+
+            // Temps pour les pièces
+            rooms.forEach(room => {
+                room.items.forEach(item => {
+                    const [category, name] = item.type.split(':');
+                    const itemData = config.prices[category][name];
+                    totalHours += itemData.time * item.qty;
+                });
+
+                room.cables.forEach(cable => {
+                    const cableData = config.prices.cables[cable.type];
+                    totalHours += cableData.timePerMeter * cable.length;
+                });
+
+                room.cablesToPanel.forEach(cable => {
+                    const cableData = config.prices.cables[cable.type];
+                    totalHours += cableData.timePerMeter * cable.length;
+                });
+            });
+
+            // Convertir en jours (2 personnes, 8h/jour)
+            const workDaysMin = Math.ceil(totalHours / 16); // 2 personnes x 8h
+            const workDaysMax = Math.ceil(totalHours / 12); // Avec imprévus
+
+            return { hours: totalHours, daysMin: workDaysMin, daysMax: workDaysMax };
+        }
+
+        // Calculer le total
+        function calculateTotal() {
+            let totalMateriel = 0;
+            let totalMainOeuvre = 0;
+            let totalAdmin = 0;
+
+            // Total des pièces
+            rooms.forEach(room => {
+                // Équipements
+                room.items.forEach(item => {
+                    const [category, name] = item.type.split(':');
+                    const itemData = config.prices[category][name];
+                    totalMateriel += itemData.price * item.qty;
+                    totalMainOeuvre += itemData.time * item.qty * config.tauxHoraire;
+                });
+
+                // Câbles
+                room.cables.forEach(cable => {
+                    const cableData = config.prices.cables[cable.type];
+                    totalMateriel += cableData.pricePerMeter * cable.length;
+                    totalMainOeuvre += cableData.timePerMeter * cable.length * config.tauxHoraire;
+                });
+
+                // Câbles vers tableau
+                room.cablesToPanel.forEach(cable => {
+                    const cableData = config.prices.cables[cable.type];
+                    totalMateriel += cableData.pricePerMeter * cable.length;
+                    totalMainOeuvre += cableData.timePerMeter * cable.length * config.tauxHoraire;
+                });
+            });
+
+            // Services administratifs
+            if (document.getElementById('packAllIn').checked) {
+                totalAdmin = parseFloat(document.getElementById('packAllInPrice').value);
+            } else {
+                if (document.getElementById('schemaElec').checked) totalAdmin += 250;
+                if (document.getElementById('conformite').checked) totalAdmin += 350;
+                if (document.getElementById('ouvertureCompteur').checked) totalAdmin += 150;
+                if (document.getElementById('certifConf').checked) totalAdmin += 200;
+            }
+
+            const sousTotal = totalMateriel + totalMainOeuvre + totalAdmin;
+            let totalFinal = sousTotal;
+
+            // Ristournes
+            let discount24 = 0, discount48 = 0;
+            if (document.getElementById('discount24h').checked) {
+                const percent = parseInt(document.getElementById('discount24hPercent').value);
+                discount24 = sousTotal * (percent / 100);
+            }
+            if (document.getElementById('discount48h').checked) {
+                const percent = parseInt(document.getElementById('discount48hPercent').value);
+                discount48 = sousTotal * (percent / 100);
+            }
+
+            // Temps estimé
+            const timeEstimate = calculateEstimatedTime();
+
+            // Affichage
+            let html = `
+                <div class="price-row"><span>Matériel:</span><span>${totalMateriel.toFixed(2)}€</span></div>
+                <div class="price-row"><span>Main d'œuvre (${timeEstimate.hours.toFixed(2)}h):</span><span>${totalMainOeuvre.toFixed(2)}€</span></div>
+                <div class="price-row"><span>Services administratifs:</span><span>${totalAdmin.toFixed(2)}€</span></div>
+                <div class="price-row"><span><strong>Sous-total:</strong></span><span><strong>${sousTotal.toFixed(2)}€</strong></span></div>
+                
+                <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin: 15px 0;">
+                    <strong>⏱️ Temps estimé des travaux:</strong><br>
+                    Entre ${timeEstimate.daysMin} et ${timeEstimate.daysMax} jours de travail (2 personnes)
+                </div>
+            `;
+
+            if (discount24 > 0) {
+                html += `<div class="price-row" style="color: #28a745;"><span>🎁 Ristourne 24h (-${document.getElementById('discount24hPercent').value}%):</span><span>-${discount24.toFixed(2)}€</span></div>`;
+                html += `<div class="price-row total"><span>TOTAL avec ristourne 24h:</span><span>${(sousTotal - discount24).toFixed(2)}€</span></div>`;
+            }
+
+            if (discount48 > 0) {
+                html += `<div class="price-row" style="color: #28a745;"><span>🎁 Ristourne 48h (-${document.getElementById('discount48hPercent').value}%):</span><span>-${discount48.toFixed(2)}€</span></div>`;
+                html += `<div class="price-row total"><span>TOTAL avec ristourne 48h:</span><span>${(sousTotal - discount48).toFixed(2)}€</span></div>`;
+            }
+
+            if (!discount24 && !discount48) {
+                html += `<div class="price-row total"><span>TOTAL:</span><span>${sousTotal.toFixed(2)}€</span></div>`;
+            }
+
+            // Détail par pièce
+            if (rooms.length > 0) {
+                html += '<h3 style="margin-top: 20px;">Détail par pièce:</h3>';
+                rooms.forEach(room => {
+                    const roomTotal = calculateRoomTotal(room);
+                    html += `<div class="price-row"><span>${room.name}:</span><span>${roomTotal.toFixed(2)}€</span></div>`;
+                });
+            }
+
+            document.getElementById('priceBreakdown').innerHTML = html;
+        }
+
+        // Générer le PDF
+        function generatePDF() {
+            const clientName = document.getElementById('clientName').value || 'Client';
+            const clientEmail = document.getElementById('clientEmail').value;
+            const clientPhone = document.getElementById('clientPhone').value;
+            const clientAddress = document.getElementById('clientAddress').value;
+            const companyName = document.getElementById('companyName').value || 'Votre Entreprise';
+
+            let pdfContent = `
+                <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 40px;">
+                    <div style="text-align: center; margin-bottom: 40px;">
+                        <h1 style="color: #667eea; font-size: 32px; margin-bottom: 10px;">⚡ DEVIS ÉLECTRIQUE</h1>
+                        <p style="font-size: 18px; color: #666;">${companyName}</p>
+                        <p style="font-size: 14px; color: #666;">Date: ${new Date().toLocaleDateString('fr-FR')}</p>
+                    </div>
+
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 30px;">
+                        <h2 style="color: #667eea; margin-bottom: 15px;">Informations Client</h2>
+                        <p><strong>Nom:</strong> ${clientName}</p>
+                        ${clientEmail ? `<p><strong>Email:</strong> ${clientEmail}</p>` : ''}
+                        ${clientPhone ? `<p><strong>Téléphone:</strong> ${clientPhone}</p>` : ''}
+                        ${clientAddress ? `<p><strong>Adresse:</strong> ${clientAddress}</p>` : ''}
+                    </div>
+            `;
+
+            // Détail par pièce
+            if (rooms.length > 0) {
+                pdfContent += '<h2 style="color: #667eea; margin-bottom: 20px;">Détail des Travaux par Pièce</h2>';
+                
+                rooms.forEach(room => {
+                    pdfContent += `
+                        <div style="background: #ffffff; border: 2px solid #dee2e6; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                            <h3 style="color: #667eea; border-bottom: 2px solid #dee2e6; padding-bottom: 10px; margin-bottom: 15px;">🏠 ${room.name}</h3>
+                    `;
+
+                    if (room.items.length > 0) {
+                        pdfContent += '<h4 style="margin-top: 15px;">Équipements:</h4><ul>';
+                        room.items.forEach(item => {
+                            const [category, name] = item.type.split(':');
+                            const itemData = config.prices[category][name];
+                            const totalPrice = itemData.price * item.qty;
+                            const totalTime = itemData.time * item.qty;
+                            const laborCost = totalTime * config.tauxHoraire;
+                            pdfContent += `<li>${name} x${item.qty} - Matériel: ${totalPrice.toFixed(2)}€ | Main d'œuvre: ${laborCost.toFixed(2)}€ (${totalTime.toFixed(2)}h)</li>`;
+                        });
+                        pdfContent += '</ul>';
+                    }
+
+                    if (room.cables.length > 0) {
+                        pdfContent += '<h4 style="margin-top: 15px;">Câbles entre appareils:</h4><ul>';
+                        room.cables.forEach(cable => {
+                            const cableData = config.prices.cables[cable.type];
+                            const totalPrice = cableData.pricePerMeter * cable.length;
+                            const totalTime = cableData.timePerMeter * cable.length;
+                            const laborCost = totalTime * config.tauxHoraire;
+                            pdfContent += `<li>${cable.type} - ${cable.length}m - Matériel: ${totalPrice.toFixed(2)}€ | Main d'œuvre: ${laborCost.toFixed(2)}€ (${totalTime.toFixed(2)}h)</li>`;
+                        });
+                        pdfContent += '</ul>';
+                    }
+
+                    if (room.cablesToPanel.length > 0) {
+                        pdfContent += '<h4 style="margin-top: 15px;">Câbles vers le tableau:</h4><ul>';
+                        room.cablesToPanel.forEach(cable => {
+                            const cableData = config.prices.cables[cable.type];
+                            const totalPrice = cableData.pricePerMeter * cable.length;
+                            const totalTime = cableData.timePerMeter * cable.length;
+                            const laborCost = totalTime * config.tauxHoraire;
+                            pdfContent += `<li>${cable.type} - ${cable.length}m - Matériel: ${totalPrice.toFixed(2)}€ | Main d'œuvre: ${laborCost.toFixed(2)}€ (${totalTime.toFixed(2)}h)</li>`;
+                        });
+                        pdfContent += '</ul>';
+                    }
+
+                    pdfContent += `
+                        <div style="background: #667eea; color: white; padding: 10px; border-radius: 5px; margin-top: 15px; text-align: right;">
+                            <strong>Total ${room.name}: ${calculateRoomTotal(room).toFixed(2)}€</strong>
+                        </div>
+                        </div>
+                    `;
+                });
+            }
+
+            // Récapitulatif
+            pdfContent += document.getElementById('priceBreakdown').innerHTML;
+
+            // Ristournes
+            const discount24Active = document.getElementById('discount24h').checked;
+            const discount48Active = document.getElementById('discount48h').checked;
+            
+            if (discount24Active || discount48Active) {
+                pdfContent += `
+                    <div style="background: #fff3cd; border: 2px solid #ffc107; padding: 20px; border-radius: 10px; margin-top: 30px;">
+                        <h3 style="color: #856404;">🎁 Offres Exceptionnelles</h3>
+                `;
+                
+                const now = new Date();
+                if (discount24Active) {
+                    const deadline24 = new Date(now.getTime() + 24*60*60*1000);
+                    pdfContent += `<p><strong>Ristourne 24h:</strong> Une remise exceptionnelle de ${document.getElementById('discount24hPercent').value}% peut être appliquée si vous acceptez ce devis avant le ${deadline24.toLocaleDateString('fr-FR')} à ${deadline24.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</p>`;
+                }
+                
+                if (discount48Active) {
+                    const deadline48 = new Date(now.getTime() + 48*60*60*1000);
+                    pdfContent += `<p><strong>Ristourne 48h:</strong> Une remise exceptionnelle de ${document.getElementById('discount48hPercent').value}% peut être appliquée si vous acceptez ce devis avant le ${deadline48.toLocaleDateString('fr-FR')} à ${deadline48.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</p>`;
+                }
+                
+                pdfContent += '</div>';
+            }
+
+            pdfContent += `
+                    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #dee2e6; text-align: center; color: #666;">
+                        <p>Ce devis est valable 30 jours à compter de sa date d'émission.</p>
+                        <p style="margin-top: 20px;"><strong>Signature du client (bon pour accord):</strong></p>
+                        <div style="border-bottom: 2px solid #000; width: 300px; margin: 40px auto 10px auto;"></div>
+                    </div>
+                </div>
+            `;
+
+            // Créer et télécharger le PDF
+            const printWindow = window.open('', '', 'height=800,width=800');
+            printWindow.document.write('<html><head><title>Devis</title></head><body>');
+            printWindow.document.write(pdfContent);
+            printWindow.document.write('</body></html>');
+            printWindow.document.close();
+            printWindow.print();
+        }
+
+        // Envoyer par email
+        function sendEmail() {
+            const clientEmail = document.getElementById('clientEmail').value;
+            const clientName = document.getElementById('clientName').value || 'Client';
+            const proEmail = document.getElementById('proEmail').value;
+
+            if (!clientEmail) {
+                alert('Veuillez renseigner l\'email du client dans l\'onglet "Client"');
+                return;
+            }
+
+            if (!proEmail) {
+                alert('Veuillez configurer votre email professionnel dans l\'onglet "Client"');
+                return;
+            }
+
+            const timeEstimate = calculateEstimatedTime();
+            const totalMateriel = rooms.reduce((sum, room) => {
+                let roomMat = 0;
+                room.items.forEach(item => {
+                    const [category, name] = item.type.split(':');
+                    roomMat += config.prices[category][name].price * item.qty;
+                });
+                room.cables.forEach(cable => {
+                    roomMat += config.prices.cables[cable.type].pricePerMeter * cable.length;
+                });
+                room.cablesToPanel.forEach(cable => {
+                    roomMat += config.prices.cables[cable.type].pricePerMeter * cable.length;
+                });
+                return sum + roomMat;
+            }, 0);
+
+            const totalMainOeuvre = timeEstimate.hours * config.tauxHoraire;
+            let totalAdmin = 0;
+            if (document.getElementById('packAllIn').checked) {
+                totalAdmin = parseFloat(document.getElementById('packAllInPrice').value);
+            } else {
+                if (document.getElementById('schemaElec').checked) totalAdmin += 250;
+                if (document.getElementById('conformite').checked) totalAdmin += 350;
+                if (document.getElementById('ouvertureCompteur').checked) totalAdmin += 150;
+                if (document.getElementById('certifConf').checked) totalAdmin += 200;
+            }
+
+            const total = totalMateriel + totalMainOeuvre + totalAdmin;
+
+            const subject = `Devis électrique pour ${clientName}`;
+            const body = `Bonjour ${clientName},
+
+Veuillez trouver ci-joint votre devis électrique.
+
+Récapitulatif:
+- Matériel: ${totalMateriel.toFixed(2)}€
+- Main d'œuvre: ${totalMainOeuvre.toFixed(2)}€
+- Services administratifs: ${totalAdmin.toFixed(2)}€
+- TOTAL: ${total.toFixed(2)}€
+
+Temps estimé des travaux: ${timeEstimate.daysMin} à ${timeEstimate.daysMax} jours
+
+Pour plus de détails, veuillez consulter le PDF joint.
+
+Cordialement,
+${document.getElementById('companyName').value || 'Votre Entreprise'}`;
+
+            const mailtoLink = `mailto:${clientEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            
+            alert(`Un email va s'ouvrir avec votre client de messagerie par défaut.\n\nPour un envoi automatique complet, vous devrez configurer un service d'envoi d'emails (comme EmailJS ou un serveur SMTP).`);
+            
+            window.location.href = mailtoLink;
+        }
+
+        // Changer d'onglet
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Initialisation
+        window.onload = function() {
+            loadSettings();
+            calculateTotal();
+        };
+    </script>
+</body>
+</html>
