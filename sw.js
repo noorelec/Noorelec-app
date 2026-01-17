@@ -1,9 +1,9 @@
-const CACHE_NAME = 'noorelec-v4-enhanced';
+const CACHE_NAME = 'noorelec-v3';
 const urlsToCache = [
   '/',
   '/index.html',
   '/app.js',
-  '/styles.css',
+  '/schema.js',
   '/manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js'
