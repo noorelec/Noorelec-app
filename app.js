@@ -31,7 +31,11 @@ const devisState = {
             tableau: { length: 0, cost: 0 }
         }
     },
-    
+
+    pieces: {
+  list: [],
+  nextId: 1
+},
     tableau: {
         enabled: false,
         items: [],
@@ -1192,3 +1196,215 @@ function deleteCustomArticle(id) {
     renderCatalogueEditor();
     initializeArticleSelect();
 }
+// ============================================================================
+// GESTION DES PIÈCES
+// ============================================================================
+
+function addPiece() {
+    const nom = document.getElementById('newPieceName').value.trim();
+    if (!nom) {
+        alert('Veuillez entrer un nom de pièce');
+        return;
+    }
+    
+    devisState.pieces.list.push({
+        id: devisState.pieces.nextId++,
+        nom: nom,
+        articles: [],
+        cablesInternes: [],
+        cablesTableau: []
+    });
+    
+    document.getElementById('newPieceName').value = '';
+    saveToLocalStorage();
+    renderPieces();
+}
+
+function renderPieces() {
+    const container = document.getElementById('piecesListContainer');
+    if (!container) return;
+    
+    if (devisState.pieces.list.length === 0) {
+        container.innerHTML = '<div class="empty-state">Aucune pièce créée. Ajoutez votre première pièce ci-dessus.</div>';
+        return;
+    }
+    
+    let html = '';
+    devisState.pieces.list.forEach((piece, index) => {
+        const totalPiece = calculatePieceTotal(piece);
+        
+        html += `
+            <div class="section" style="border-left: 5px solid var(--primary);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="color: var(--primary); margin: 0;">🏠 ${piece.nom}</h3>
+                    <div style="display: flex; gap: 10px;">
+                        <span style="font-size: 1.2em; font-weight: 700; color: var(--secondary);">${totalPiece.toFixed(2)}€</span>
+                        <button class="btn-delete" onclick="deletePiece(${index})">🗑️</button>
+                    </div>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Article</label>
+                        <select id="pieceArticle${piece.id}">
+                            ${CATALOGUE.map(art => `<option value="${art.id}">${art.name} (${art.price}€)</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Quantité</label>
+                        <input type="number" id="pieceQty${piece.id}" value="1" min="1">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: end;">
+                        <button class="btn btn-success" onclick="addArticleToPiece(${index})" style="width: 100%;">➕ Ajouter</button>
+                    </div>
+                </div>
+                
+                <div id="pieceArticles${piece.id}" style="margin-top: 15px;">
+                    ${renderPieceArticles(piece)}
+                </div>
+                
+                <h4 style="margin-top: 20px;">🔌 Câblage interne</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type câble</label>
+                        <select id="pieceCableInt${piece.id}">
+                            <option value="2.45,2.8">XVB 3G2.5mm²</option>
+                            <option value="1.85,2.5">XVB 3G1.5mm²</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Longueur (m)</label>
+                        <input type="number" id="pieceCableIntLen${piece.id}" value="5" step="0.5" min="0">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: end;">
+                        <button class="btn btn-info" onclick="addCableInterneToPiece(${index})" style="width: 100%;">➕ Ajouter câble</button>
+                    </div>
+                </div>
+                
+                <h4 style="margin-top: 20px;">⚡ Câbles vers tableau</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type câble</label>
+                        <select id="pieceCableTab${piece.id}">
+                            <option value="5.25,3.8">XVB 3G6mm²</option>
+                            <option value="2.45,2.8">XVB 3G2.5mm²</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Longueur (m)</label>
+                        <input type="number" id="pieceCableTabLen${piece.id}" value="10" step="0.5" min="0">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: end;">
+                        <button class="btn btn-warning" onclick="addCableTableauToPiece(${index})" style="width: 100%;">➕ Ajouter câble</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+function renderPieceArticles(piece) {
+    if (piece.articles.length === 0 && piece.cablesInternes.length === 0 && piece.cablesTableau.length === 0) {
+        return '<div class="empty-state" style="padding: 20px;">Aucun article ou câble ajouté</div>';
+    }
+    
+    let html = '';
+    piece.articles.forEach((art, index) => {
+        const article = CATALOGUE.find(a => a.id === art.articleId);
+        html += `<div class="article-card" style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 8px; background: #f8f9fa; border-radius: 6px;">
+            <div><strong>${art.qty}× ${article.name}</strong> - ${art.total.toFixed(2)}€</div>
+            <button class="btn-delete" onclick="deleteArticleFromPiece(${piece.id}, ${index})">🗑️</button>
+        </div>`;
+    });
+    
+    piece.cablesInternes.forEach((cable, index) => {
+        html += `<div class="article-card" style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 8px; background: #e7f3ff; border-radius: 6px;">
+            <div>🔌 Câble interne ${cable.length}m - ${cable.total.toFixed(2)}€</div>
+            <button class="btn-delete" onclick="deleteCableInterneFromPiece(${piece.id}, ${index})">🗑️</button>
+        </div>`;
+    });
+    
+    piece.cablesTableau.forEach((cable, index) => {
+        html += `<div class="article-card" style="display: flex; justify-content: space-between; padding: 10px; margin-bottom: 8px; background: #fff3cd; border-radius: 6px;">
+            <div>⚡ Câble tableau ${cable.length}m - ${cable.total.toFixed(2)}€</div>
+            <button class="btn-delete" onclick="deleteCableTableauFromPiece(${piece.id}, ${index})">🗑️</button>
+        </div>`;
+    });
+    
+    return html;
+}
+
+function addArticleToPiece(pieceIndex) {
+    const piece = devisState.pieces.list[pieceIndex];
+    const articleId = parseInt(document.getElementById(`pieceArticle${piece.id}`).value);
+    const qty = parseFloat(document.getElementById(`pieceQty${piece.id}`).value);
+    
+    const article = CATALOGUE.find(a => a.id === articleId);
+    const materiel = article.price * qty;
+    const mo = article.temps * qty * devisState.global.tarif;
+    const total = materiel + mo;
+    
+    piece.articles.push({
+        articleId: articleId,
+        qty: qty,
+        materiel: materiel,
+        mo: mo,
+        total: total
+    });
+    
+    saveToLocalStorage();
+    renderPieces();
+    updateRecap();
+}
+
+function addCableInterneToPiece(pieceIndex) {
+    const piece = devisState.pieces.list[pieceIndex];
+    const cableData = document.getElementById(`pieceCableInt${piece.id}`).value.split(',');
+    const length = parseFloat(document.getElementById(`pieceCableIntLen${piece.id}`).value);
+    
+    const prixMetre = parseFloat(cableData[0]);
+    const moMetre = parseFloat(cableData[1]);
+    const total = (prixMetre + moMetre) * length;
+    
+    piece.cablesInternes.push({ length: length, total: total });
+    saveToLocalStorage();
+    renderPieces();
+    updateRecap();
+}
+
+function addCableTableauToPiece(pieceIndex) {
+    const piece = devisState.pieces.list[pieceIndex];
+    const cableData = document.getElementById(`pieceCableTab${piece.id}`).value.split(',');
+    const length = parseFloat(document.getElementById(`pieceCableTabLen${piece.id}`).value);
+    
+    const prixMetre = parseFloat(cableData[0]);
+    const moMetre = parseFloat(cableData[1]);
+    const total = (prixMetre + moMetre) * length;
+    
+    piece.cablesTableau.push({ length: length, total: total });
+    saveToLocalStorage();
+    renderPieces();
+    updateRecap();
+}
+
+function calculatePieceTotal(piece) {
+    let total = 0;
+    piece.articles.forEach(art => total += art.total);
+    piece.cablesInternes.forEach(cable => total += cable.total);
+    piece.cablesTableau.forEach(cable => total += cable.total);
+    return total;
+}
+
+function deletePiece(index) {
+    if (confirm(`Supprimer la pièce "${devisState.pieces.list[index].nom}" ?`)) {
+        devisState.pieces.list.splice(index, 1);
+        saveToLocalStorage();
+        renderPieces();
+        updateRecap();
+    }
+}
+
+// Ajouter les delete functions pour articles et câbles...
+
