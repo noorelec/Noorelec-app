@@ -473,6 +473,27 @@
                     <div id="recapContent" class="recap-content">
                         <!-- Généré dynamiquement -->
                     </div>
+                    <div style="background: #fff3cd; padding: 20px; border-radius: 10px; margin: 20px 0; border: 2px solid #ffc107;">
+    <h3>💰 Ristournes Exceptionnelles</h3>
+    <label>
+        <input type="checkbox" id="rist24" onchange="toggleRistourne('h24')">
+        Ristourne 24h - 
+        <select id="rist24pct" onchange="updateRecap()">
+            <option value="15">15%</option>
+            <option value="20">20%</option>
+        </select>
+    </label>
+    <br>
+    <label>
+        <input type="checkbox" id="rist48" onchange="toggleRistourne('h48')">
+        Ristourne 48h - 
+        <select id="rist48pct" onchange="updateRecap()">
+            <option value="5">5%</option>
+            <option value="10">10%</option>
+        </select>
+    </label>
+</div>
+
 
                     <div class="recap-actions">
                         <button class="btn btn-success" onclick="generatePDF()">📄 Générer PDF</button>
