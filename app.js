@@ -57,8 +57,8 @@ const devisState = {
 // ============================================================================
 
 const CATALOGUE = [
-    { id: 1, name: "Prise Niko blanc", price: 8.50, temps: 0.3, category: "Prises" },
-    { id: 2, name: "Prise Niko anthracite", price: 9.20, temps: 0.3, category: "Prises" },
+    { id: 1, name: "Prise Niko blanc", price: 8, temps: 0.5 }, // 30 min, category: "Prises" },
+    { id: 2, name: "Prise Niko anthracite", price: 9.20, temps: 0.5 }, // 30 min, category: "Prises" },
     { id: 3, name: "Prise USB Niko", price: 28.50, temps: 0.4, category: "Prises" },
     { id: 4, name: "Prise étanche IP44", price: 15.80, temps: 0.5, category: "Prises" },
     { id: 5, name: "Interrupteur Niko", price: 6.90, temps: 0.25, category: "Interrupteurs" },
