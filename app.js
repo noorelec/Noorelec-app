@@ -36,6 +36,11 @@ const devisState = {
   list: [],
   nextId: 1
 },
+    ristournes: {
+    h24: { active: false, percent: 15 },
+    h48: { active: false, percent: 10 }
+},
+
     tableau: {
         enabled: false,
         items: [],
