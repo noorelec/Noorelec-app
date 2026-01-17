@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOORELEC V4 - Devis Électricien Pro</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1e3c72">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="logo">⚡ NOORELEC V4</div>
+            <div class="header-subtitle">Devis Électricien Professionnel</div>
+        </header>
+
+        <nav class="nav-menu">
+            <button class="nav-item active" onclick="switchPage('client')">
+                <div class="nav-icon">👤</div>
+                <div class="nav-label">Client</div>
+            </button>
+            <button class="nav-item" onclick="switchPage('pieces')">
+                <div class="nav-icon">🏠</div>
+                <div class="nav-label">Pièces</div>
+            </button>
+            <button class="nav-item" onclick="switchPage('travaux')">
+                <div class="nav-icon">🔨</div>
+                <div class="nav-label">Travaux</div>
+            </button>
+            <button class="nav-item" onclick="switchPage('tableau')">
+                <div class="nav-icon">⚡</div>
+                <div class="nav-label">Tableau</div>
+            </button>
+            <button class="nav-item" onclick="switchPage('admin')">
+                <div class="nav-icon">📋</div>
+                <div class="nav-label">Admin</div>
+            </button>
+            <button class="nav-item" onclick="switchPage('recap')">
+                <div class="nav-icon">💰</div>
+                <div class="nav-label">Récap</div>
+            </button>
+            <button class="nav-item" onclick="switchPage('parametres')">
+                <div class="nav-icon">⚙️</div>
+                <div class="nav-label">Param</div>
+            </button>
+        </nav>
+
+        <main class="app-content">
+            <div id="page-client" class="page active">
+                <div class="section">
+                    <h2 class="section-title">👤 Informations Client</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Nom complet</label>
+                            <input type="text" id="clientName" onchange="saveData()">
+                        </div>
+                        <div class="form-group">
+                            <label>Téléphone</label>
+                            <input type="tel" id="clientPhone" onchange="saveData()">
+                        </div>
+                        <div class="form-group">
+                            <label>Email</label>
+                            <input type="email" id="clientEmail" onchange="saveData()">
+                        </div>
+                        <div class="form-group">
+                            <label>Adresse</label>
+                            <input type="text" id="clientAddress" onchange="saveData()">
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="switchPage('pieces')">Suivant : Pièces →</button>
+                </div>
+            </div>
+            <div id="page-pieces" class="page">
+                <div class="section">
+                    <h2 class="section-title">🏠 Gestion par Pièces</h2>
+                    <div class="info-box">
+                        <p>Organisez votre devis par pièce (Cuisine, Salon, Chambre...)</p>
+                    </div>
+                    <div style="background:#e7f3ff;padding:20px;border-radius:10px;margin-bottom:20px;">
+                        <div class="form-grid two-cols">
+                            <input type="text" id="newPieceName" placeholder="Nom de la pièce">
+                            <button class="btn btn-success" onclick="addPiece()">➕ Ajouter pièce</button>
+                        </div>
+                    </div>
+                    <div id="piecesContainer"></div>
+                </div>
+            </div>
+            <div id="page-travaux" class="page">
+                <div class="section">
+                    <h2 class="section-title">🔨 Travaux Généraux</h2>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Tarif horaire (€/h)</label>
+                            <select id="tarif" onchange="saveData()">
+                                <option value="50">50€/h - Modéré</option>
+                                <option value="65">65€/h - Élevé</option>
+                                <option value="75">75€/h - Urgent</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>TVA</label>
+                            <select id="tva" onchange="saveData()">
+                                <option value="0.06">6% - Rénovation</option>
+                                <option value="0.21">21% - Neuf</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="page-tableau" class="page">
+                <div class="section">
+                    <h2 class="section-title">⚡ Tableau Électrique</h2>
+                    <label class="checkbox-option">
+                        <input type="checkbox" id="tableauCheck" onchange="toggleTableau()">
+                        <span>Inclure tableau électrique</span>
+                    </label>
+                    <div id="tableauContent" style="display:none;">
+                        <div class="form-group">
+                            <label>Type de coffret</label>
+                            <select id="tableauType">
+                                <option value="65">Coffret 2 rangées - 65€</option>
+                                <option value="95">Coffret 4 rangées - 95€</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-info" onclick="addDisjoncteur()">➕ Ajouter composant</button>
+                        <div id="disjoncteurs"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="page-admin" class="page">
+                <div class="section">
+                    <h2 class="section-title">📋 Services Administratifs</h2>
+                    
+                    <div style="background:#d4edda;padding:20px;border-radius:10px;margin-bottom:20px;">
+                        <h3>📦 Pack All-In</h3>
+                        <label class="checkbox-option">
+                            <input type="checkbox" id="packAllIn" onchange="togglePackAllIn()">
+                            <span>Pack complet (Schéma + Conformité + Certificat + Ouverture) - 
+                            <input type="number" id="packPrice" value="800" style="width:80px;">€</span>
+                        </label>
+                    </div>
+                    
+                    <div id="servicesIndiv">
+                        <label class="checkbox-option">
+                            <input type="checkbox" class="service-check" data-price="450">
+                            <span>Mise en conformité - 450€</span>
+                        </label>
+                        <label class="checkbox-option">
+                            <input type="checkbox" class="service-check" data-price="180">
+                            <span>Diagnostic électrique - 180€</span>
+                        </label>
+                        <label class="checkbox-option">
+                            <input type="checkbox" class="service-check" data-price="80">
+                            <span>Certificat de conformité - 80€</span>
+                        </label>
+                        <label class="checkbox-option">
+                            <input type="checkbox" class="service-check" data-price="120">
+                            <span>Schéma électrique - 120€</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div id="page-recap" class="page">
+                <div class="section">
+                    <h2 class="section-title">💰 Récapitulatif</h2>
+                    
+                    <div style="background:#fff3cd;padding:20px;border-radius:10px;margin:20px 0;">
+                        <h3>🎁 Ristournes Exceptionnelles</h3>
+                        <label>
+                            <input type="checkbox" id="rist24" onchange="calcTotal()"> 
+                            Ristourne 24h - 
+                            <select id="rist24pct"><option value="15">15%</option><option value="20">20%</option></select>
+                        </label><br>
+                        <label>
+                            <input type="checkbox" id="rist48" onchange="calcTotal()">
+                            Ristourne 48h -
+                            <select id="rist48pct"><option value="5">5%</option><option value="10">10%</option></select>
+                        </label>
+                    </div>
+                    
+                    <div id="recapContent"></div>
+                    
+                    <div class="recap-actions">
+                        <button class="btn btn-success" onclick="generatePDF()">📄 Générer PDF</button>
+                        <button class="btn btn-info" onclick="sendEmail()">📧 Envoyer Email</button>
+                    </div>
+                </div>
+            </div>
+            <div id="page-parametres" class="page">
+                <div class="section">
+                    <h2 class="section-title">⚙️ Paramètres</h2>
+                    <div style="background:#d1ecf1;padding:20px;border-radius:10px;margin-bottom:20px;">
+                        <h3>➕ Ajouter un article personnalisé</h3>
+                        <div class="form-grid">
+                            <input type="text" id="newArtName" placeholder="Nom article">
+                            <input type="number" id="newArtPrice" placeholder="Prix €">
+                            <input type="number" id="newArtTime" placeholder="Temps (h)" step="0.25">
+                            <button class="btn btn-success" onclick="addCustomArticle()">➕ Ajouter</button>
+                        </div>
+                    </div>
+                    <div id="catalogueList"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
