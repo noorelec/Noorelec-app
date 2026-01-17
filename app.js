@@ -1413,3 +1413,29 @@ function deletePiece(index) {
 
 // Ajouter les delete functions pour articles et câbles...
 
+// ================================
+// CALCUL DU TEMPS ESTIMÉ DU DEVIS
+// ================================
+
+function calculateEstimatedDays() {
+    let totalHeures = 0;
+
+    // Heures des travaux principaux
+    devisState.travaux.articles.forEach(article => {
+        totalHeures += article.time * article.qty;
+    });
+
+    // Heures des pièces
+    devisState.pieces.list.forEach(piece => {
+        piece.articles.forEach(article => {
+            totalHeures += article.time * article.qty;
+        });
+    });
+
+    // Conversion en jours de travail
+    // 2 personnes × 8h / jour = 16h par jour
+    const joursMin = Math.ceil(totalHeures / 16);
+    const joursMax = Math.ceil((totalHeures * 1.3) / 16); // marge +30%
+
+    return `⏱️ Temps estimé : entre ${joursMin} et ${joursMax} jours`;
+}
