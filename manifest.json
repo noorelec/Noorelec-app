@@ -1,7 +1,7 @@
 {
-  "name": "Noorelec Pro V3",
+  "name": "Noorelec Pro V4 Enhanced",
   "short_name": "Noorelec",
-  "description": "Solution complète pour électriciens",
+  "description": "Solution complète pour électriciens avec gestion par pièces",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1e3c72",

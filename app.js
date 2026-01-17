@@ -1,1090 +1,528 @@
-// NOORELEC V4 - APPLICATION JAVASCRIPT
+// NOORELEC V4 ENHANCED - Application JavaScript Complète
 
 // ============================================================================
 // ÉTAT GLOBAL
 // ============================================================================
 
-const devisState = {
-    client: {
-        name: '',
-        phone: '',
-        email: '',
-        tva: '',
-        rue: '',
-        cp: '',
-        commune: '',
-        projectType: 'residential',
-        buildingAge: 'old'
-    },
-    
-    global: {
-        tarif: 50,
-        tva: 0.06,
-        deplacement: 25
-    },
-    
-    travaux: {
-        articles: [],
-        nextId: 1,
-        cabling: {
-            internal: { length: 0, cost: 0 },
-            tableau: { length: 0, cost: 0 }
-        }
-    },
-    
-    tableau: {
-        enabled: false,
-        items: [],
-        total: 0
-    },
-    
-    administratif: {
-        services: []
-    }
+const state = {
+    client: { name: '', phone: '', email: '', address: '' },
+    pieces: [],
+    tableau: { enabled: false, type: 0, items: [] },
+    admin: { packAllIn: false, packPrice: 800, services: [] },
+    settings: { tarif: 50, tva: 0.06 },
+    nextId: 1
 };
 
 // ============================================================================
-// CATALOGUE ARTICLES
+// CATALOGUE D'ARTICLES (temps corrigé: 1.0 = 1h, 0.5 = 30min)
 // ============================================================================
 
 const CATALOGUE = [
-    { id: 1, name: "Prise Niko blanc", price: 8.50, temps: 0.3, category: "Prises" },
-    { id: 2, name: "Prise Niko anthracite", price: 9.20, temps: 0.3, category: "Prises" },
-    { id: 3, name: "Prise USB Niko", price: 28.50, temps: 0.4, category: "Prises" },
-    { id: 4, name: "Prise étanche IP44", price: 15.80, temps: 0.5, category: "Prises" },
-    { id: 5, name: "Interrupteur Niko", price: 6.90, temps: 0.25, category: "Interrupteurs" },
-    { id: 6, name: "Va-et-vient Niko", price: 12.50, temps: 0.4, category: "Interrupteurs" },
-    { id: 7, name: "Variateur LED Niko", price: 45.80, temps: 0.35, category: "Interrupteurs" },
-    { id: 8, name: "Spot LED encastré 5W", price: 12.50, temps: 0.3, category: "Éclairage" },
-    { id: 9, name: "Spot LED encastré 10W", price: 18.90, temps: 0.3, category: "Éclairage" },
-    { id: 10, name: "Plafonnier LED 18W", price: 35.00, temps: 0.5, category: "Éclairage" },
-    { id: 11, name: "Projecteur LED 50W", price: 55.00, temps: 0.6, category: "Éclairage" },
-    { id: 12, name: "Prise RJ45 Cat6", price: 12.00, temps: 0.35, category: "Réseau" },
-    { id: 13, name: "Coffret multimédia", price: 85.00, temps: 1.0, category: "Réseau" },
-    { id: 14, name: "Sonnette WiFi", price: 95.00, temps: 0.8, category: "Domotique" },
-    { id: 15, name: "Détecteur de fumée", price: 25.00, temps: 0.3, category: "Sécurité" }
+    { id: 1, name: "Prise Niko blanc", price: 8.50, temps: 0.5 },
+    { id: 2, name: "Prise Niko anthracite", price: 9.20, temps: 0.5 },
+    { id: 3, name: "Prise USB Niko", price: 28.50, temps: 0.75 },
+    { id: 4, name: "Interrupteur Niko", price: 6.90, temps: 0.33 },
+    { id: 5, name: "Va-et-vient Niko", price: 12.50, temps: 0.5 },
+    { id: 6, name: "Variateur LED", price: 45.80, temps: 0.75 },
+    { id: 7, name: "Spot LED 5W", price: 12.50, temps: 0.5 },
+    { id: 8, name: "Spot LED 10W", price: 18.90, temps: 0.5 },
+    { id: 9, name: "Plafonnier LED", price: 35.00, temps: 1.0 },
+    { id: 10, name: "Disjoncteur 16A", price: 12, temps: 0.25 },
+    { id: 11, name: "Disjoncteur 20A", price: 15, temps: 0.25 },
+    { id: 12, name: "Différentiel 30mA", price: 45, temps: 0.5 }
 ];
 
-// ============================================================================
-// FACTEURS D'INSTALLATION
-// ============================================================================
-
-const FACTEURS = {
-    installation: {
-        'apparent': 1.0,
-        'encastre': 1.5,
-        'faux-plafond': 1.2,
-        'sous-plancher': 1.3
-    },
-    circuit: {
-        'existant': 1.0,
-        'nouvelle-ligne': 2.0
-    }
-};
+const CABLES = [
+    { name: "XVB 3G2.5mm²", prixM: 2.45, moM: 2.8 },
+    { name: "XVB 3G1.5mm²", prixM: 1.85, moM: 2.5 },
+    { name: "XVB 3G6mm²", prixM: 5.25, moM: 3.8 },
+    { name: "XVB 5G2.5mm²", prixM: 3.95, moM: 3.5 }
+];
 
 // ============================================================================
 // INITIALISATION
 // ============================================================================
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('NOORELEC V4 - Initialisation');
-    initializeArticleSelect();
-    loadFromLocalStorage();
-    updateRecap();
+document.addEventListener('DOMContentLoaded', () => {
+    loadData();
+    renderCatalogue();
+    calcTotal();
 });
 
 // ============================================================================
 // NAVIGATION
 // ============================================================================
 
-function switchPage(pageName) {
-    // Masquer toutes les pages
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
-    });
-    
-    // Afficher la page demandée
-    const page = document.getElementById('page-' + pageName);
-    if (page) {
-        page.classList.add('active');
-    }
-    
-    // Mettre à jour la navigation
-    document.querySelectorAll('.nav-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    
-    const navItem = document.querySelector(`[data-page="${pageName}"]`);
-    if (navItem) {
-        navItem.classList.add('active');
-    }
-    
-    // Mettre à jour le récapitulatif si on y arrive
-    if (pageName === 'recapitulatif') {
-        updateRecap();
-    }
-    
-    // Scroll to top
-    window.scrollTo(0, 0);
+function switchPage(page) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('page-' + page).classList.add('active');
+    event.target.closest('.nav-item').classList.add('active');
+    if (page === 'recap') calcTotal();
 }
 
 // ============================================================================
-// PAGE CLIENT
+// GESTION DES PIÈCES
 // ============================================================================
 
-function saveClientData() {
-    devisState.client.name = document.getElementById('clientName').value;
-    devisState.client.phone = document.getElementById('clientPhone').value;
-    devisState.client.email = document.getElementById('clientEmail').value;
-    devisState.client.tva = document.getElementById('clientTVA').value;
-    devisState.client.rue = document.getElementById('clientRue').value;
-    devisState.client.cp = document.getElementById('clientCP').value;
-    devisState.client.commune = document.getElementById('clientCommune').value;
-    saveToLocalStorage();
-}
-
-function selectProjectType(type) {
-    devisState.client.projectType = type;
-    document.querySelectorAll('[name="projectType"]').forEach(radio => {
-        const card = radio.closest('.option-card');
-        if (radio.value === type) {
-            card.classList.add('active');
-            radio.checked = true;
-        } else {
-            card.classList.remove('active');
-        }
-    });
-    saveToLocalStorage();
-}
-
-function selectBuildingAge(age) {
-    devisState.client.buildingAge = age;
-    devisState.global.tva = age === 'old' ? 0.06 : 0.21;
+function addPiece() {
+    const nom = document.getElementById('newPieceName').value.trim();
+    if (!nom) { alert('Entrez un nom de pièce'); return; }
     
-    document.querySelectorAll('[name="buildingAge"]').forEach(radio => {
-        const card = radio.closest('.option-card');
-        if (radio.value === age) {
-            card.classList.add('active');
-            radio.checked = true;
-        } else {
-            card.classList.remove('active');
-        }
+    state.pieces.push({
+        id: state.nextId++,
+        nom: nom,
+        articles: [],
+        cablesInt: [],
+        cablesTab: []
     });
     
-    // Mettre à jour le select TVA
-    const tvaSelect = document.getElementById('globalTVA');
-    if (tvaSelect) {
-        tvaSelect.value = devisState.global.tva;
-    }
-    
-    saveToLocalStorage();
+    document.getElementById('newPieceName').value = '';
+    saveData();
+    renderPieces();
 }
 
-// ============================================================================
-// PAGE TRAVAUX - PARAMÈTRES GLOBAUX
-// ============================================================================
-
-function updateGlobalSettings() {
-    devisState.global.tarif = parseFloat(document.getElementById('globalTarif').value);
-    devisState.global.tva = parseFloat(document.getElementById('globalTVA').value);
-    devisState.global.deplacement = parseFloat(document.getElementById('globalDeplacement').value);
-    saveToLocalStorage();
-    updateRecap();
-}
-
-// ============================================================================
-// PAGE TRAVAUX - ARTICLES
-// ============================================================================
-
-function initializeArticleSelect() {
-    const select = document.getElementById('newArticleSelect');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
-    
-    const categories = {};
-    CATALOGUE.forEach(article => {
-        if (!categories[article.category]) {
-            categories[article.category] = [];
-        }
-        categories[article.category].push(article);
-    });
-    
-    Object.keys(categories).forEach(category => {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = category;
-        
-        categories[category].forEach(article => {
-            const option = document.createElement('option');
-            option.value = article.id;
-            option.textContent = `${article.name} (${article.price}€)`;
-            optgroup.appendChild(option);
-        });
-        
-        select.appendChild(optgroup);
-    });
-}
-
-function updateArticleOptions() {
-    // Fonction appelée quand on change d'article
-    const preview = document.getElementById('articlePreview');
-    preview.style.display = 'none';
-}
-
-function calculateArticlePrice() {
-    const articleId = parseInt(document.getElementById('newArticleSelect').value);
-    if (!articleId) {
-        alert('Sélectionnez un article');
+function renderPieces() {
+    const container = document.getElementById('piecesContainer');
+    if (state.pieces.length === 0) {
+        container.innerHTML = '<div class="empty-state">Aucune pièce ajoutée</div>';
         return;
     }
     
-    const article = CATALOGUE.find(a => a.id === articleId);
-    const quantity = parseFloat(document.getElementById('newArticleQty').value) || 1;
-    const installType = document.querySelector('[name="installType"]:checked').value;
-    const circuitType = document.querySelector('[name="circuitType"]:checked').value;
-    const rebouchage = document.getElementById('rebouchageCheck').checked;
+    let html = '';
+    state.pieces.forEach((piece, idx) => {
+        const total = calcPieceTotal(piece);
+        html += `
+            <div class="piece-card">
+                <div class="piece-header">
+                    <div class="piece-title">🏠 ${piece.nom}</div>
+                    <div style="display:flex;gap:15px;align-items:center;">
+                        <div class="piece-total">${total.toFixed(2)}€</div>
+                        <button class="btn-delete" onclick="deletePiece(${idx})">🗑️</button>
+                    </div>
+                </div>
+                
+                <h4>Articles</h4>
+                <div class="form-grid three-cols">
+                    <select id="art${piece.id}">
+                        ${CATALOGUE.map(a => `<option value="${a.id}">${a.name} (${a.price}€)</option>`).join('')}
+                    </select>
+                    <input type="number" id="qty${piece.id}" value="1" min="1">
+                    <button class="btn btn-success" onclick="addArtToPiece(${idx})">➕</button>
+                </div>
+                <div id="arts${piece.id}" style="margin:15px 0;">
+                    ${renderPieceItems(piece.articles, 'article', idx)}
+                </div>
+                
+                <h4>🔌 Câbles internes</h4>
+                <div class="form-grid three-cols">
+                    <select id="cint${piece.id}">
+                        ${CABLES.map((c,i) => `<option value="${i}">${c.name}</option>`).join('')}
+                    </select>
+                    <input type="number" id="cintlen${piece.id}" value="5" step="0.5">
+                    <button class="btn btn-info" onclick="addCableInt(${idx})">➕</button>
+                </div>
+                <div>${renderPieceItems(piece.cablesInt, 'cable', idx)}</div>
+                
+                <h4>⚡ Câbles vers tableau</h4>
+                <div class="form-grid three-cols">
+                    <select id="ctab${piece.id}">
+                        ${CABLES.map((c,i) => `<option value="${i}">${c.name}</option>`).join('')}
+                    </select>
+                    <input type="number" id="ctablen${piece.id}" value="10" step="0.5">
+                    <button class="btn btn-warning" onclick="addCableTab(${idx})">➕</button>
+                </div>
+                <div>${renderPieceItems(piece.cablesTab, 'cabletab', idx)}</div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function renderPieceItems(items, type, pieceIdx) {
+    if (!items || items.length === 0) return '<div class="empty-state">Aucun élément</div>';
+    return items.map((item, idx) => `
+        <div class="article-card" style="display:flex;justify-content:space-between;padding:10px;margin:5px 0;">
+            <div>${item.nom} - ${item.total.toFixed(2)}€</div>
+            <button class="btn-delete" onclick="deleteItem(${pieceIdx}, '${type}', ${idx})">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function addArtToPiece(idx) {
+    const piece = state.pieces[idx];
+    const artId = parseInt(document.getElementById(`art${piece.id}`).value);
+    const qty = parseFloat(document.getElementById(`qty${piece.id}`).value);
+    const art = CATALOGUE.find(a => a.id === artId);
     
-    // Calculs
-    const materielTotal = article.price * quantity;
-    let tempsTotal = article.temps * quantity;
+    const mat = art.price * qty;
+    const mo = art.temps * qty * state.settings.tarif;
     
-    // Appliquer facteurs
-    tempsTotal *= FACTEURS.installation[installType];
-    tempsTotal *= FACTEURS.circuit[circuitType];
+    piece.articles.push({
+        nom: `${qty}× ${art.name}`,
+        materiel: mat,
+        mo: mo,
+        temps: art.temps * qty,
+        total: mat + mo
+    });
     
-    const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = rebouchage ? 20 : 0;
+    saveData();
+    renderPieces();
+}
+
+function addCableInt(idx) {
+    const piece = state.pieces[idx];
+    const cIdx = parseInt(document.getElementById(`cint${piece.id}`).value);
+    const len = parseFloat(document.getElementById(`cintlen${piece.id}`).value);
+    const cable = CABLES[cIdx];
     
-    // Dégressivité
-    let prixUnitaireHT = article.price + (moTotal / quantity);
-    if (quantity >= 10) {
-        prixUnitaireHT *= 0.75; // -25%
-    } else if (quantity >= 5) {
-        prixUnitaireHT *= 0.85; // -15%
+    const total = (cable.prixM + cable.moM) * len;
+    
+    piece.cablesInt.push({
+        nom: `${cable.name} ${len}m (interne)`,
+        total: total
+    });
+    
+    saveData();
+    renderPieces();
+}
+
+function addCableTab(idx) {
+    const piece = state.pieces[idx];
+    const cIdx = parseInt(document.getElementById(`ctab${piece.id}`).value);
+    const len = parseFloat(document.getElementById(`ctablen${piece.id}`).value);
+    const cable = CABLES[cIdx];
+    
+    const total = (cable.prixM + cable.moM) * len;
+    
+    piece.cablesTab.push({
+        nom: `${cable.name} ${len}m (vers tableau)`,
+        total: total
+    });
+    
+    saveData();
+    renderPieces();
+}
+
+function deletePiece(idx) {
+    if (confirm('Supprimer cette pièce ?')) {
+        state.pieces.splice(idx, 1);
+        saveData();
+        renderPieces();
+    }
+}
+
+function deleteItem(pieceIdx, type, itemIdx) {
+    const piece = state.pieces[pieceIdx];
+    if (type === 'article') piece.articles.splice(itemIdx, 1);
+    else if (type === 'cable') piece.cablesInt.splice(itemIdx, 1);
+    else if (type === 'cabletab') piece.cablesTab.splice(itemIdx, 1);
+    saveData();
+    renderPieces();
+}
+
+function calcPieceTotal(piece) {
+    let total = 0;
+    (piece.articles || []).forEach(a => total += a.total);
+    (piece.cablesInt || []).forEach(c => total += c.total);
+    (piece.cablesTab || []).forEach(c => total += c.total);
+    return total;
+}
+
+// ============================================================================
+// TABLEAU
+// ============================================================================
+
+function toggleTableau() {
+    state.tableau.enabled = document.getElementById('tableauCheck').checked;
+    document.getElementById('tableauContent').style.display = state.tableau.enabled ? 'block' : 'none';
+    saveData();
+}
+
+function addDisjoncteur() {
+    const nom = prompt('Nom du composant:', 'Disjoncteur 16A');
+    if (!nom) return;
+    const prix = parseFloat(prompt('Prix (€):', '25'));
+    if (isNaN(prix)) return;
+    
+    state.tableau.items.push({ nom, prix });
+    saveData();
+    renderDisjoncteurs();
+}
+
+function renderDisjoncteurs() {
+    const container = document.getElementById('disjoncteurs');
+    if (!state.tableau.items.length) {
+        container.innerHTML = '';
+        return;
     }
     
-    const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
-    
-    // Afficher aperçu
-    let degressivite = '';
-    if (quantity >= 10) degressivite = '<span style="color: #28a745; font-weight: 700;"> (-25% dégressif!)</span>';
-    else if (quantity >= 5) degressivite = '<span style="color: #28a745; font-weight: 700;"> (-15% dégressif!)</span>';
-    
-    const html = `
-        <div style="margin-bottom: 10px;">
-            <strong>${quantity}× ${article.name}</strong>${degressivite}
+    container.innerHTML = state.tableau.items.map((item, idx) => `
+        <div class="article-card" style="display:flex;justify-content:space-between;padding:10px;margin:5px 0;">
+            <div>${item.nom} - ${item.prix}€</div>
+            <button class="btn-delete" onclick="deleteDis(${idx})">🗑️</button>
         </div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
-            <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
-            <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
-            ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">20€</div>` : ''}
-            <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
-            <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
-        </div>
-        <div style="margin-top: 10px; padding: 8px; background: rgba(23, 162, 184, 0.1); border-radius: 6px; font-size: 0.85em;">
-            Installation: ${installType} | Circuit: ${circuitType} | Tarif: ${devisState.global.tarif}€/h
+    `).join('');
+}
+
+function deleteDis(idx) {
+    state.tableau.items.splice(idx, 1);
+    saveData();
+    renderDisjoncteurs();
+}
+
+// ============================================================================
+// SERVICES ADMINISTRATIFS
+// ============================================================================
+
+function togglePackAllIn() {
+    const active = document.getElementById('packAllIn').checked;
+    state.admin.packAllIn = active;
+    
+    if (active) {
+        document.querySelectorAll('.service-check').forEach(c => c.checked = false);
+    }
+    
+    document.getElementById('servicesIndiv').style.opacity = active ? '0.5' : '1';
+    document.getElementById('servicesIndiv').style.pointerEvents = active ? 'none' : 'auto';
+    saveData();
+}
+
+// ============================================================================
+// CALCUL TOTAL & RÉCAP
+// ============================================================================
+
+function calcTotal() {
+    let sousTotal = 0;
+    let tempsTotal = 0;
+    
+    // Pièces
+    state.pieces.forEach(piece => {
+        sousTotal += calcPieceTotal(piece);
+        (piece.articles || []).forEach(a => tempsTotal += a.temps || 0);
+    });
+    
+    // Tableau
+    if (state.tableau.enabled) {
+        const type = parseInt(document.getElementById('tableauType').value);
+        sousTotal += type + 50; // coffret + MO
+        state.tableau.items.forEach(item => sousTotal += item.prix);
+    }
+    
+    // Services Admin
+    if (state.admin.packAllIn) {
+        const prix = parseFloat(document.getElementById('packPrice').value);
+        sousTotal += prix;
+    } else {
+        document.querySelectorAll('.service-check:checked').forEach(chk => {
+            sousTotal += parseFloat(chk.dataset.price);
+        });
+    }
+    
+    // Ristournes
+    let rist24 = 0, rist48 = 0;
+    if (document.getElementById('rist24').checked) {
+        rist24 = sousTotal * (parseInt(document.getElementById('rist24pct').value) / 100);
+    }
+    if (document.getElementById('rist48').checked) {
+        rist48 = sousTotal * (parseInt(document.getElementById('rist48pct').value) / 100);
+    }
+    
+    const totalHT = sousTotal;
+    const tva = totalHT * state.settings.tva;
+    const totalTTC = totalHT + tva;
+    
+    // Temps estimé (2 personnes, 8h/jour)
+    const jours = Math.ceil(tempsTotal / 16);
+    const joursMax = Math.ceil(tempsTotal / 12);
+    
+    // Afficher récap
+    let html = `
+        <div class="recap-section">
+            <h3>💼 Client</h3>
+            <div><strong>${state.client.name || 'Non renseigné'}</strong></div>
+            <div>${state.client.email || ''}</div>
+            <div>${state.client.address || ''}</div>
         </div>
     `;
     
-    document.getElementById('articlePreviewContent').innerHTML = html;
-    document.getElementById('articlePreview').style.display = 'block';
-}
-
-function addArticleToList() {
-    const articleId = parseInt(document.getElementById('newArticleSelect').value);
-    if (!articleId) {
-        alert('Sélectionnez un article et calculez le prix d\'abord');
-        return;
+    if (state.pieces.length > 0) {
+        html += '<div class="recap-section"><h3>🏠 Pièces</h3>';
+        state.pieces.forEach(piece => {
+            html += `<div class="recap-line"><span>${piece.nom}</span><span>${calcPieceTotal(piece).toFixed(2)}€</span></div>`;
+        });
+        html += '</div>';
     }
     
-    const article = CATALOGUE.find(a => a.id === articleId);
-    const quantity = parseFloat(document.getElementById('newArticleQty').value) || 1;
-    const installType = document.querySelector('[name="installType"]:checked').value;
-    const circuitType = document.querySelector('[name="circuitType"]:checked').value;
-    const rebouchage = document.getElementById('rebouchageCheck').checked;
+    html += `
+        <div class="info-box" style="margin:20px 0;">
+            <strong>⏱️ Temps estimé : Entre ${jours} et ${joursMax} jours de travail (2 personnes)</strong>
+        </div>
+        
+        <div class="recap-total">
+            <div class="recap-total-line"><span>SOUS-TOTAL HT:</span><span>${sousTotal.toFixed(2)}€</span></div>
+            <div class="recap-total-line"><span>TVA (${(state.settings.tva*100)}%):</span><span>${tva.toFixed(2)}€</span></div>
+            <div class="recap-total-line final"><span>TOTAL TTC:</span><span>${totalTTC.toFixed(2)}€</span></div>
+        </div>
+    `;
     
-    // Calculs (même logique que calculateArticlePrice)
-    const materielTotal = article.price * quantity;
-    let tempsTotal = article.temps * quantity;
-    tempsTotal *= FACTEURS.installation[installType];
-    tempsTotal *= FACTEURS.circuit[circuitType];
-    const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = rebouchage ? 20 : 0;
+    if (rist24 > 0) {
+        const deadline = new Date(Date.now() + 24*60*60*1000);
+        html += `
+            <div style="background:#d4edda;padding:15px;border-radius:8px;margin-top:15px;">
+                <strong>🎁 Avec ristourne 24h : ${(totalTTC - rist24).toFixed(2)}€</strong><br>
+                <small>Valable jusqu'au ${deadline.toLocaleDateString()} ${deadline.toLocaleTimeString()}</small>
+            </div>
+        `;
+    }
     
-    let prixUnitaireHT = article.price + (moTotal / quantity);
-    if (quantity >= 10) prixUnitaireHT *= 0.75;
-    else if (quantity >= 5) prixUnitaireHT *= 0.85;
+    if (rist48 > 0) {
+        const deadline = new Date(Date.now() + 48*60*60*1000);
+        html += `
+            <div style="background:#fff3cd;padding:15px;border-radius:8px;margin-top:15px;">
+                <strong>🎁 Avec ristourne 48h : ${(totalTTC - rist48).toFixed(2)}€</strong><br>
+                <small>Valable jusqu'au ${deadline.toLocaleDateString()} ${deadline.toLocaleTimeString()}</small>
+            </div>
+        `;
+    }
     
-    const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
+    document.getElementById('recapContent').innerHTML = html;
+}
+
+// ============================================================================
+// GÉNÉRATION PDF
+// ============================================================================
+
+function generatePDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
     
-    // Ajouter à l'état
-    devisState.travaux.articles.push({
-        id: devisState.travaux.nextId++,
-        articleId: articleId,
-        name: article.name,
-        quantity: quantity,
-        installType: installType,
-        circuitType: circuitType,
-        rebouchage: rebouchage,
-        materiel: materielTotal,
-        mo: moTotal,
-        temps: tempsTotal,
-        rebouchageTotal: rebouchageTotal,
-        total: totalHT
+    doc.setFontSize(20);
+    doc.text('DEVIS ÉLECTRIQUE', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    let y = 40;
+    doc.text(`Client: ${state.client.name}`, 20, y);
+    y += 10;
+    
+    // Ajouter les pièces
+    state.pieces.forEach(piece => {
+        doc.text(`${piece.nom}: ${calcPieceTotal(piece).toFixed(2)}€`, 20, y);
+        y += 7;
     });
     
-    // Render
-    renderArticlesList();
+    y += 10;
+    calcTotal();
     
-    // Reset form
-    document.getElementById('newArticleSelect').value = '';
-    document.getElementById('newArticleQty').value = '1';
-    document.getElementById('rebouchageCheck').checked = false;
-    document.getElementById('articlePreview').style.display = 'none';
-    
-    saveToLocalStorage();
+    const filename = `Devis_${state.client.name.replace(/ /g,'_')}_${new Date().toLocaleDateString().replace(/\//g,'-')}.pdf`;
+    doc.save(filename);
 }
 
-function renderArticlesList() {
-    const container = document.getElementById('articlesListContainer');
-    
-    if (devisState.travaux.articles.length === 0) {
-        container.innerHTML = '<div class="empty-state">Aucun article ajouté</div>';
-        document.getElementById('articleCount').textContent = '0';
+// ============================================================================
+// ENVOI EMAIL
+// ============================================================================
+
+function sendEmail() {
+    const email = state.client.email;
+    if (!email) {
+        alert('Email client non renseigné');
         return;
     }
     
-    document.getElementById('articleCount').textContent = devisState.travaux.articles.length;
+    const subject = `Devis électrique - ${state.client.name}`;
+    const body = `Bonjour,\n\nVeuillez trouver votre devis électrique en pièce jointe.\n\nCordialement`;
     
-    container.innerHTML = devisState.travaux.articles.map(art => `
-        <div class="article-card">
-            <div class="article-header">
-                <div>
-                    <div class="article-title">${art.quantity}× ${art.name}</div>
-                    <div class="article-details">
-                        ${getInstallTypeLabel(art.installType)} | ${getCircuitTypeLabel(art.circuitType)}
-                        ${art.rebouchage ? ' | Rebouchage inclus' : ''}
-                    </div>
-                </div>
-                <button class="btn-delete" onclick="deleteArticle(${art.id})">🗑️</button>
-            </div>
-            <div class="article-pricing">
-                <div>Matériel: ${art.materiel.toFixed(2)}€</div>
-                <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
-                ${art.rebouchage ? `<div>Rebouchage: 20€</div>` : ''}
-            </div>
-            <div class="article-total">
-                TOTAL: ${art.total.toFixed(2)}€ HTVA
-            </div>
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// ============================================================================
+// ARTICLES PERSONNALISÉS
+// ============================================================================
+
+function addCustomArticle() {
+    const nom = document.getElementById('newArtName').value.trim();
+    const prix = parseFloat(document.getElementById('newArtPrice').value);
+    const temps = parseFloat(document.getElementById('newArtTime').value);
+    
+    if (!nom || isNaN(prix) || isNaN(temps)) {
+        alert('Remplissez tous les champs');
+        return;
+    }
+    
+    CATALOGUE.push({
+        id: CATALOGUE.length + 1,
+        name: nom,
+        price: prix,
+        temps: temps,
+        custom: true
+    });
+    
+    document.getElementById('newArtName').value = '';
+    document.getElementById('newArtPrice').value = '';
+    document.getElementById('newArtTime').value = '';
+    
+    saveData();
+    renderCatalogue();
+    alert('Article ajouté !');
+}
+
+function renderCatalogue() {
+    const container = document.getElementById('catalogueList');
+    if (!container) return;
+    
+    container.innerHTML = CATALOGUE.map(art => `
+        <div class="article-card" style="display:flex;justify-content:space-between;padding:10px;margin:5px 0;">
+            <div><strong>${art.name}</strong> - ${art.price}€ (${art.temps}h)</div>
+            ${art.custom ? `<button class="btn-delete" onclick="deleteArticle(${art.id})">🗑️</button>` : ''}
         </div>
     `).join('');
 }
 
 function deleteArticle(id) {
-    if (!confirm('Supprimer cet article ?')) return;
-    devisState.travaux.articles = devisState.travaux.articles.filter(a => a.id !== id);
-    renderArticlesList();
-    saveToLocalStorage();
-    updateRecap();
-}
-
-function getInstallTypeLabel(type) {
-    const labels = {
-        'apparent': '📦 Apparent',
-        'encastre': '🔨 Encastré',
-        'faux-plafond': '⬆️ Faux plafond',
-        'sous-plancher': '⬇️ Sous plancher'
-    };
-    return labels[type] || type;
-}
-
-function getCircuitTypeLabel(type) {
-    const labels = {
-        'existant': '🔄 Circuit existant',
-        'nouvelle-ligne': '⚡ Nouvelle ligne'
-    };
-    return labels[type] || type;
-}
-
-// ============================================================================
-// PAGE TRAVAUX - CÂBLAGE
-// ============================================================================
-
-function calculateCabling() {
-    const internalType = document.getElementById('cableInternalType').value.split(',');
-    const internalLength = parseFloat(document.getElementById('cableInternalLength').value) || 0;
-    const internalPrice = parseFloat(internalType[0]);
-    const internalLabor = parseFloat(internalType[1]);
-    
-    const tableauType = document.getElementById('cableTableauType').value.split(',');
-    const tableauLength = parseFloat(document.getElementById('cableTableauLength').value) || 0;
-    const tableauPrice = parseFloat(tableauType[0]);
-    const tableauLabor = parseFloat(tableauType[1]);
-    
-    const internalCost = internalLength * (internalPrice + internalLabor);
-    const tableauCost = tableauLength * (tableauPrice + tableauLabor);
-    const totalCost = internalCost + tableauCost;
-    
-    devisState.travaux.cabling.internal.length = internalLength;
-    devisState.travaux.cabling.internal.cost = internalCost;
-    devisState.travaux.cabling.tableau.length = tableauLength;
-    devisState.travaux.cabling.tableau.cost = tableauCost;
-    
-    if (totalCost > 0) {
-        document.getElementById('cablingPrice').textContent = totalCost.toFixed(2) + '€';
-        document.getElementById('cablingTotal').style.display = 'block';
-    } else {
-        document.getElementById('cablingTotal').style.display = 'none';
-    }
-    
-    saveToLocalStorage();
-    updateRecap();
-}
-
-// ============================================================================
-// PAGE TABLEAU
-// ============================================================================
-
-function toggleTableau() {
-    const enabled = document.getElementById('tableauToggle').checked;
-    devisState.tableau.enabled = enabled;
-    document.getElementById('tableauContent').style.display = enabled ? 'block' : 'none';
-    saveToLocalStorage();
-    updateRecap();
-}
-
-function calculateTableau() {
-    const coffret = document.getElementById('tableauCoffret').value.split(',');
-    if (coffret[0] === '0') {
-        devisState.tableau.total = 0;
-        document.getElementById('tableauPrice').textContent = '0€';
-        return;
-    }
-    
-    const price = parseFloat(coffret[0]);
-    const labor = parseFloat(coffret[1]);
-    
-    // Ajouter les disjoncteurs
-    let disjoncteurTotal = 0;
-    devisState.tableau.items.forEach(item => {
-        disjoncteurTotal += item.price * item.quantity;
-    });
-    
-    const total = price + labor + disjoncteurTotal;
-    
-    devisState.tableau.total = total;
-    document.getElementById('tableauPrice').textContent = total.toFixed(2) + '€';
-    
-    saveToLocalStorage();
-    updateRecap();
-}
-
-function addDisjoncteur() {
-    const name = prompt('Nom du composant (ex: Disjoncteur 16A):', 'Disjoncteur 16A');
-    if (!name) return;
-    
-    const price = parseFloat(prompt('Prix unitaire (€):', '25'));
-    if (isNaN(price)) return;
-    
-    const quantity = parseInt(prompt('Quantité:', '1'));
-    if (isNaN(quantity)) return;
-    
-    devisState.tableau.items.push({
-        id: Date.now(),
-        name: name,
-        price: price,
-        quantity: quantity
-    });
-    
-    renderDisjoncteursList();
-    calculateTableau();
-}
-
-function renderDisjoncteursList() {
-    const container = document.getElementById('disjoncteursList');
-    if (!container) return;
-    
-    if (devisState.tableau.items.length === 0) {
-        container.innerHTML = '';
-        return;
-    }
-    
-    container.innerHTML = devisState.tableau.items.map(item => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
-            <div>
-                <strong>${item.quantity}× ${item.name}</strong>
-                <div style="font-size: 0.9em; color: #6c757d;">${item.price}€ / unité</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <strong>${(item.price * item.quantity).toFixed(2)}€</strong>
-                <button onclick="deleteDisjoncteur(${item.id})" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>
-            </div>
-        </div>
-    `).join('');
-}
-
-function deleteDisjoncteur(id) {
-    devisState.tableau.items = devisState.tableau.items.filter(item => item.id !== id);
-    renderDisjoncteursList();
-    calculateTableau();
-}
-
-// ============================================================================
-// PAGE ADMINISTRATIF
-// ============================================================================
-
-function calculateAdmin() {
-    let total = 0;
-    devisState.administratif.services = [];
-    
-    document.querySelectorAll('.service-toggle').forEach(toggle => {
-        if (toggle.checked) {
-            const price = toggle.dataset.price;
-            if (price === 'hourly') {
-                const hours = parseFloat(document.getElementById('depannageHours').value) || 0;
-                const hourlyPrice = hours * devisState.global.tarif;
-                total += hourlyPrice;
-                devisState.administratif.services.push({ name: 'Dépannage', price: hourlyPrice, hours: hours });
-                document.getElementById('depannagePrice').textContent = hourlyPrice.toFixed(2) + '€';
-            } else {
-                const servicePrice = parseFloat(price);
-                total += servicePrice;
-                const serviceName = toggle.closest('.service-item').querySelector('.service-name').textContent.trim();
-                devisState.administratif.services.push({ name: serviceName, price: servicePrice });
-            }
-        }
-    });
-    
-    document.getElementById('adminPrice').textContent = total.toFixed(2) + '€';
-    saveToLocalStorage();
-    updateRecap();
-}
-
-// ============================================================================
-// PAGE RÉCAPITULATIF
-// ============================================================================
-
-function updateRecap() {
-    const container = document.getElementById('recapContent');
-    if (!container) return;
-    
-    // Calculer totaux
-    const travauxTotal = devisState.travaux.articles.reduce((sum, art) => sum + art.total, 0);
-    const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
-    const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
-    const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
-    
-    const sousTotal = travauxTotal + cablingTotal + tableauTotal + adminTotal;
-    const deplacement = devisState.global.deplacement;
-    const totalHT = sousTotal + deplacement;
-    const tva = totalHT * devisState.global.tva;
-    const totalTTC = totalHT + tva;
-    
-    let html = '';
-    
-    // Client
-    html += `
-        <div class="recap-section">
-            <h3>👤 CLIENT</h3>
-            <div><strong>${devisState.client.name || 'Non renseigné'}</strong></div>
-            ${devisState.client.tva ? `<div>TVA: ${devisState.client.tva}</div>` : ''}
-            <div>${devisState.client.rue || 'Rue non renseignée'}</div>
-            <div>${devisState.client.cp ? devisState.client.cp + ' ' : ''}${devisState.client.commune || 'Commune non renseignée'}</div>
-            ${devisState.client.phone ? `<div>📞 ${devisState.client.phone}</div>` : ''}
-            ${devisState.client.email ? `<div>📧 ${devisState.client.email}</div>` : ''}
-        </div>
-    `;
-    
-    // Travaux
-    if (devisState.travaux.articles.length > 0) {
-        html += `<div class="recap-section">
-            <h3>🔨 TRAVAUX (${devisState.travaux.articles.length} articles)</h3>`;
-        devisState.travaux.articles.forEach(art => {
-            html += `<div class="recap-line">
-                <span>${art.quantity}× ${art.name}</span>
-                <span>${art.total.toFixed(2)}€</span>
-            </div>`;
-        });
-        if (cablingTotal > 0) {
-            html += `<div class="recap-line">
-                <span>Câblage</span>
-                <span>${cablingTotal.toFixed(2)}€</span>
-            </div>`;
-        }
-        html += `<div class="recap-line" style="font-weight: 700; border-top: 2px solid #1e3c72; padding-top: 10px; margin-top: 10px;">
-            <span>Sous-total travaux:</span>
-            <span>${(travauxTotal + cablingTotal).toFixed(2)}€</span>
-        </div></div>`;
-    }
-    
-    // Tableau
-    if (tableauTotal > 0) {
-        html += `<div class="recap-section">
-            <h3>⚡ TABLEAU ÉLECTRIQUE</h3>
-            <div class="recap-line">
-                <span>Configuration tableau</span>
-                <span>${tableauTotal.toFixed(2)}€</span>
-            </div>
-        </div>`;
-    }
-    
-    // Admin
-    if (adminTotal > 0) {
-        html += `<div class="recap-section">
-            <h3>📋 SERVICES ADMINISTRATIFS</h3>`;
-        devisState.administratif.services.forEach(s => {
-            html += `<div class="recap-line">
-                <span>${s.name}${s.hours ? ` (${s.hours}h)` : ''}</span>
-                <span>${s.price.toFixed(2)}€</span>
-            </div>`;
-        });
-        html += `<div class="recap-line" style="font-weight: 700; border-top: 2px solid #1e3c72; padding-top: 10px; margin-top: 10px;">
-            <span>Sous-total services:</span>
-            <span>${adminTotal.toFixed(2)}€</span>
-        </div></div>`;
-    }
-    
-    // TOTAUX
-    html += `<div class="recap-total">
-        <div class="recap-total-line">
-            <span>SOUS-TOTAL HT:</span>
-            <span>${sousTotal.toFixed(2)}€</span>
-        </div>
-        ${deplacement > 0 ? `<div class="recap-total-line">
-            <span>Déplacement:</span>
-            <span>${deplacement.toFixed(2)}€</span>
-        </div>` : ''}
-        <div class="recap-total-line">
-            <span>TOTAL HT:</span>
-            <span>${totalHT.toFixed(2)}€</span>
-        </div>
-        <div class="recap-total-line">
-            <span>TVA (${(devisState.global.tva * 100).toFixed(0)}%):</span>
-            <span>${tva.toFixed(2)}€</span>
-        </div>
-        <div class="recap-total-line final">
-            <span>TOTAL TTC:</span>
-            <span>${totalTTC.toFixed(2)}€</span>
-        </div>
-    </div>`;
-    
-    container.innerHTML = html;
-}
-
-// ============================================================================
-// PDF GENERATION
-// ============================================================================
-
-function generatePDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('p', 'mm', 'a4');
-    
-    // Logo NOORELEC en SVG base64 - VERT PLUS FONCÉ
-    const logoBase64 = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjEyMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMDBjYzcyO3N0b3Atb3BhY2l0eToxIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGE4NWE7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8dGV4dCB4PSIyMCIgeT0iNTUiIGZvbnQtZmFtaWx5PSJBcmlhbCBCbGFjaywgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI0OCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9InVybCgjZ3JhZCkiPk5PT1JFTEVDPC90ZXh0PgogIDx0ZXh0IHg9IjI1IiB5PSI4NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE2IiBmaWxsPSIjMDBhODVhIj5MJ0FSVCBEVSBTQVZPSVITIEZBSVJFPC90ZXh0Pgo8L3N2Zz4=';
-    
-    try {
-        // En-tête avec logo à gauche
-        doc.addImage(logoBase64, 'PNG', 15, 10, 60, 18);
-    } catch(e) {
-        // Si logo ne charge pas, afficher le texte
-        doc.setFontSize(18);
-        doc.setFont(undefined, 'bold');
-        doc.setTextColor(0, 200, 114);
-        doc.text('NOORELEC', 15, 20);
-        doc.setFontSize(10);
-        doc.text('L\'ART DU SAVOIR-FAIRE', 15, 26);
-    }
-    
-    // Date en haut à droite
-    const today = new Date();
-    const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
-    doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
-    doc.setFont(undefined, 'normal');
-    doc.text(`Fait le ${dateStr}`, 195, 20, { align: 'right' });
-    doc.text(`à ${devisState.client.commune || '____'}`, 195, 26, { align: 'right' });
-    
-    // Informations client en haut à gauche (sous le logo)
-    let yPos = 45;
-    doc.setFontSize(11);
-    doc.setFont(undefined, 'bold');
-    doc.text('CLIENT:', 15, yPos);
-    doc.setFont(undefined, 'normal');
-    yPos += 6;
-    doc.text(devisState.client.name || 'Non renseigné', 15, yPos);
-    yPos += 5;
-    if (devisState.client.tva) {
-        doc.text(`TVA: ${devisState.client.tva}`, 15, yPos);
-        yPos += 5;
-    }
-    doc.text(devisState.client.rue || '', 15, yPos);
-    yPos += 5;
-    doc.text(`${devisState.client.cp || ''} ${devisState.client.commune || ''}`, 15, yPos);
-    yPos += 5;
-    if (devisState.client.phone) {
-        doc.text(`Tél: ${devisState.client.phone}`, 15, yPos);
-        yPos += 5;
-    }
-    if (devisState.client.email) {
-        doc.text(`Email: ${devisState.client.email}`, 15, yPos);
-        yPos += 5;
-    }
-    
-    yPos += 10;
-    
-    // Titre du devis
-    doc.setFontSize(16);
-    doc.setFont(undefined, 'bold');
-    doc.setTextColor(30, 60, 114);
-    doc.text('DEVIS - TRAVAUX ÉLECTRIQUES', 105, yPos, { align: 'center' });
-    
-    yPos += 12;
-    
-    // Travaux
-    if (devisState.travaux.articles.length > 0) {
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text('TRAVAUX', 15, yPos);
-        yPos += 8;
-        
-        // Tableau des articles
-        const tableData = devisState.travaux.articles.map(art => [
-            `${art.quantity}× ${art.name}`,
-            `${art.total.toFixed(2)}€`
-        ]);
-        
-        if (devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost > 0) {
-            tableData.push([
-                'Câblage',
-                `${(devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost).toFixed(2)}€`
-            ]);
-        }
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Description', 'Montant HTVA']],
-            body: tableData,
-            theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
-            margin: { left: 15, right: 15 }
-        });
-        
-        yPos = doc.lastAutoTable.finalY + 8;
-    }
-    
-    // Tableau électrique
-    if (devisState.tableau.enabled && devisState.tableau.total > 0) {
-        doc.setFontSize(12);
-        doc.text('TABLEAU ELECTRIQUE', 15, yPos);
-        yPos += 8;
-        
-        const tableauData = [['Configuration tableau', `${devisState.tableau.total.toFixed(2)}€`]];
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Description', 'Montant HTVA']],
-            body: tableauData,
-            theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
-            margin: { left: 15, right: 15 }
-        });
-        
-        yPos = doc.lastAutoTable.finalY + 8;
-    }
-    
-    // Services administratifs
-    if (devisState.administratif.services.length > 0) {
-        doc.setFontSize(12);
-        doc.text('SERVICES ADMINISTRATIFS', 15, yPos);
-        yPos += 8;
-        
-        const adminData = devisState.administratif.services.map(s => [
-            s.name + (s.hours ? ` (${s.hours}h)` : ''),
-            `${s.price.toFixed(2)}€`
-        ]);
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Description', 'Montant HTVA']],
-            body: adminData,
-            theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
-            margin: { left: 15, right: 15 }
-        });
-        
-        yPos = doc.lastAutoTable.finalY + 8;
-    }
-    
-    // Totaux
-    const travauxTotal = devisState.travaux.articles.reduce((sum, art) => sum + art.total, 0);
-    const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
-    const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
-    const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
-    
-    const sousTotal = travauxTotal + cablingTotal + tableauTotal + adminTotal;
-    const deplacement = devisState.global.deplacement;
-    const totalHT = sousTotal + deplacement;
-    const tva = totalHT * devisState.global.tva;
-    const totalTTC = totalHT + tva;
-    
-    // Cadre totaux
-    yPos += 5;
-    doc.setFillColor(30, 60, 114);
-    doc.rect(15, yPos, 180, 40, 'F');
-    
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(11);
-    yPos += 8;
-    
-    doc.text('SOUS-TOTAL HT:', 20, yPos);
-    doc.text(`${sousTotal.toFixed(2)}€`, 190, yPos, { align: 'right' });
-    yPos += 6;
-    
-    if (deplacement > 0) {
-        doc.text('Déplacement:', 20, yPos);
-        doc.text(`${deplacement.toFixed(2)}€`, 190, yPos, { align: 'right' });
-        yPos += 6;
-    }
-    
-    doc.text('TOTAL HT:', 20, yPos);
-    doc.text(`${totalHT.toFixed(2)}€`, 190, yPos, { align: 'right' });
-    yPos += 6;
-    
-    doc.text(`TVA (${(devisState.global.tva * 100).toFixed(0)}%):`, 20, yPos);
-    doc.text(`${tva.toFixed(2)}€`, 190, yPos, { align: 'right' });
-    yPos += 8;
-    
-    doc.setFontSize(14);
-    doc.setFont(undefined, 'bold');
-    doc.text('TOTAL TTC:', 20, yPos);
-    doc.text(`${totalTTC.toFixed(2)}€`, 190, yPos, { align: 'right' });
-    
-    // Sauvegarder
-    const filename = `Devis_${devisState.client.name.replace(/ /g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
-    doc.save(filename);
-}
-
-function resetDevis() {
-    if (!confirm('Effacer tout le devis et recommencer ?')) return;
-    
-    // Reset complet
-    devisState.travaux.articles = [];
-    devisState.travaux.nextId = 1;
-    devisState.travaux.cabling = { internal: { length: 0, cost: 0 }, tableau: { length: 0, cost: 0 } };
-    devisState.tableau = { enabled: false, items: [], total: 0 };
-    devisState.administratif.services = [];
-    
-    renderArticlesList();
-    saveToLocalStorage();
-    updateRecap();
-    switchPage('client');
-}
-
-// ============================================================================
-// LOCALSTORAGE
-// ============================================================================
-
-function saveToLocalStorage() {
-    try {
-        localStorage.setItem('noorelec_v4_state', JSON.stringify(devisState));
-    } catch(e) {
-        console.error('Erreur sauvegarde:', e);
-    }
-}
-
-function loadFromLocalStorage() {
-    try {
-        const saved = localStorage.getItem('noorelec_v4_state');
-        if (saved) {
-            const loaded = JSON.parse(saved);
-            Object.assign(devisState, loaded);
-            
-            // Restore UI
-            document.getElementById('clientName').value = devisState.client.name || '';
-            document.getElementById('clientPhone').value = devisState.client.phone || '';
-            document.getElementById('clientEmail').value = devisState.client.email || '';
-            document.getElementById('clientTVA').value = devisState.client.tva || '';
-            document.getElementById('clientRue').value = devisState.client.rue || '';
-            document.getElementById('clientCP').value = devisState.client.cp || '';
-            document.getElementById('clientCommune').value = devisState.client.commune || '';
-            document.getElementById('globalTarif').value = devisState.global.tarif;
-            document.getElementById('globalTVA').value = devisState.global.tva;
-            document.getElementById('globalDeplacement').value = devisState.global.deplacement;
-            
-            renderArticlesList();
-            renderDisjoncteursList();
-        }
-        
-        // Charger les paramètres
-        loadSettings();
-    } catch(e) {
-        console.error('Erreur chargement:', e);
+    const idx = CATALOGUE.findIndex(a => a.id === id);
+    if (idx > -1) {
+        CATALOGUE.splice(idx, 1);
+        renderCatalogue();
+        saveData();
     }
 }
 
 // ============================================================================
-// PARAMÈTRES
+// SAUVEGARDE / CHARGEMENT
 // ============================================================================
 
-const SETTINGS_KEY = 'noorelec_v4_settings';
-
-let userSettings = {
-    tarifs: {
-        moderate: 50,
-        eleve: 65,
-        urgent: 75,
-        weekend: 90
-    },
-    catalogue: [...CATALOGUE],
-    services: {
-        conformite: 450,
-        diagnostic: 180,
-        certificat: 80,
-        schema: 120
-    },
-    autres: {
-        rebouchage: 20,
-        deplacement: 25
-    }
-};
-
-function loadSettings() {
-    try {
-        const saved = localStorage.getItem(SETTINGS_KEY);
-        if (saved) {
-            userSettings = JSON.parse(saved);
-            
-            // Appliquer aux champs
-            document.getElementById('param-tarif-50').value = userSettings.tarifs.moderate;
-            document.getElementById('param-tarif-65').value = userSettings.tarifs.eleve;
-            document.getElementById('param-tarif-75').value = userSettings.tarifs.urgent;
-            document.getElementById('param-tarif-90').value = userSettings.tarifs.weekend;
-            
-            document.getElementById('param-conformite').value = userSettings.services.conformite;
-            document.getElementById('param-diagnostic').value = userSettings.services.diagnostic;
-            document.getElementById('param-certificat').value = userSettings.services.certificat;
-            document.getElementById('param-schema').value = userSettings.services.schema;
-            
-            document.getElementById('param-rebouchage').value = userSettings.autres.rebouchage;
-            document.getElementById('param-deplacement').value = userSettings.autres.deplacement;
-            
-            // Mettre à jour le catalogue
-            CATALOGUE.splice(0, CATALOGUE.length, ...userSettings.catalogue);
-            initializeArticleSelect();
-            renderCatalogueEditor();
-        } else {
-            renderCatalogueEditor();
-        }
-    } catch(e) {
-        console.error('Erreur chargement paramètres:', e);
-        renderCatalogueEditor();
-    }
+function saveData() {
+    state.client.name = document.getElementById('clientName')?.value || '';
+    state.client.phone = document.getElementById('clientPhone')?.value || '';
+    state.client.email = document.getElementById('clientEmail')?.value || '';
+    state.client.address = document.getElementById('clientAddress')?.value || '';
+    state.settings.tarif = parseInt(document.getElementById('tarif')?.value || 50);
+    state.settings.tva = parseFloat(document.getElementById('tva')?.value || 0.06);
+    
+    localStorage.setItem('noorelec_v4', JSON.stringify(state));
+    localStorage.setItem('noorelec_catalogue', JSON.stringify(CATALOGUE));
 }
 
-function saveSettings() {
-    // Récupérer les valeurs
-    userSettings.tarifs.moderate = parseFloat(document.getElementById('param-tarif-50').value);
-    userSettings.tarifs.eleve = parseFloat(document.getElementById('param-tarif-65').value);
-    userSettings.tarifs.urgent = parseFloat(document.getElementById('param-tarif-75').value);
-    userSettings.tarifs.weekend = parseFloat(document.getElementById('param-tarif-90').value);
-    
-    userSettings.services.conformite = parseFloat(document.getElementById('param-conformite').value);
-    userSettings.services.diagnostic = parseFloat(document.getElementById('param-diagnostic').value);
-    userSettings.services.certificat = parseFloat(document.getElementById('param-certificat').value);
-    userSettings.services.schema = parseFloat(document.getElementById('param-schema').value);
-    
-    userSettings.autres.rebouchage = parseFloat(document.getElementById('param-rebouchage').value);
-    userSettings.autres.deplacement = parseFloat(document.getElementById('param-deplacement').value);
-    
-    // Récupérer les prix du catalogue
-    userSettings.catalogue.forEach((article, index) => {
-        const priceInput = document.getElementById(`cat-price-${article.id}`);
-        const tempsInput = document.getElementById(`cat-temps-${article.id}`);
-        if (priceInput) article.price = parseFloat(priceInput.value);
-        if (tempsInput) article.temps = parseFloat(tempsInput.value);
-    });
-    
-    // Sauvegarder
-    try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
+function loadData() {
+    const saved = localStorage.getItem('noorelec_v4');
+    if (saved) {
+        const data = JSON.parse(saved);
+        Object.assign(state, data);
         
-        // Mettre à jour le catalogue actif
-        CATALOGUE.splice(0, CATALOGUE.length, ...userSettings.catalogue);
-        initializeArticleSelect();
-        
-        alert('✅ Paramètres sauvegardés !');
-    } catch(e) {
-        console.error('Erreur sauvegarde:', e);
-        alert('❌ Erreur lors de la sauvegarde');
+        document.getElementById('clientName').value = state.client.name || '';
+        document.getElementById('clientPhone').value = state.client.phone || '';
+        document.getElementById('clientEmail').value = state.client.email || '';
+        document.getElementById('clientAddress').value = state.client.address || '';
+        document.getElementById('tarif').value = state.settings.tarif;
+        document.getElementById('tva').value = state.settings.tva;
     }
-}
-
-function resetSettings() {
-    if (!confirm('Réinitialiser tous les prix par défaut ?')) return;
     
-    // Reset aux valeurs par défaut
-    userSettings = {
-        tarifs: { moderate: 50, eleve: 65, urgent: 75, weekend: 90 },
-        catalogue: [
-            { id: 1, name: "Prise Niko blanc", price: 8.50, temps: 0.3, category: "Prises" },
-            { id: 2, name: "Prise Niko anthracite", price: 9.20, temps: 0.3, category: "Prises" },
-            { id: 3, name: "Prise USB Niko", price: 28.50, temps: 0.4, category: "Prises" },
-            { id: 4, name: "Prise étanche IP44", price: 15.80, temps: 0.5, category: "Prises" },
-            { id: 5, name: "Interrupteur Niko", price: 6.90, temps: 0.25, category: "Interrupteurs" },
-            { id: 6, name: "Va-et-vient Niko", price: 12.50, temps: 0.4, category: "Interrupteurs" },
-            { id: 7, name: "Variateur LED Niko", price: 45.80, temps: 0.35, category: "Interrupteurs" },
-            { id: 8, name: "Spot LED encastré 5W", price: 12.50, temps: 0.3, category: "Éclairage" },
-            { id: 9, name: "Spot LED encastré 10W", price: 18.90, temps: 0.3, category: "Éclairage" },
-            { id: 10, name: "Plafonnier LED 18W", price: 35.00, temps: 0.5, category: "Éclairage" },
-            { id: 11, name: "Projecteur LED 50W", price: 55.00, temps: 0.6, category: "Éclairage" },
-            { id: 12, name: "Prise RJ45 Cat6", price: 12.00, temps: 0.35, category: "Réseau" },
-            { id: 13, name: "Coffret multimédia", price: 85.00, temps: 1.0, category: "Réseau" },
-            { id: 14, name: "Sonnette WiFi", price: 95.00, temps: 0.8, category: "Domotique" },
-            { id: 15, name: "Détecteur de fumée", price: 25.00, temps: 0.3, category: "Sécurité" }
-        ],
-        services: { conformite: 450, diagnostic: 180, certificat: 80, schema: 120 },
-        autres: { rebouchage: 20, deplacement: 25 }
-    };
+    const savedCat = localStorage.getItem('noorelec_catalogue');
+    if (savedCat) {
+        const customArts = JSON.parse(savedCat).filter(a => a.custom);
+        CATALOGUE.push(...customArts);
+    }
     
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(userSettings));
-    location.reload();
-}
-
-function renderCatalogueEditor() {
-    const container = document.getElementById('catalogueEditor');
-    if (!container) return;
-    
-    const categories = {};
-    CATALOGUE.forEach(article => {
-        if (!categories[article.category]) {
-            categories[article.category] = [];
-        }
-        categories[article.category].push(article);
-    });
-    
-    let html = '';
-    Object.keys(categories).forEach(category => {
-        html += `<div style="margin-bottom: 20px;">
-            <h4 style="color: #1e3c72; margin-bottom: 10px;">${category}</h4>`;
-        
-        categories[category].forEach(article => {
-            html += `
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
-                    <div><strong>${article.name}</strong></div>
-                    <div>
-                        <label style="font-size: 0.85em; color: #6c757d;">Prix (€)</label>
-                        <input type="number" id="cat-price-${article.id}" value="${article.price}" step="0.1" min="0" style="width: 100%; padding: 6px; border: 2px solid #dee2e6; border-radius: 6px;">
-                    </div>
-                    <div>
-                        <label style="font-size: 0.85em; color: #6c757d;">Temps (h)</label>
-                        <input type="number" id="cat-temps-${article.id}" value="${article.temps}" step="0.05" min="0" style="width: 100%; padding: 6px; border: 2px solid #dee2e6; border-radius: 6px;">
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-    });
-    
-    container.innerHTML = html;
+    renderPieces();
+    renderDisjoncteurs();
 }
