@@ -2,7 +2,7 @@
   "name": "Noorelec Pro V4 Enhanced",
   "short_name": "Noorelec",
   "description": "Solution complète pour électriciens avec gestion par pièces",
-  "start_url": "/",
+  "start_url": "/Noorelec-app/",
   "display": "standalone",
   "background_color": "#1e3c72",
   "theme_color": "#1e3c72",
