@@ -169,16 +169,23 @@
                                 </select>
                             </div>
                         </div>
+                        
+                        <div class="form-grid two-cols" style="margin-top: 15px;">
+                            <div class="form-group">
+                                <label><strong>Prix forfait rebouchage (€)</strong></label>
+                                <input type="number" id="globalRebouchage" value="20" min="0" step="1" onchange="updateGlobalSettings()" style="padding: 10px; border: 2px solid #1e3c72; border-radius: 8px; font-weight: 700;">
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- GESTION DES PIÈCES -->
-                    <div class="section" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; margin-bottom: 20px;">
-                        <h3 style="color: #e65100; margin-bottom: 15px;">🏠 Gestion des pièces</h3>
+                    <!-- CRÉATION DE PIÈCE -->
+                    <div class="section" style="background: linear-gradient(135deg, #e7f3ff 0%, #d1e7ff 100%); border: 3px solid #1e3c72; margin-bottom: 20px;">
+                        <h3 style="color: #1e3c72; margin-bottom: 15px;">🏠 Créer une nouvelle pièce</h3>
                         
                         <div class="form-grid">
                             <div class="form-group">
                                 <label><strong>Nom de la pièce</strong></label>
-                                <input type="text" id="roomName" placeholder="Ex: Salon, Cuisine, Chambre..." style="border: 2px solid #ff9800;">
+                                <input type="text" id="newRoomName" placeholder="Ex: Salon, Cuisine, Chambre 1..." style="border: 2px solid #1e3c72;">
                             </div>
                             <div class="form-group">
                                 <button class="btn btn-success" onclick="createRoom()" style="margin-top: 24px; width: 100%;">
@@ -186,163 +193,11 @@
                                 </button>
                             </div>
                         </div>
-
-                        <div id="roomsList" style="margin-top: 15px;">
-                            <!-- Liste des pièces créées -->
-                        </div>
-
-                        <div id="currentRoomIndicator" style="display: none; background: #4caf50; color: white; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: center; font-weight: 700;">
-                            📍 Pièce active : <span id="currentRoomName"></span>
-                        </div>
                     </div>
 
-                    <!-- AJOUT D'ARTICLE -->
-                    <div class="article-form">
-                        <h3>➕ Ajouter un article <span id="articleRoomIndicator" style="color: #ff9800;"></span></h3>
-                        
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label>Article</label>
-                                <select id="newArticleSelect" onchange="updateArticleOptions()">
-                                    <option value="">-- Sélectionner un article --</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Quantité</label>
-                                <input type="number" id="newArticleQty" value="1" min="0.1" step="0.1">
-                            </div>
-                        </div>
-
-                        <h4 class="form-section-title">Type d'installation</h4>
-                        <div class="radio-grid">
-                            <label class="radio-card">
-                                <input type="radio" name="installType" value="apparent" checked>
-                                <div class="radio-content">
-                                    <div class="radio-icon">📦</div>
-                                    <div class="radio-title">Apparent</div>
-                                    <div class="radio-subtitle">Goulotte visible</div>
-                                </div>
-                            </label>
-                            <label class="radio-card">
-                                <input type="radio" name="installType" value="encastre">
-                                <div class="radio-content">
-                                    <div class="radio-icon">🔨</div>
-                                    <div class="radio-title">Encastré</div>
-                                    <div class="radio-subtitle">Saignées mur</div>
-                                </div>
-                            </label>
-                            <label class="radio-card">
-                                <input type="radio" name="installType" value="faux-plafond">
-                                <div class="radio-content">
-                                    <div class="radio-icon">⬆️</div>
-                                    <div class="radio-title">Faux plafond</div>
-                                    <div class="radio-subtitle">Par plafond</div>
-                                </div>
-                            </label>
-                            <label class="radio-card">
-                                <input type="radio" name="installType" value="sous-plancher">
-                                <div class="radio-content">
-                                    <div class="radio-icon">⬇️</div>
-                                    <div class="radio-title">Sous plancher</div>
-                                    <div class="radio-subtitle">Par sol</div>
-                                </div>
-                            </label>
-                        </div>
-
-                        <h4 class="form-section-title">Circuit électrique</h4>
-                        <div class="radio-grid two-cols">
-                            <label class="radio-card">
-                                <input type="radio" name="circuitType" value="existant" checked>
-                                <div class="radio-content">
-                                    <div class="radio-icon">🔄</div>
-                                    <div class="radio-title">Circuit existant</div>
-                                    <div class="radio-subtitle">Remplacer/ajouter</div>
-                                </div>
-                            </label>
-                            <label class="radio-card">
-                                <input type="radio" name="circuitType" value="nouvelle-ligne">
-                                <div class="radio-content">
-                                    <div class="radio-icon">⚡</div>
-                                    <div class="radio-title">Nouvelle ligne</div>
-                                    <div class="radio-subtitle">Depuis tableau</div>
-                                </div>
-                            </label>
-                        </div>
-
-                        <h4 class="form-section-title">Options supplémentaires</h4>
-                        <label class="checkbox-option">
-                            <input type="checkbox" id="rebouchageCheck">
-                            <div class="checkbox-content">
-                                <div class="checkbox-title">Rebouchage et finition</div>
-                                <div class="checkbox-subtitle">+20€ forfait</div>
-                            </div>
-                        </label>
-
-                        <div id="articlePreview" class="article-preview" style="display: none;">
-                            <h4>📊 Aperçu du prix</h4>
-                            <div id="articlePreviewContent"></div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button class="btn btn-info" onclick="calculateArticlePrice()">🧮 Calculer</button>
-                            <button class="btn btn-success" onclick="addArticleToList()">➕ Ajouter</button>
-                        </div>
-                    </div>
-
-                    <!-- LISTE DES ARTICLES PAR PIÈCE -->
-                    <div class="articles-list">
-                        <h3>📋 Articles par pièce (<span id="articleCount">0</span> total)</h3>
-                        <div id="articlesListContainer">
-                            <div class="empty-state">Créez une pièce et ajoutez des articles</div>
-                        </div>
-                    </div>
-
-                    <!-- CÂBLAGE -->
-                    <div class="cabling-section">
-                        <h3>🔌 Câblage</h3>
-                        
-                        <div class="cable-subsection">
-                            <h4>Entre prises / points</h4>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Type de câble</label>
-                                    <select id="cableInternalType" onchange="calculateCabling()">
-                                        <option value="2.45,2.8">XVB 3G2.5mm² (2.45€/m + 2.8€/m MO)</option>
-                                        <option value="1.85,2.5">XVB 3G1.5mm² (1.85€/m + 2.5€/m MO)</option>
-                                        <option value="3.95,3.5">XVB 5G2.5mm² (3.95€/m + 3.5€/m MO)</option>
-                                        <option value="0.45,1.5">VOB 2.5mm² (0.45€/m + 1.5€/m MO)</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Longueur (mètres)</label>
-                                    <input type="number" id="cableInternalLength" value="0" step="0.5" min="0" onchange="calculateCabling()">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="cable-subsection highlight">
-                            <h4>Jusqu'au tableau électrique</h4>
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label>Type de câble</label>
-                                    <select id="cableTableauType" onchange="calculateCabling()">
-                                        <option value="5.25,3.8">XVB 3G6mm² (5.25€/m + 3.8€/m MO)</option>
-                                        <option value="8.95,4.5">XVB 3G10mm² (8.95€/m + 4.5€/m MO)</option>
-                                        <option value="8.45,4.2">XVB 5G6mm² (8.45€/m + 4.2€/m MO)</option>
-                                        <option value="2.45,2.8">XVB 3G2.5mm² (2.45€/m + 2.8€/m MO)</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Longueur (mètres)</label>
-                                    <input type="number" id="cableTableauLength" value="0" step="0.5" min="0" onchange="calculateCabling()">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div id="cablingTotal" class="cabling-total" style="display: none;">
-                            <strong>Total câblage :</strong> <span id="cablingPrice">0€</span> HTVA
-                        </div>
+                    <!-- LISTE DES PIÈCES -->
+                    <div id="roomsContainer">
+                        <div class="empty-state">Créez une pièce pour commencer</div>
                     </div>
 
                     <button class="btn btn-primary btn-block" onclick="switchPage('tableau')">

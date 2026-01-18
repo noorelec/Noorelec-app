@@ -20,18 +20,13 @@ const devisState = {
     global: {
         tarif: 50,
         tva: 0.06,
-        deplacement: 25
+        deplacement: 25,
+        rebouchage: 20  // Prix forfait rebouchage modifiable
     },
     
     travaux: {
-        rooms: [],  // Liste des pièces avec leurs articles
-        currentRoomId: null,  // ID de la pièce active
-        nextRoomId: 1,
-        nextArticleId: 1,
-        cabling: {
-            internal: { length: 0, cost: 0 },
-            tableau: { length: 0, cost: 0 }
-        }
+        rooms: [],  // Chaque pièce contient TOUT (articles, installation, circuit, câblage)
+        nextRoomId: 1
     },
     
     tableau: {
@@ -90,8 +85,8 @@ const FACTEURS = {
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('NOORELEC V4 - Initialisation');
-    initializeArticleSelect();
     loadFromLocalStorage();
+    renderRooms();
     updateRecap();
 });
 
@@ -190,197 +185,247 @@ function updateGlobalSettings() {
     devisState.global.tarif = parseFloat(document.getElementById('globalTarif').value);
     devisState.global.tva = parseFloat(document.getElementById('globalTVA').value);
     devisState.global.deplacement = parseFloat(document.getElementById('globalDeplacement').value);
+    devisState.global.rebouchage = parseFloat(document.getElementById('globalRebouchage').value) || 20;
     saveToLocalStorage();
     updateRecap();
 }
 
 // ============================================================================
-// PAGE TRAVAUX - GESTION DES PIÈCES
+// PAGE TRAVAUX - GESTION DES PIÈCES COMPLÈTES
 // ============================================================================
 
 function createRoom() {
-    const roomNameInput = document.getElementById('roomName');
-    const roomName = roomNameInput.value.trim();
+    const roomName = document.getElementById('newRoomName').value.trim();
     
     if (!roomName) {
         alert('❌ Entrez un nom de pièce');
         return;
     }
     
-    // Créer la pièce
     const newRoom = {
         id: devisState.travaux.nextRoomId++,
         name: roomName,
-        articles: []
+        articles: [],
+        nextArticleId: 1,
+        installType: 'apparent',  // Type installation pour cette pièce
+        circuitType: 'existant',  // Circuit pour cette pièce
+        rebouchage: false,  // Rebouchage activé pour cette pièce
+        cabling: {
+            internal: { type: '2.45,2.8', length: 0, cost: 0 },  // Entre points
+            tableau: { type: '5.25,3.8', length: 0, cost: 0 }    // Jusqu'au tableau
+        }
     };
     
     devisState.travaux.rooms.push(newRoom);
-    devisState.travaux.currentRoomId = newRoom.id;
+    document.getElementById('newRoomName').value = '';
     
-    // Reset input
-    roomNameInput.value = '';
-    
-    // Render et sauvegarder
-    renderRoomsList();
-    updateCurrentRoomIndicator();
-    renderArticlesList();
+    renderRooms();
     saveToLocalStorage();
 }
 
-function selectRoom(roomId) {
-    devisState.travaux.currentRoomId = roomId;
-    renderRoomsList();
-    updateCurrentRoomIndicator();
-    renderArticlesList();
-}
-
-function deleteRoom(roomId) {
-    if (!confirm('Supprimer cette pièce et tous ses articles ?')) return;
-    
-    const index = devisState.travaux.rooms.findIndex(r => r.id === roomId);
-    if (index > -1) {
-        devisState.travaux.rooms.splice(index, 1);
-    }
-    
-    // Si c'était la pièce active, reset
-    if (devisState.travaux.currentRoomId === roomId) {
-        devisState.travaux.currentRoomId = devisState.travaux.rooms.length > 0 ? devisState.travaux.rooms[0].id : null;
-    }
-    
-    renderRoomsList();
-    updateCurrentRoomIndicator();
-    renderArticlesList();
-    saveToLocalStorage();
-    updateRecap();
-}
-
-function renderRoomsList() {
-    const container = document.getElementById('roomsList');
-    if (!container) return;
+function renderRooms() {
+    const container = document.getElementById('roomsContainer');
     
     if (devisState.travaux.rooms.length === 0) {
-        container.innerHTML = '<div style="padding: 10px; text-align: center; color: #e65100; font-style: italic;">Aucune pièce créée</div>';
+        container.innerHTML = '<div class="empty-state">Créez une pièce pour commencer</div>';
         return;
     }
     
     container.innerHTML = devisState.travaux.rooms.map(room => {
-        const isActive = room.id === devisState.travaux.currentRoomId;
-        const articleCount = room.articles.length;
+        const roomTotal = calculateRoomTotal(room);
         
         return `
-            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: ${isActive ? '#4caf50' : 'white'}; border: 2px solid ${isActive ? '#2e7d32' : '#ff9800'}; border-radius: 8px; margin-bottom: 10px; cursor: pointer;" onclick="selectRoom(${room.id})">
-                <div style="flex: 1;">
-                    <div style="font-weight: 700; font-size: 1.1em; color: ${isActive ? 'white' : '#e65100'};">
-                        ${isActive ? '📍' : '🏠'} ${room.name}
-                    </div>
-                    <div style="font-size: 0.9em; color: ${isActive ? 'rgba(255,255,255,0.9)' : '#666'};">
-                        ${articleCount} article${articleCount > 1 ? 's' : ''}
+            <div class="section" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; margin-bottom: 25px;">
+                <!-- En-tête pièce -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid #ff9800;">
+                    <h3 style="color: #e65100; margin: 0; font-size: 1.5em;">🏠 ${room.name}</h3>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="color: #e65100; font-weight: 700; font-size: 1.3em;">${roomTotal.toFixed(2)}€ HTVA</div>
+                        <button class="btn-delete" onclick="deleteRoom(${room.id})" style="padding: 10px 15px; font-size: 1.1em;">🗑️ Supprimer pièce</button>
                     </div>
                 </div>
-                <button onclick="event.stopPropagation(); deleteRoom(${room.id})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 700;">🗑️</button>
+                
+                <!-- Formulaire ajout article -->
+                <div class="article-form" style="background: white;">
+                    <h3>➕ Ajouter un article dans ${room.name}</h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Article</label>
+                            <select id="articleSelect_${room.id}" onchange="updateRoomPreview(${room.id})">
+                                <option value="">-- Sélectionner un article --</option>
+                                ${generateArticleOptions()}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantité</label>
+                            <input type="number" id="articleQty_${room.id}" value="1" min="0.1" step="0.1" onchange="updateRoomPreview(${room.id})">
+                        </div>
+                    </div>
+                    
+                    <h4 class="form-section-title">Type d'installation pour ${room.name}</h4>
+                    <div class="radio-grid">
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="apparent" ${room.installType === 'apparent' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'apparent')">
+                            <div class="radio-content">
+                                <div class="radio-icon">📦</div>
+                                <div class="radio-title">Apparent</div>
+                                <div class="radio-subtitle">Goulotte visible</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="encastre" ${room.installType === 'encastre' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'encastre')">
+                            <div class="radio-content">
+                                <div class="radio-icon">🔨</div>
+                                <div class="radio-title">Encastré</div>
+                                <div class="radio-subtitle">Saignées mur</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="faux-plafond" ${room.installType === 'faux-plafond' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'faux-plafond')">
+                            <div class="radio-content">
+                                <div class="radio-icon">⬆️</div>
+                                <div class="radio-title">Faux plafond</div>
+                                <div class="radio-subtitle">Par plafond</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="sous-plancher" ${room.installType === 'sous-plancher' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'sous-plancher')">
+                            <div class="radio-content">
+                                <div class="radio-icon">⬇️</div>
+                                <div class="radio-title">Sous plancher</div>
+                                <div class="radio-subtitle">Par sol</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <h4 class="form-section-title">Circuit électrique pour ${room.name}</h4>
+                    <div class="radio-grid two-cols">
+                        <label class="radio-card">
+                            <input type="radio" name="circuitType_${room.id}" value="existant" ${room.circuitType === 'existant' ? 'checked' : ''} onchange="updateRoomCircuitType(${room.id}, 'existant')">
+                            <div class="radio-content">
+                                <div class="radio-icon">🔄</div>
+                                <div class="radio-title">Circuit existant</div>
+                                <div class="radio-subtitle">Remplacer/ajouter</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="circuitType_${room.id}" value="nouvelle-ligne" ${room.circuitType === 'nouvelle-ligne' ? 'checked' : ''} onchange="updateRoomCircuitType(${room.id}, 'nouvelle-ligne')">
+                            <div class="radio-content">
+                                <div class="radio-icon">⚡</div>
+                                <div class="radio-title">Nouvelle ligne</div>
+                                <div class="radio-subtitle">Depuis tableau</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <h4 class="form-section-title">Options</h4>
+                    <label class="checkbox-option">
+                        <input type="checkbox" id="rebouchage_${room.id}" ${room.rebouchage ? 'checked' : ''} onchange="updateRoomRebouchage(${room.id})">
+                        <div class="checkbox-content">
+                            <div class="checkbox-title">Rebouchage et finition</div>
+                            <div class="checkbox-subtitle">+${devisState.global.rebouchage}€ forfait</div>
+                        </div>
+                    </label>
+                    
+                    <div id="preview_${room.id}" class="article-preview" style="display: none;">
+                        <h4>📊 Aperçu du prix</h4>
+                        <div id="previewContent_${room.id}"></div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-info" onclick="calculateRoomArticle(${room.id})">🧮 Calculer</button>
+                        <button class="btn btn-success" onclick="addArticleToRoom(${room.id})">➕ Ajouter</button>
+                    </div>
+                </div>
+                
+                <!-- Liste articles -->
+                ${renderRoomArticles(room)}
+                
+                <!-- Câblage -->
+                ${renderRoomCabling(room)}
+                
             </div>
         `;
     }).join('');
 }
 
-function updateCurrentRoomIndicator() {
-    const indicator = document.getElementById('currentRoomIndicator');
-    const roomNameSpan = document.getElementById('currentRoomName');
-    const articleIndicator = document.getElementById('articleRoomIndicator');
-    
-    if (!indicator || !roomNameSpan) return;
-    
-    if (devisState.travaux.currentRoomId) {
-        const currentRoom = devisState.travaux.rooms.find(r => r.id === devisState.travaux.currentRoomId);
-        if (currentRoom) {
-            indicator.style.display = 'block';
-            roomNameSpan.textContent = currentRoom.name;
-            if (articleIndicator) {
-                articleIndicator.textContent = `(pour ${currentRoom.name})`;
-            }
-        }
-    } else {
-        indicator.style.display = 'none';
-        if (articleIndicator) {
-            articleIndicator.textContent = '';
-        }
-    }
-}
-
-// ============================================================================
-// PAGE TRAVAUX - ARTICLES
-// ============================================================================
-
-function initializeArticleSelect() {
-    const select = document.getElementById('newArticleSelect');
-    if (!select) return;
-    
-    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
-    
+function generateArticleOptions() {
     const categories = {};
     CATALOGUE.forEach(article => {
-        if (!categories[article.category]) {
-            categories[article.category] = [];
-        }
+        if (!categories[article.category]) categories[article.category] = [];
         categories[article.category].push(article);
     });
     
+    let html = '';
     Object.keys(categories).forEach(category => {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = category;
-        
+        html += `<optgroup label="${category}">`;
         categories[category].forEach(article => {
-            const option = document.createElement('option');
-            option.value = article.id;
-            option.textContent = `${article.name} (${article.price}€)`;
-            optgroup.appendChild(option);
+            html += `<option value="${article.id}">${article.name} (${article.price}€)</option>`;
         });
-        
-        select.appendChild(optgroup);
+        html += `</optgroup>`;
     });
+    return html;
 }
 
-function updateArticleOptions() {
-    // Fonction appelée quand on change d'article
-    const preview = document.getElementById('articlePreview');
-    preview.style.display = 'none';
+function updateRoomInstallType(roomId, type) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.installType = type;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+    }
 }
 
-function calculateArticlePrice() {
-    const articleId = parseInt(document.getElementById('newArticleSelect').value);
+function updateRoomCircuitType(roomId, type) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.circuitType = type;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+    }
+}
+
+function updateRoomRebouchage(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.rebouchage = document.getElementById(`rebouchage_${roomId}`).checked;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+    }
+}
+
+function updateRoomPreview(roomId) {
+    const preview = document.getElementById(`preview_${roomId}`);
+    if (preview) preview.style.display = 'none';
+}
+
+function calculateRoomArticle(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    const articleId = parseInt(document.getElementById(`articleSelect_${roomId}`).value);
     if (!articleId) {
-        alert('Sélectionnez un article');
+        alert('❌ Sélectionnez un article');
         return;
     }
     
     const article = CATALOGUE.find(a => a.id === articleId);
-    const quantity = parseFloat(document.getElementById('newArticleQty').value) || 1;
-    const installType = document.querySelector('[name="installType"]:checked').value;
-    const circuitType = document.querySelector('[name="circuitType"]:checked').value;
-    const rebouchage = document.getElementById('rebouchageCheck').checked;
+    const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
-    // Calculs
     const materielTotal = article.price * quantity;
     let tempsTotal = article.temps * quantity;
-    
-    // Appliquer facteurs
-    tempsTotal *= FACTEURS.installation[installType];
-    tempsTotal *= FACTEURS.circuit[circuitType];
-    
+    tempsTotal *= FACTEURS.installation[room.installType];
+    tempsTotal *= FACTEURS.circuit[room.circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = rebouchage ? 20 : 0;
+    const rebouchageTotal = room.rebouchage ? devisState.global.rebouchage : 0;
     
-    // Dégressivité
     let prixUnitaireHT = article.price + (moTotal / quantity);
-    if (quantity >= 10) {
-        prixUnitaireHT *= 0.75; // -25%
-    } else if (quantity >= 5) {
-        prixUnitaireHT *= 0.85; // -15%
-    }
+    if (quantity >= 10) prixUnitaireHT *= 0.75;
+    else if (quantity >= 5) prixUnitaireHT *= 0.85;
     
     const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
     
-    // Afficher aperçu
     let degressivite = '';
     if (quantity >= 10) degressivite = '<span style="color: #28a745; font-weight: 700;"> (-25% dégressif!)</span>';
     else if (quantity >= 5) degressivite = '<span style="color: #28a745; font-weight: 700;"> (-15% dégressif!)</span>';
@@ -392,45 +437,38 @@ function calculateArticlePrice() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
             <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
             <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
-            ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">20€</div>` : ''}
+            ${room.rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${devisState.global.rebouchage}€</div>` : ''}
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
         </div>
-        <div style="margin-top: 10px; padding: 8px; background: rgba(23, 162, 184, 0.1); border-radius: 6px; font-size: 0.85em;">
-            Installation: ${installType} | Circuit: ${circuitType} | Tarif: ${devisState.global.tarif}€/h
+        <div style="margin-top: 10px; padding: 8px; background: rgba(255, 152, 0, 0.1); border-radius: 6px; font-size: 0.85em;">
+            ${room.name}: ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)} | Tarif: ${devisState.global.tarif}€/h
         </div>
     `;
     
-    document.getElementById('articlePreviewContent').innerHTML = html;
-    document.getElementById('articlePreview').style.display = 'block';
+    document.getElementById(`previewContent_${roomId}`).innerHTML = html;
+    document.getElementById(`preview_${roomId}`).style.display = 'block';
 }
 
-function addArticleToList() {
-    // Vérifier qu'une pièce est active
-    if (!devisState.travaux.currentRoomId) {
-        alert('❌ Créez d\'abord une pièce avant d\'ajouter des articles');
-        return;
-    }
+function addArticleToRoom(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (!room) return;
     
-    const articleId = parseInt(document.getElementById('newArticleSelect').value);
+    const articleId = parseInt(document.getElementById(`articleSelect_${roomId}`).value);
     if (!articleId) {
-        alert('❌ Sélectionnez un article et calculez le prix d\'abord');
+        alert('❌ Sélectionnez un article');
         return;
     }
     
     const article = CATALOGUE.find(a => a.id === articleId);
-    const quantity = parseFloat(document.getElementById('newArticleQty').value) || 1;
-    const installType = document.querySelector('[name="installType"]:checked').value;
-    const circuitType = document.querySelector('[name="circuitType"]:checked').value;
-    const rebouchage = document.getElementById('rebouchageCheck').checked;
+    const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
-    // Calculs (même logique que calculateArticlePrice)
     const materielTotal = article.price * quantity;
     let tempsTotal = article.temps * quantity;
-    tempsTotal *= FACTEURS.installation[installType];
-    tempsTotal *= FACTEURS.circuit[circuitType];
+    tempsTotal *= FACTEURS.installation[room.installType];
+    tempsTotal *= FACTEURS.circuit[room.circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = rebouchage ? 20 : 0;
+    const rebouchageTotal = room.rebouchage ? devisState.global.rebouchage : 0;
     
     let prixUnitaireHT = article.price + (moTotal / quantity);
     if (quantity >= 10) prixUnitaireHT *= 0.75;
@@ -438,22 +476,11 @@ function addArticleToList() {
     
     const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
     
-    // Trouver la pièce active
-    const currentRoom = devisState.travaux.rooms.find(r => r.id === devisState.travaux.currentRoomId);
-    if (!currentRoom) {
-        alert('❌ Erreur: pièce non trouvée');
-        return;
-    }
-    
-    // Ajouter l'article à la pièce active
-    currentRoom.articles.push({
-        id: devisState.travaux.nextArticleId++,
+    room.articles.push({
+        id: room.nextArticleId++,
         articleId: articleId,
         name: article.name,
         quantity: quantity,
-        installType: installType,
-        circuitType: circuitType,
-        rebouchage: rebouchage,
         materiel: materielTotal,
         mo: moTotal,
         temps: tempsTotal,
@@ -461,96 +488,160 @@ function addArticleToList() {
         total: totalHT
     });
     
-    // Render
-    renderArticlesList();
+    // Reset
+    document.getElementById(`articleSelect_${roomId}`).value = '';
+    document.getElementById(`articleQty_${roomId}`).value = '1';
+    document.getElementById(`preview_${roomId}`).style.display = 'none';
     
-    // Reset form
-    document.getElementById('newArticleSelect').value = '';
-    document.getElementById('newArticleQty').value = '1';
-    document.getElementById('rebouchageCheck').checked = false;
-    document.getElementById('articlePreview').style.display = 'none';
-    
-    saveToLocalStorage();
-}
-
-function renderArticlesList() {
-    const container = document.getElementById('articlesListContainer');
-    
-    // Compter le total d'articles
-    let totalArticles = 0;
-    devisState.travaux.rooms.forEach(room => {
-        totalArticles += room.articles.length;
-    });
-    
-    document.getElementById('articleCount').textContent = totalArticles;
-    
-    if (devisState.travaux.rooms.length === 0) {
-        container.innerHTML = '<div class="empty-state">Créez une pièce et ajoutez des articles</div>';
-        return;
-    }
-    
-    // Afficher les articles groupés par pièce
-    let html = '';
-    
-    devisState.travaux.rooms.forEach(room => {
-        const roomTotal = room.articles.reduce((sum, art) => sum + art.total, 0);
-        
-        html += `
-            <div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #ff9800;">
-                    <h4 style="color: #e65100; margin: 0; font-size: 1.3em;">🏠 ${room.name}</h4>
-                    <div style="color: #e65100; font-weight: 700; font-size: 1.2em;">${roomTotal.toFixed(2)}€ HTVA</div>
-                </div>
-        `;
-        
-        if (room.articles.length === 0) {
-            html += '<div style="text-align: center; padding: 20px; color: #e65100; font-style: italic;">Aucun article dans cette pièce</div>';
-        } else {
-            room.articles.forEach(art => {
-                html += `
-                    <div class="article-card" style="margin-bottom: 10px;">
-                        <div class="article-header">
-                            <div>
-                                <div class="article-title">${art.quantity}× ${art.name}</div>
-                                <div class="article-details">
-                                    ${getInstallTypeLabel(art.installType)} | ${getCircuitTypeLabel(art.circuitType)}
-                                    ${art.rebouchage ? ' | Rebouchage inclus' : ''}
-                                </div>
-                            </div>
-                            <button class="btn-delete" onclick="deleteArticle(${room.id}, ${art.id})">🗑️</button>
-                        </div>
-                        <div class="article-pricing">
-                            <div>Matériel: ${art.materiel.toFixed(2)}€</div>
-                            <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
-                            ${art.rebouchage ? `<div>Rebouchage: 20€</div>` : ''}
-                        </div>
-                        <div class="article-total">
-                            TOTAL: ${art.total.toFixed(2)}€ HTVA
-                        </div>
-                    </div>
-                `;
-            });
-        }
-        
-        html += '</div>';
-    });
-    
-    container.innerHTML = html;
-}
-
-function deleteArticle(roomId, articleId) {
-    if (!confirm('Supprimer cet article ?')) return;
-    
-    const room = devisState.travaux.rooms.find(r => r.id === roomId);
-    if (room) {
-        room.articles = room.articles.filter(a => a.id !== articleId);
-    }
-    
-    renderArticlesList();
-    renderRoomsList();
+    renderRooms();
     saveToLocalStorage();
     updateRecap();
 }
+
+function renderRoomArticles(room) {
+    if (room.articles.length === 0) {
+        return '<div class="empty-state">Aucun article dans cette pièce</div>';
+    }
+    
+    let html = '<div class="articles-list"><h3>📋 Articles dans ' + room.name + ' (' + room.articles.length + ')</h3>';
+    
+    room.articles.forEach(art => {
+        html += `
+            <div class="article-card">
+                <div class="article-header">
+                    <div>
+                        <div class="article-title">${art.quantity}× ${art.name}</div>
+                        <div class="article-details">
+                            ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)}
+                            ${room.rebouchage ? ' | Rebouchage inclus' : ''}
+                        </div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteRoomArticle(${room.id}, ${art.id})">🗑️</button>
+                </div>
+                <div class="article-pricing">
+                    <div>Matériel: ${art.materiel.toFixed(2)}€</div>
+                    <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
+                    ${room.rebouchage ? `<div>Rebouchage: ${devisState.global.rebouchage}€</div>` : ''}
+                </div>
+                <div class="article-total">TOTAL: ${art.total.toFixed(2)}€ HTVA</div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+function renderRoomCabling(room) {
+    return `
+        <div class="cabling-section">
+            <h3>🔌 Câblage ${room.name}</h3>
+            
+            <div class="cable-subsection">
+                <h4>Entre prises / points dans ${room.name}</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type de câble</label>
+                        <select id="cableInternal_${room.id}" onchange="updateRoomCabling(${room.id})">
+                            <option value="2.45,2.8" ${room.cabling.internal.type === '2.45,2.8' ? 'selected' : ''}>XVB 3G2.5mm² (2.45€/m + 2.8€/m MO)</option>
+                            <option value="1.85,2.5" ${room.cabling.internal.type === '1.85,2.5' ? 'selected' : ''}>XVB 3G1.5mm² (1.85€/m + 2.5€/m MO)</option>
+                            <option value="3.95,3.5" ${room.cabling.internal.type === '3.95,3.5' ? 'selected' : ''}>XVB 5G2.5mm² (3.95€/m + 3.5€/m MO)</option>
+                            <option value="0.45,1.5" ${room.cabling.internal.type === '0.45,1.5' ? 'selected' : ''}>VOB 2.5mm² (0.45€/m + 1.5€/m MO)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Longueur (mètres)</label>
+                        <input type="number" id="cableInternalLength_${room.id}" value="${room.cabling.internal.length}" step="0.5" min="0" onchange="updateRoomCabling(${room.id})">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cable-subsection highlight">
+                <h4>Depuis ${room.name} jusqu'au tableau électrique</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type de câble</label>
+                        <select id="cableTableau_${room.id}" onchange="updateRoomCabling(${room.id})">
+                            <option value="5.25,3.8" ${room.cabling.tableau.type === '5.25,3.8' ? 'selected' : ''}>XVB 3G6mm² (5.25€/m + 3.8€/m MO)</option>
+                            <option value="8.95,4.5" ${room.cabling.tableau.type === '8.95,4.5' ? 'selected' : ''}>XVB 3G10mm² (8.95€/m + 4.5€/m MO)</option>
+                            <option value="8.45,4.2" ${room.cabling.tableau.type === '8.45,4.2' ? 'selected' : ''}>XVB 5G6mm² (8.45€/m + 4.2€/m MO)</option>
+                            <option value="2.45,2.8" ${room.cabling.tableau.type === '2.45,2.8' ? 'selected' : ''}>XVB 3G2.5mm² (2.45€/m + 2.8€/m MO)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Longueur (mètres)</label>
+                        <input type="number" id="cableTableauLength_${room.id}" value="${room.cabling.tableau.length}" step="0.5" min="0" onchange="updateRoomCabling(${room.id})">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cabling-total" style="${room.cabling.internal.cost + room.cabling.tableau.cost > 0 ? '' : 'display: none;'}">
+                <strong>Total câblage ${room.name}:</strong> <span>${(room.cabling.internal.cost + room.cabling.tableau.cost).toFixed(2)}€</span> HTVA
+            </div>
+        </div>
+    `;
+}
+
+function updateRoomCabling(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    // Internal
+    const internalSelect = document.getElementById(`cableInternal_${roomId}`);
+    const internalLength = parseFloat(document.getElementById(`cableInternalLength_${roomId}`).value) || 0;
+    const [internalPrice, internalMo] = internalSelect.value.split(',').map(parseFloat);
+    
+    room.cabling.internal.type = internalSelect.value;
+    room.cabling.internal.length = internalLength;
+    room.cabling.internal.cost = internalLength * (internalPrice + internalMo);
+    
+    // Tableau
+    const tableauSelect = document.getElementById(`cableTableau_${roomId}`);
+    const tableauLength = parseFloat(document.getElementById(`cableTableauLength_${roomId}`).value) || 0;
+    const [tableauPrice, tableauMo] = tableauSelect.value.split(',').map(parseFloat);
+    
+    room.cabling.tableau.type = tableauSelect.value;
+    room.cabling.tableau.length = tableauLength;
+    room.cabling.tableau.cost = tableauLength * (tableauPrice + tableauMo);
+    
+    renderRooms();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function calculateRoomTotal(room) {
+    let total = 0;
+    room.articles.forEach(art => total += art.total);
+    total += room.cabling.internal.cost + room.cabling.tableau.cost;
+    return total;
+}
+
+function deleteRoom(roomId) {
+    if (!confirm('Supprimer cette pièce et tous ses articles ?')) return;
+    devisState.travaux.rooms = devisState.travaux.rooms.filter(r => r.id !== roomId);
+    renderRooms();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function deleteRoomArticle(roomId, articleId) {
+    if (!confirm('Supprimer cet article ?')) return;
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.articles = room.articles.filter(a => a.id !== articleId);
+        renderRooms();
+        saveToLocalStorage();
+        updateRecap();
+    }
+}
+
+// ============================================================================
+// PAGE TRAVAUX - HELPERS
+// ============================================================================
+
+// OLD FUNCTIONS REMOVED - Now integrated per room
+// initializeArticleSelect, calculateArticlePrice, addArticleToList, etc.
+// are all replaced by room-specific functions above
 
 function getInstallTypeLabel(type) {
     const labels = {
@@ -568,41 +659,6 @@ function getCircuitTypeLabel(type) {
         'nouvelle-ligne': '⚡ Nouvelle ligne'
     };
     return labels[type] || type;
-}
-
-// ============================================================================
-// PAGE TRAVAUX - CÂBLAGE
-// ============================================================================
-
-function calculateCabling() {
-    const internalType = document.getElementById('cableInternalType').value.split(',');
-    const internalLength = parseFloat(document.getElementById('cableInternalLength').value) || 0;
-    const internalPrice = parseFloat(internalType[0]);
-    const internalLabor = parseFloat(internalType[1]);
-    
-    const tableauType = document.getElementById('cableTableauType').value.split(',');
-    const tableauLength = parseFloat(document.getElementById('cableTableauLength').value) || 0;
-    const tableauPrice = parseFloat(tableauType[0]);
-    const tableauLabor = parseFloat(tableauType[1]);
-    
-    const internalCost = internalLength * (internalPrice + internalLabor);
-    const tableauCost = tableauLength * (tableauPrice + tableauLabor);
-    const totalCost = internalCost + tableauCost;
-    
-    devisState.travaux.cabling.internal.length = internalLength;
-    devisState.travaux.cabling.internal.cost = internalCost;
-    devisState.travaux.cabling.tableau.length = tableauLength;
-    devisState.travaux.cabling.tableau.cost = tableauCost;
-    
-    if (totalCost > 0) {
-        document.getElementById('cablingPrice').textContent = totalCost.toFixed(2) + '€';
-        document.getElementById('cablingTotal').style.display = 'block';
-    } else {
-        document.getElementById('cablingTotal').style.display = 'none';
-    }
-    
-    saveToLocalStorage();
-    updateRecap();
 }
 
 // ============================================================================
@@ -732,19 +788,22 @@ function updateRecap() {
     const container = document.getElementById('recapContent');
     if (!container) return;
     
-    // Calculer totaux
+    // Calculer totaux PAR PIÈCE
     let travauxTotal = 0;
+    let totalArticlesCount = 0;
+    
     devisState.travaux.rooms.forEach(room => {
+        totalArticlesCount += room.articles.length;
         room.articles.forEach(art => {
             travauxTotal += art.total;
         });
+        travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
     });
     
-    const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
     const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
     const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
     
-    const sousTotal = travauxTotal + cablingTotal + tableauTotal + adminTotal;
+    const sousTotal = travauxTotal + tableauTotal + adminTotal;
     const deplacement = devisState.global.deplacement;
     const totalHT = sousTotal + deplacement;
     const tva = totalHT * devisState.global.tva;
@@ -765,46 +824,51 @@ function updateRecap() {
         </div>
     `;
     
-    // Travaux par pièce
-    let totalArticlesCount = 0;
-    devisState.travaux.rooms.forEach(room => {
-        totalArticlesCount += room.articles.length;
-    });
-    
-    if (totalArticlesCount > 0) {
+    // Travaux PAR PIÈCE
+    if (totalArticlesCount > 0 || devisState.travaux.rooms.length > 0) {
         html += `<div class="recap-section">
-            <h3>🔨 TRAVAUX (${totalArticlesCount} articles)</h3>`;
+            <h3>🔨 TRAVAUX (${totalArticlesCount} articles, ${devisState.travaux.rooms.length} pièces)</h3>`;
         
         devisState.travaux.rooms.forEach(room => {
-            if (room.articles.length > 0) {
-                const roomTotal = room.articles.reduce((sum, art) => sum + art.total, 0);
-                
-                html += `<div style="background: #fff3e0; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ff9800;">
-                    <div style="font-weight: 700; color: #e65100; margin-bottom: 8px; font-size: 1.1em;">🏠 ${room.name}</div>`;
-                
-                room.articles.forEach(art => {
-                    html += `<div class="recap-line">
-                        <span style="padding-left: 15px;">${art.quantity}× ${art.name}</span>
-                        <span>${art.total.toFixed(2)}€</span>
-                    </div>`;
-                });
-                
-                html += `<div class="recap-line" style="font-weight: 700; border-top: 1px solid #ff9800; padding-top: 5px; margin-top: 5px;">
-                    <span style="padding-left: 15px;">Sous-total ${room.name}:</span>
+            const roomTotal = calculateRoomTotal(room);
+            
+            html += `<div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ff9800;">
+                <div style="font-weight: 700; color: #e65100; margin-bottom: 10px; font-size: 1.15em; display: flex; justify-content: space-between;">
+                    <span>🏠 ${room.name}</span>
                     <span>${roomTotal.toFixed(2)}€</span>
-                </div></div>`;
+                </div>
+                <div style="font-size: 0.9em; color: #e65100; margin-bottom: 8px;">
+                    ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)}
+                    ${room.rebouchage ? ` | Rebouchage (${devisState.global.rebouchage}€)` : ''}
+                </div>`;
+            
+            room.articles.forEach(art => {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>${art.quantity}× ${art.name}</span>
+                    <span>${art.total.toFixed(2)}€</span>
+                </div>`;
+            });
+            
+            if (room.cabling.internal.length > 0) {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>Câblage entre points (${room.cabling.internal.length}m)</span>
+                    <span>${room.cabling.internal.cost.toFixed(2)}€</span>
+                </div>`;
             }
+            
+            if (room.cabling.tableau.length > 0) {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>Câblage au tableau (${room.cabling.tableau.length}m)</span>
+                    <span>${room.cabling.tableau.cost.toFixed(2)}€</span>
+                </div>`;
+            }
+            
+            html += `</div>`;
         });
         
-        if (cablingTotal > 0) {
-            html += `<div class="recap-line">
-                <span>Câblage</span>
-                <span>${cablingTotal.toFixed(2)}€</span>
-            </div>`;
-        }
         html += `<div class="recap-line" style="font-weight: 700; border-top: 2px solid #1e3c72; padding-top: 10px; margin-top: 10px;">
             <span>Sous-total travaux:</span>
-            <span>${(travauxTotal + cablingTotal).toFixed(2)}€</span>
+            <span>${travauxTotal.toFixed(2)}€</span>
         </div></div>`;
     }
     
@@ -931,36 +995,76 @@ function generatePDF() {
     
     yPos += 12;
     
-    // Travaux
-    if (devisState.travaux.articles.length > 0) {
+    // Travaux PAR PIÈCE
+    let travauxTotal = 0;
+    let totalArticlesCount = 0;
+    
+    devisState.travaux.rooms.forEach(room => {
+        totalArticlesCount += room.articles.length;
+        room.articles.forEach(art => travauxTotal += art.total);
+        travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
+    });
+    
+    if (devisState.travaux.rooms.length > 0 && totalArticlesCount > 0) {
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
         doc.text('TRAVAUX', 15, yPos);
         yPos += 8;
         
-        // Tableau des articles
-        const tableData = devisState.travaux.articles.map(art => [
-            `${art.quantity}× ${art.name}`,
-            `${art.total.toFixed(2)}€`
-        ]);
-        
-        if (devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost > 0) {
-            tableData.push([
-                'Câblage',
-                `${(devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost).toFixed(2)}€`
-            ]);
-        }
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Description', 'Montant HTVA']],
-            body: tableData,
-            theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
-            margin: { left: 15, right: 15 }
+        // Pour chaque pièce
+        devisState.travaux.rooms.forEach(room => {
+            if (room.articles.length > 0 || room.cabling.internal.length > 0 || room.cabling.tableau.length > 0) {
+                // Nom de la pièce
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(230, 81, 0);
+                doc.text(`  ${room.name}`, 15, yPos);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                yPos += 6;
+                
+                const roomData = [];
+                
+                // Articles
+                room.articles.forEach(art => {
+                    roomData.push([
+                        `    ${art.quantity}× ${art.name}`,
+                        `${art.total.toFixed(2)}€`
+                    ]);
+                });
+                
+                // Câblage
+                if (room.cabling.internal.length > 0) {
+                    roomData.push([
+                        `    Câblage entre points (${room.cabling.internal.length}m)`,
+                        `${room.cabling.internal.cost.toFixed(2)}€`
+                    ]);
+                }
+                if (room.cabling.tableau.length > 0) {
+                    roomData.push([
+                        `    Câblage au tableau (${room.cabling.tableau.length}m)`,
+                        `${room.cabling.tableau.cost.toFixed(2)}€`
+                    ]);
+                }
+                
+                doc.autoTable({
+                    startY: yPos,
+                    head: [],
+                    body: roomData,
+                    theme: 'plain',
+                    styles: { fontSize: 10, cellPadding: 2 },
+                    columnStyles: {
+                        0: { cellWidth: 130 },
+                        1: { cellWidth: 50, halign: 'right' }
+                    },
+                    margin: { left: 15, right: 15 }
+                });
+                
+                yPos = doc.lastAutoTable.finalY + 2;
+            }
         });
         
-        yPos = doc.lastAutoTable.finalY + 8;
+        yPos += 2;
     }
     
     // Tableau électrique
@@ -1007,12 +1111,10 @@ function generatePDF() {
     }
     
     // Totaux
-    const travauxTotal = devisState.travaux.articles.reduce((sum, art) => sum + art.total, 0);
-    const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
     const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
     const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
     
-    const sousTotal = travauxTotal + cablingTotal + tableauTotal + adminTotal;
+    const sousTotal = travauxTotal + tableauTotal + adminTotal;
     const deplacement = devisState.global.deplacement;
     const totalHT = sousTotal + deplacement;
     const tva = totalHT * devisState.global.tva;
