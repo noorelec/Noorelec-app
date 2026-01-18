@@ -171,9 +171,34 @@
                         </div>
                     </div>
 
+                    <!-- GESTION DES PIÈCES -->
+                    <div class="section" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; margin-bottom: 20px;">
+                        <h3 style="color: #e65100; margin-bottom: 15px;">🏠 Gestion des pièces</h3>
+                        
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label><strong>Nom de la pièce</strong></label>
+                                <input type="text" id="roomName" placeholder="Ex: Salon, Cuisine, Chambre..." style="border: 2px solid #ff9800;">
+                            </div>
+                            <div class="form-group">
+                                <button class="btn btn-success" onclick="createRoom()" style="margin-top: 24px; width: 100%;">
+                                    ➕ Créer cette pièce
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="roomsList" style="margin-top: 15px;">
+                            <!-- Liste des pièces créées -->
+                        </div>
+
+                        <div id="currentRoomIndicator" style="display: none; background: #4caf50; color: white; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: center; font-weight: 700;">
+                            📍 Pièce active : <span id="currentRoomName"></span>
+                        </div>
+                    </div>
+
                     <!-- AJOUT D'ARTICLE -->
                     <div class="article-form">
-                        <h3>➕ Ajouter un article</h3>
+                        <h3>➕ Ajouter un article <span id="articleRoomIndicator" style="color: #ff9800;"></span></h3>
                         
                         <div class="form-grid">
                             <div class="form-group">
@@ -265,11 +290,11 @@
                         </div>
                     </div>
 
-                    <!-- LISTE DES ARTICLES -->
+                    <!-- LISTE DES ARTICLES PAR PIÈCE -->
                     <div class="articles-list">
-                        <h3>📋 Articles ajoutés (<span id="articleCount">0</span>)</h3>
+                        <h3>📋 Articles par pièce (<span id="articleCount">0</span> total)</h3>
                         <div id="articlesListContainer">
-                            <div class="empty-state">Aucun article ajouté</div>
+                            <div class="empty-state">Créez une pièce et ajoutez des articles</div>
                         </div>
                     </div>
 

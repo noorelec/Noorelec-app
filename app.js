@@ -24,8 +24,10 @@ const devisState = {
     },
     
     travaux: {
-        articles: [],
-        nextId: 1,
+        rooms: [],  // Liste des pièces avec leurs articles
+        currentRoomId: null,  // ID de la pièce active
+        nextRoomId: 1,
+        nextArticleId: 1,
         cabling: {
             internal: { length: 0, cost: 0 },
             tableau: { length: 0, cost: 0 }
@@ -193,6 +195,119 @@ function updateGlobalSettings() {
 }
 
 // ============================================================================
+// PAGE TRAVAUX - GESTION DES PIÈCES
+// ============================================================================
+
+function createRoom() {
+    const roomNameInput = document.getElementById('roomName');
+    const roomName = roomNameInput.value.trim();
+    
+    if (!roomName) {
+        alert('❌ Entrez un nom de pièce');
+        return;
+    }
+    
+    // Créer la pièce
+    const newRoom = {
+        id: devisState.travaux.nextRoomId++,
+        name: roomName,
+        articles: []
+    };
+    
+    devisState.travaux.rooms.push(newRoom);
+    devisState.travaux.currentRoomId = newRoom.id;
+    
+    // Reset input
+    roomNameInput.value = '';
+    
+    // Render et sauvegarder
+    renderRoomsList();
+    updateCurrentRoomIndicator();
+    renderArticlesList();
+    saveToLocalStorage();
+}
+
+function selectRoom(roomId) {
+    devisState.travaux.currentRoomId = roomId;
+    renderRoomsList();
+    updateCurrentRoomIndicator();
+    renderArticlesList();
+}
+
+function deleteRoom(roomId) {
+    if (!confirm('Supprimer cette pièce et tous ses articles ?')) return;
+    
+    const index = devisState.travaux.rooms.findIndex(r => r.id === roomId);
+    if (index > -1) {
+        devisState.travaux.rooms.splice(index, 1);
+    }
+    
+    // Si c'était la pièce active, reset
+    if (devisState.travaux.currentRoomId === roomId) {
+        devisState.travaux.currentRoomId = devisState.travaux.rooms.length > 0 ? devisState.travaux.rooms[0].id : null;
+    }
+    
+    renderRoomsList();
+    updateCurrentRoomIndicator();
+    renderArticlesList();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function renderRoomsList() {
+    const container = document.getElementById('roomsList');
+    if (!container) return;
+    
+    if (devisState.travaux.rooms.length === 0) {
+        container.innerHTML = '<div style="padding: 10px; text-align: center; color: #e65100; font-style: italic;">Aucune pièce créée</div>';
+        return;
+    }
+    
+    container.innerHTML = devisState.travaux.rooms.map(room => {
+        const isActive = room.id === devisState.travaux.currentRoomId;
+        const articleCount = room.articles.length;
+        
+        return `
+            <div style="display: flex; align-items: center; gap: 10px; padding: 12px; background: ${isActive ? '#4caf50' : 'white'}; border: 2px solid ${isActive ? '#2e7d32' : '#ff9800'}; border-radius: 8px; margin-bottom: 10px; cursor: pointer;" onclick="selectRoom(${room.id})">
+                <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 1.1em; color: ${isActive ? 'white' : '#e65100'};">
+                        ${isActive ? '📍' : '🏠'} ${room.name}
+                    </div>
+                    <div style="font-size: 0.9em; color: ${isActive ? 'rgba(255,255,255,0.9)' : '#666'};">
+                        ${articleCount} article${articleCount > 1 ? 's' : ''}
+                    </div>
+                </div>
+                <button onclick="event.stopPropagation(); deleteRoom(${room.id})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-weight: 700;">🗑️</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function updateCurrentRoomIndicator() {
+    const indicator = document.getElementById('currentRoomIndicator');
+    const roomNameSpan = document.getElementById('currentRoomName');
+    const articleIndicator = document.getElementById('articleRoomIndicator');
+    
+    if (!indicator || !roomNameSpan) return;
+    
+    if (devisState.travaux.currentRoomId) {
+        const currentRoom = devisState.travaux.rooms.find(r => r.id === devisState.travaux.currentRoomId);
+        if (currentRoom) {
+            indicator.style.display = 'block';
+            roomNameSpan.textContent = currentRoom.name;
+            if (articleIndicator) {
+                articleIndicator.textContent = `(pour ${currentRoom.name})`;
+            }
+        }
+    } else {
+        indicator.style.display = 'none';
+        if (articleIndicator) {
+            articleIndicator.textContent = '';
+        }
+    }
+}
+
+// ============================================================================
 // PAGE TRAVAUX - ARTICLES
 // ============================================================================
 
@@ -291,9 +406,15 @@ function calculateArticlePrice() {
 }
 
 function addArticleToList() {
+    // Vérifier qu'une pièce est active
+    if (!devisState.travaux.currentRoomId) {
+        alert('❌ Créez d\'abord une pièce avant d\'ajouter des articles');
+        return;
+    }
+    
     const articleId = parseInt(document.getElementById('newArticleSelect').value);
     if (!articleId) {
-        alert('Sélectionnez un article et calculez le prix d\'abord');
+        alert('❌ Sélectionnez un article et calculez le prix d\'abord');
         return;
     }
     
@@ -317,9 +438,16 @@ function addArticleToList() {
     
     const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
     
-    // Ajouter à l'état
-    devisState.travaux.articles.push({
-        id: devisState.travaux.nextId++,
+    // Trouver la pièce active
+    const currentRoom = devisState.travaux.rooms.find(r => r.id === devisState.travaux.currentRoomId);
+    if (!currentRoom) {
+        alert('❌ Erreur: pièce non trouvée');
+        return;
+    }
+    
+    // Ajouter l'article à la pièce active
+    currentRoom.articles.push({
+        id: devisState.travaux.nextArticleId++,
         articleId: articleId,
         name: article.name,
         quantity: quantity,
@@ -348,42 +476,78 @@ function addArticleToList() {
 function renderArticlesList() {
     const container = document.getElementById('articlesListContainer');
     
-    if (devisState.travaux.articles.length === 0) {
-        container.innerHTML = '<div class="empty-state">Aucun article ajouté</div>';
-        document.getElementById('articleCount').textContent = '0';
+    // Compter le total d'articles
+    let totalArticles = 0;
+    devisState.travaux.rooms.forEach(room => {
+        totalArticles += room.articles.length;
+    });
+    
+    document.getElementById('articleCount').textContent = totalArticles;
+    
+    if (devisState.travaux.rooms.length === 0) {
+        container.innerHTML = '<div class="empty-state">Créez une pièce et ajoutez des articles</div>';
         return;
     }
     
-    document.getElementById('articleCount').textContent = devisState.travaux.articles.length;
+    // Afficher les articles groupés par pièce
+    let html = '';
     
-    container.innerHTML = devisState.travaux.articles.map(art => `
-        <div class="article-card">
-            <div class="article-header">
-                <div>
-                    <div class="article-title">${art.quantity}× ${art.name}</div>
-                    <div class="article-details">
-                        ${getInstallTypeLabel(art.installType)} | ${getCircuitTypeLabel(art.circuitType)}
-                        ${art.rebouchage ? ' | Rebouchage inclus' : ''}
-                    </div>
+    devisState.travaux.rooms.forEach(room => {
+        const roomTotal = room.articles.reduce((sum, art) => sum + art.total, 0);
+        
+        html += `
+            <div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #ff9800;">
+                    <h4 style="color: #e65100; margin: 0; font-size: 1.3em;">🏠 ${room.name}</h4>
+                    <div style="color: #e65100; font-weight: 700; font-size: 1.2em;">${roomTotal.toFixed(2)}€ HTVA</div>
                 </div>
-                <button class="btn-delete" onclick="deleteArticle(${art.id})">🗑️</button>
-            </div>
-            <div class="article-pricing">
-                <div>Matériel: ${art.materiel.toFixed(2)}€</div>
-                <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
-                ${art.rebouchage ? `<div>Rebouchage: 20€</div>` : ''}
-            </div>
-            <div class="article-total">
-                TOTAL: ${art.total.toFixed(2)}€ HTVA
-            </div>
-        </div>
-    `).join('');
+        `;
+        
+        if (room.articles.length === 0) {
+            html += '<div style="text-align: center; padding: 20px; color: #e65100; font-style: italic;">Aucun article dans cette pièce</div>';
+        } else {
+            room.articles.forEach(art => {
+                html += `
+                    <div class="article-card" style="margin-bottom: 10px;">
+                        <div class="article-header">
+                            <div>
+                                <div class="article-title">${art.quantity}× ${art.name}</div>
+                                <div class="article-details">
+                                    ${getInstallTypeLabel(art.installType)} | ${getCircuitTypeLabel(art.circuitType)}
+                                    ${art.rebouchage ? ' | Rebouchage inclus' : ''}
+                                </div>
+                            </div>
+                            <button class="btn-delete" onclick="deleteArticle(${room.id}, ${art.id})">🗑️</button>
+                        </div>
+                        <div class="article-pricing">
+                            <div>Matériel: ${art.materiel.toFixed(2)}€</div>
+                            <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
+                            ${art.rebouchage ? `<div>Rebouchage: 20€</div>` : ''}
+                        </div>
+                        <div class="article-total">
+                            TOTAL: ${art.total.toFixed(2)}€ HTVA
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        html += '</div>';
+    });
+    
+    container.innerHTML = html;
 }
 
-function deleteArticle(id) {
+function deleteArticle(roomId, articleId) {
     if (!confirm('Supprimer cet article ?')) return;
-    devisState.travaux.articles = devisState.travaux.articles.filter(a => a.id !== id);
+    
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.articles = room.articles.filter(a => a.id !== articleId);
+    }
+    
     renderArticlesList();
+    renderRoomsList();
     saveToLocalStorage();
     updateRecap();
 }
@@ -569,7 +733,13 @@ function updateRecap() {
     if (!container) return;
     
     // Calculer totaux
-    const travauxTotal = devisState.travaux.articles.reduce((sum, art) => sum + art.total, 0);
+    let travauxTotal = 0;
+    devisState.travaux.rooms.forEach(room => {
+        room.articles.forEach(art => {
+            travauxTotal += art.total;
+        });
+    });
+    
     const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
     const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
     const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
@@ -595,16 +765,37 @@ function updateRecap() {
         </div>
     `;
     
-    // Travaux
-    if (devisState.travaux.articles.length > 0) {
+    // Travaux par pièce
+    let totalArticlesCount = 0;
+    devisState.travaux.rooms.forEach(room => {
+        totalArticlesCount += room.articles.length;
+    });
+    
+    if (totalArticlesCount > 0) {
         html += `<div class="recap-section">
-            <h3>🔨 TRAVAUX (${devisState.travaux.articles.length} articles)</h3>`;
-        devisState.travaux.articles.forEach(art => {
-            html += `<div class="recap-line">
-                <span>${art.quantity}× ${art.name}</span>
-                <span>${art.total.toFixed(2)}€</span>
-            </div>`;
+            <h3>🔨 TRAVAUX (${totalArticlesCount} articles)</h3>`;
+        
+        devisState.travaux.rooms.forEach(room => {
+            if (room.articles.length > 0) {
+                const roomTotal = room.articles.reduce((sum, art) => sum + art.total, 0);
+                
+                html += `<div style="background: #fff3e0; padding: 10px; border-radius: 6px; margin-bottom: 10px; border-left: 4px solid #ff9800;">
+                    <div style="font-weight: 700; color: #e65100; margin-bottom: 8px; font-size: 1.1em;">🏠 ${room.name}</div>`;
+                
+                room.articles.forEach(art => {
+                    html += `<div class="recap-line">
+                        <span style="padding-left: 15px;">${art.quantity}× ${art.name}</span>
+                        <span>${art.total.toFixed(2)}€</span>
+                    </div>`;
+                });
+                
+                html += `<div class="recap-line" style="font-weight: 700; border-top: 1px solid #ff9800; padding-top: 5px; margin-top: 5px;">
+                    <span style="padding-left: 15px;">Sous-total ${room.name}:</span>
+                    <span>${roomTotal.toFixed(2)}€</span>
+                </div></div>`;
+            }
         });
+        
         if (cablingTotal > 0) {
             html += `<div class="recap-line">
                 <span>Câblage</span>
