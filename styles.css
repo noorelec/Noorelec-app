@@ -572,6 +572,20 @@ body {
     margin-bottom: 15px;
 }
 
+.cable-subsection select,
+.cable-subsection input {
+    max-width: 100%;
+    word-wrap: break-word;
+}
+
+.cable-subsection .form-grid {
+    width: 100%;
+}
+
+.cable-subsection .form-group {
+    width: 100%;
+}
+
 .cable-subsection.highlight {
     background: #fff3cd;
     border-color: var(--warning);

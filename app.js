@@ -246,6 +246,7 @@ function createRoom() {
         circuitType: 'existant',  // Circuit pour cette pièce
         rebouchage: false,  // Rebouchage activé pour cette pièce
         rebouchagePrice: 20,  // Prix rebouchage pour cette pièce (modifiable)
+        collapsed: false,  // État accordéon (ouvert par défaut)
         cabling: {
             internal: { type: '2.45,2.8', length: 0, cost: 0 },  // Entre points
             tableau: { type: '5.25,3.8', length: 0, cost: 0 }    // Jusqu'au tableau
@@ -259,6 +260,15 @@ function createRoom() {
     saveToLocalStorage();
 }
 
+function toggleRoomCollapse(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.collapsed = !room.collapsed;
+        renderRooms();
+        saveToLocalStorage();
+    }
+}
+
 function renderRooms() {
     const container = document.getElementById('roomsContainer');
     
@@ -269,17 +279,24 @@ function renderRooms() {
     
     container.innerHTML = devisState.travaux.rooms.map(room => {
         const roomTotal = calculateRoomTotal(room);
+        const collapseIcon = room.collapsed ? '▶' : '▼';
         
         return `
             <div class="section" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; margin-bottom: 25px;">
-                <!-- En-tête pièce -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid #ff9800;">
-                    <h3 style="color: #e65100; margin: 0; font-size: 1.5em;">🏠 ${room.name}</h3>
+                <!-- En-tête pièce CLIQUABLE -->
+                <div onclick="toggleRoomCollapse(${room.id})" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 15px; border-bottom: 3px solid #ff9800; cursor: pointer; user-select: none;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: #e65100; font-size: 1.5em; font-weight: 700;">${collapseIcon}</span>
+                        <h3 style="color: #e65100; margin: 0; font-size: 1.5em;">🏠 ${room.name}</h3>
+                    </div>
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="color: #e65100; font-weight: 700; font-size: 1.3em;">${roomTotal.toFixed(2)}€ HTVA</div>
-                        <button class="btn-delete" onclick="deleteRoom(${room.id})" style="padding: 10px 15px; font-size: 1.1em;">🗑️ Supprimer pièce</button>
+                        <button class="btn-delete" onclick="event.stopPropagation(); deleteRoom(${room.id})" style="padding: 10px 15px; font-size: 1.1em;">🗑️</button>
                     </div>
                 </div>
+                
+                <!-- CONTENU (masqué si collapsed) -->
+                <div style="display: ${room.collapsed ? 'none' : 'block'}; margin-top: 20px;">
                 
                 <!-- Formulaire ajout article -->
                 <div class="article-form" style="background: white;">
@@ -385,6 +402,9 @@ function renderRooms() {
                 <!-- Câblage -->
                 ${renderRoomCabling(room)}
                 
+                </div>
+                <!-- FIN CONTENU COLLAPSIBLE -->
+                
             </div>
         `;
     }).join('');
@@ -413,7 +433,7 @@ function updateRoomInstallType(roomId, type) {
     if (room) {
         room.installType = type;
         saveToLocalStorage();
-        updateRoomPreview(roomId);
+        // Ne PAS re-render pour éviter de perdre la sélection
     }
 }
 
@@ -422,7 +442,7 @@ function updateRoomCircuitType(roomId, type) {
     if (room) {
         room.circuitType = type;
         saveToLocalStorage();
-        updateRoomPreview(roomId);
+        // Ne PAS re-render pour éviter de perdre la sélection
     }
 }
 
@@ -431,7 +451,7 @@ function updateRoomRebouchage(roomId) {
     if (room) {
         room.rebouchage = document.getElementById(`rebouchage_${roomId}`).checked;
         saveToLocalStorage();
-        updateRoomPreview(roomId);
+        // Ne PAS re-render pour éviter de perdre la sélection
     }
 }
 
@@ -440,8 +460,7 @@ function updateRoomRebouchagePrice(roomId) {
     if (room) {
         room.rebouchagePrice = parseFloat(document.getElementById(`rebouchagePrice_${roomId}`).value) || 20;
         saveToLocalStorage();
-        updateRoomPreview(roomId);
-        renderRooms(); // Re-render pour mettre à jour les articles existants
+        // Seulement mettre à jour le recap, pas tout re-render
         updateRecap();
     }
 }
