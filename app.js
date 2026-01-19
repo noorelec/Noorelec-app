@@ -1297,7 +1297,7 @@ function generatePDF() {
     doc.text(`Fait le ${dateStr}`, 195, 20, { align: 'right' });
     doc.text(`à ${devisState.client.commune || '____'}`, 195, 26, { align: 'right' });
     
-    // Informations client en haut à gauche (sous le logo)
+    // Informations client
     let yPos = 45;
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
@@ -1333,104 +1333,151 @@ function generatePDF() {
     
     yPos += 12;
     
-    // Travaux PAR PIÈCE
-    let travauxTotal = 0;
-    let totalArticlesCount = 0;
+    // ============================================================================
+    // CALCUL DES TOTAUX
+    // ============================================================================
     
+    let travauxTotal = 0;
     devisState.travaux.rooms.forEach(room => {
-        totalArticlesCount += room.articles.length;
         room.articles.forEach(art => travauxTotal += art.total);
         travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
     });
     
-    if (devisState.travaux.rooms.length > 0 && totalArticlesCount > 0) {
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text('TRAVAUX', 15, yPos);
-        yPos += 8;
+    let tableauTotal = 0;
+    if (devisState.tableau.enabled) {
+        devisState.tableau.tableaux.forEach(tableau => {
+            tableauTotal += calculateTableauTotal(tableau);
+        });
+    }
+    
+    const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
+    const sousTotal = travauxTotal + tableauTotal + adminTotal;
+    const deplacement = devisState.global.deplacement;
+    
+    let ristourneMontant = 0;
+    if (devisState.ristourne.enabled) {
+        ristourneMontant = (sousTotal + deplacement) * (devisState.ristourne.pourcent / 100);
+    }
+    
+    const totalHT = sousTotal + deplacement - ristourneMontant;
+    const tva = totalHT * devisState.global.tva;
+    const totalTTC = totalHT + tva;
+    
+    // ============================================================================
+    // SECTION TRAVAUX
+    // ============================================================================
+    
+    if (devisState.travaux.rooms.length > 0) {
+        const travauxData = [];
         
-        // Pour chaque pièce
         devisState.travaux.rooms.forEach(room => {
             if (room.articles.length > 0 || room.cabling.internal.length > 0 || room.cabling.tableau.length > 0) {
-                // Nom de la pièce
-                doc.setFontSize(11);
-                doc.setFont(undefined, 'bold');
-                doc.setTextColor(230, 81, 0);
-                doc.text(`  ${room.name}`, 15, yPos);
-                doc.setFont(undefined, 'normal');
-                doc.setTextColor(0, 0, 0);
-                yPos += 6;
-                
-                const roomData = [];
+                // Sous-titre pièce
+                travauxData.push([
+                    { content: room.name, styles: { fontStyle: 'bold', textColor: [230, 81, 0] } },
+                    ''
+                ]);
                 
                 // Articles
                 room.articles.forEach(art => {
-                    roomData.push([
-                        `    ${art.quantity}× ${art.name}`,
+                    travauxData.push([
+                        `  ${art.quantity}× ${art.name}`,
                         `${art.total.toFixed(2)}€`
                     ]);
                 });
                 
                 // Câblage
                 if (room.cabling.internal.length > 0) {
-                    roomData.push([
-                        `    Câblage entre points (${room.cabling.internal.length}m)`,
+                    travauxData.push([
+                        `  Câblage entre points (${room.cabling.internal.length}m)`,
                         `${room.cabling.internal.cost.toFixed(2)}€`
                     ]);
                 }
                 if (room.cabling.tableau.length > 0) {
-                    roomData.push([
-                        `    Câblage au tableau (${room.cabling.tableau.length}m)`,
+                    travauxData.push([
+                        `  Câblage au tableau (${room.cabling.tableau.length}m)`,
                         `${room.cabling.tableau.cost.toFixed(2)}€`
                     ]);
                 }
-                
-                doc.autoTable({
-                    startY: yPos,
-                    head: [],
-                    body: roomData,
-                    theme: 'plain',
-                    styles: { fontSize: 10, cellPadding: 2 },
-                    columnStyles: {
-                        0: { cellWidth: 130 },
-                        1: { cellWidth: 50, halign: 'right' }
-                    },
-                    margin: { left: 15, right: 15 }
-                });
-                
-                yPos = doc.lastAutoTable.finalY + 2;
             }
         });
         
-        yPos += 2;
+        if (travauxData.length > 0) {
+            doc.autoTable({
+                startY: yPos,
+                head: [['TRAVAUX', 'Montant HTVA']],
+                body: travauxData,
+                theme: 'striped',
+                headStyles: { fillColor: [30, 60, 114], fontSize: 12, fontStyle: 'bold' },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 130 },
+                    1: { cellWidth: 50, halign: 'right' }
+                },
+                margin: { left: 15, right: 15 }
+            });
+            
+            yPos = doc.lastAutoTable.finalY + 8;
+        }
     }
     
-    // Tableau électrique
-    if (devisState.tableau.enabled && devisState.tableau.total > 0) {
-        doc.setFontSize(12);
-        doc.text('TABLEAU ELECTRIQUE', 15, yPos);
-        yPos += 8;
+    // ============================================================================
+    // SECTION TABLEAU ÉLECTRIQUE
+    // ============================================================================
+    
+    if (devisState.tableau.enabled && devisState.tableau.tableaux.length > 0) {
+        const tableauData = [];
         
-        const tableauData = [['Configuration tableau', `${devisState.tableau.total.toFixed(2)}€`]];
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Description', 'Montant HTVA']],
-            body: tableauData,
-            theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
-            margin: { left: 15, right: 15 }
+        devisState.tableau.tableaux.forEach(tableau => {
+            // Sous-titre tableau
+            tableauData.push([
+                { content: tableau.name, styles: { fontStyle: 'bold', textColor: [21, 101, 192] } },
+                ''
+            ]);
+            
+            // Coffret
+            if (tableau.coffret) {
+                const coffretMO = tableau.coffret.temps * devisState.global.tarif;
+                const coffretTotal = tableau.coffret.price + coffretMO;
+                tableauData.push([
+                    '  Coffret',
+                    `${coffretTotal.toFixed(2)}€`
+                ]);
+            }
+            
+            // Composants
+            tableau.composants.forEach(comp => {
+                tableauData.push([
+                    `  ${comp.quantity}× ${comp.name}`,
+                    `${comp.total.toFixed(2)}€`
+                ]);
+            });
         });
         
-        yPos = doc.lastAutoTable.finalY + 8;
+        if (tableauData.length > 0) {
+            doc.autoTable({
+                startY: yPos,
+                head: [['TABLEAU ELECTRIQUE', 'Montant HTVA']],
+                body: tableauData,
+                theme: 'striped',
+                headStyles: { fillColor: [30, 60, 114], fontSize: 12, fontStyle: 'bold' },
+                styles: { fontSize: 10 },
+                columnStyles: {
+                    0: { cellWidth: 130 },
+                    1: { cellWidth: 50, halign: 'right' }
+                },
+                margin: { left: 15, right: 15 }
+            });
+            
+            yPos = doc.lastAutoTable.finalY + 8;
+        }
     }
     
-    // Services administratifs
+    // ============================================================================
+    // SECTION SERVICES ADMINISTRATIFS
+    // ============================================================================
+    
     if (devisState.administratif.services.length > 0) {
-        doc.setFontSize(12);
-        doc.text('SERVICES ADMINISTRATIFS', 15, yPos);
-        yPos += 8;
-        
         const adminData = devisState.administratif.services.map(s => [
             s.name + (s.hours ? ` (${s.hours}h)` : ''),
             `${s.price.toFixed(2)}€`
@@ -1438,30 +1485,28 @@ function generatePDF() {
         
         doc.autoTable({
             startY: yPos,
-            head: [['Description', 'Montant HTVA']],
+            head: [['SERVICES ADMINISTRATIFS', 'Montant HTVA']],
             body: adminData,
             theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
+            headStyles: { fillColor: [30, 60, 114], fontSize: 12, fontStyle: 'bold' },
+            styles: { fontSize: 10 },
+            columnStyles: {
+                0: { cellWidth: 130 },
+                1: { cellWidth: 50, halign: 'right' }
+            },
             margin: { left: 15, right: 15 }
         });
         
         yPos = doc.lastAutoTable.finalY + 8;
     }
     
-    // Totaux
-    const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
-    const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
+    // ============================================================================
+    // TOTAUX
+    // ============================================================================
     
-    const sousTotal = travauxTotal + tableauTotal + adminTotal;
-    const deplacement = devisState.global.deplacement;
-    const totalHT = sousTotal + deplacement;
-    const tva = totalHT * devisState.global.tva;
-    const totalTTC = totalHT + tva;
-    
-    // Cadre totaux
     yPos += 5;
     doc.setFillColor(30, 60, 114);
-    doc.rect(15, yPos, 180, 40, 'F');
+    doc.rect(15, yPos, 180, devisState.ristourne.enabled ? 50 : 40, 'F');
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
@@ -1474,6 +1519,19 @@ function generatePDF() {
     if (deplacement > 0) {
         doc.text('Déplacement:', 20, yPos);
         doc.text(`${deplacement.toFixed(2)}€`, 190, yPos, { align: 'right' });
+        yPos += 6;
+    }
+    
+    // Ristourne
+    if (devisState.ristourne.enabled && ristourneMontant > 0) {
+        const delaiText = devisState.ristourne.delai < 2 ? `${devisState.ristourne.delai * 24}h` : 
+                         devisState.ristourne.delai < 7 ? `${devisState.ristourne.delai}j` : 
+                         `${Math.floor(devisState.ristourne.delai / 7)} semaine${devisState.ristourne.delai / 7 > 1 ? 's' : ''}`;
+        
+        doc.setTextColor(144, 238, 144); // Vert clair pour la ristourne
+        doc.text(`Ristourne ${devisState.ristourne.pourcent}% (valable ${delaiText}):`, 20, yPos);
+        doc.text(`-${ristourneMontant.toFixed(2)}€`, 190, yPos, { align: 'right' });
+        doc.setTextColor(255, 255, 255);
         yPos += 6;
     }
     
@@ -1491,7 +1549,7 @@ function generatePDF() {
     doc.text(`${totalTTC.toFixed(2)}€`, 190, yPos, { align: 'right' });
     
     // Sauvegarder
-    const filename = `Devis_${devisState.client.name.replace(/ /g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
+    const filename = `Devis_${(devisState.client.name || 'Client').replace(/ /g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
     doc.save(filename);
 }
 
