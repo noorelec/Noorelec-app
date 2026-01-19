@@ -779,7 +779,10 @@ function renderTableaux() {
         return `
             <div class="section" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 3px solid #2196f3; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: #1565c0; margin: 0;">⚡ ${tableau.name}</h3>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.5em;">⚡</span>
+                        <input type="text" id="tableauName_${tableau.id}" value="${tableau.name}" onchange="updateTableauName(${tableau.id})" style="color: #1565c0; font-size: 1.2em; font-weight: 700; border: 2px solid #2196f3; border-radius: 6px; padding: 5px 10px; background: white; max-width: 250px;">
+                    </div>
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="color: #1565c0; font-weight: 700; font-size: 1.2em;">${tableauTotal.toFixed(2)}€ HTVA</div>
                         <button class="btn-delete" onclick="deleteTableau(${tableau.id})">🗑️ Supprimer</button>
@@ -1028,6 +1031,21 @@ function deleteTableau(tableauId) {
     renderTableaux();
     saveToLocalStorage();
     updateRecap();
+}
+
+function updateTableauName(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (tableau) {
+        const newName = document.getElementById(`tableauName_${tableauId}`).value.trim();
+        if (newName) {
+            tableau.name = newName;
+            saveToLocalStorage();
+            updateRecap();
+        } else {
+            // Si vide, remettre l'ancien nom
+            document.getElementById(`tableauName_${tableauId}`).value = tableau.name;
+        }
+    }
 }
 
 // ============================================================================
@@ -1520,12 +1538,17 @@ function generatePDF() {
     }
     
     // ============================================================================
-    // TOTAUX
+    // TOTAUX (SANS RISTOURNE)
     // ============================================================================
+    
+    // Calculer SANS ristourne pour l'affichage principal
+    const totalHTsansRistourne = sousTotal + deplacement;
+    const tvaSansRistourne = totalHTsansRistourne * devisState.global.tva;
+    const totalTTCsansRistourne = totalHTsansRistourne + tvaSansRistourne;
     
     yPos += 5;
     doc.setFillColor(30, 60, 114);
-    doc.rect(15, yPos, 180, devisState.ristourne.enabled ? 50 : 40, 'F');
+    doc.rect(15, yPos, 180, 40, 'F');
     
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
@@ -1541,31 +1564,60 @@ function generatePDF() {
         yPos += 6;
     }
     
-    // Ristourne
-    if (devisState.ristourne.enabled && ristourneMontant > 0) {
-        const delaiText = devisState.ristourne.delai < 2 ? `${devisState.ristourne.delai * 24}h` : 
-                         devisState.ristourne.delai < 7 ? `${devisState.ristourne.delai}j` : 
-                         `${Math.floor(devisState.ristourne.delai / 7)} semaine${devisState.ristourne.delai / 7 > 1 ? 's' : ''}`;
-        
-        doc.setTextColor(144, 238, 144); // Vert clair pour la ristourne
-        doc.text(`Ristourne ${devisState.ristourne.pourcent}% (valable ${delaiText}):`, 20, yPos);
-        doc.text(`-${ristourneMontant.toFixed(2)}€`, 190, yPos, { align: 'right' });
-        doc.setTextColor(255, 255, 255);
-        yPos += 6;
-    }
-    
     doc.text('TOTAL HT:', 20, yPos);
-    doc.text(`${totalHT.toFixed(2)}€`, 190, yPos, { align: 'right' });
+    doc.text(`${totalHTsansRistourne.toFixed(2)}€`, 190, yPos, { align: 'right' });
     yPos += 6;
     
     doc.text(`TVA (${(devisState.global.tva * 100).toFixed(0)}%):`, 20, yPos);
-    doc.text(`${tva.toFixed(2)}€`, 190, yPos, { align: 'right' });
+    doc.text(`${tvaSansRistourne.toFixed(2)}€`, 190, yPos, { align: 'right' });
     yPos += 8;
     
     doc.setFontSize(14);
     doc.setFont(undefined, 'bold');
     doc.text('TOTAL TTC:', 20, yPos);
-    doc.text(`${totalTTC.toFixed(2)}€`, 190, yPos, { align: 'right' });
+    doc.text(`${totalTTCsansRistourne.toFixed(2)}€`, 190, yPos, { align: 'right' });
+    
+    // ============================================================================
+    // TEXTE RISTOURNE (SI ACTIVÉE)
+    // ============================================================================
+    
+    if (devisState.ristourne.enabled && ristourneMontant > 0) {
+        yPos += 15;
+        
+        // Calculer prix avec ristourne
+        const totalHTavecRistourne = totalHTsansRistourne - ristourneMontant;
+        const tvaAvecRistourne = totalHTavecRistourne * devisState.global.tva;
+        const totalTTCavecRistourne = totalHTavecRistourne + tvaAvecRistourne;
+        
+        // Format délai
+        const delaiText = devisState.ristourne.delai < 2 ? `${devisState.ristourne.delai * 24}h` : 
+                         devisState.ristourne.delai < 7 ? `${devisState.ristourne.delai}j` : 
+                         `${Math.floor(devisState.ristourne.delai / 7)} semaine${devisState.ristourne.delai / 7 > 1 ? 's' : ''}`;
+        
+        // Cadre jaune pour la ristourne
+        doc.setFillColor(255, 243, 205);
+        doc.setDrawColor(255, 193, 7);
+        doc.setLineWidth(2);
+        doc.rect(15, yPos, 180, 35, 'FD');
+        
+        yPos += 8;
+        doc.setTextColor(133, 100, 4); // Marron foncé
+        doc.setFontSize(12);
+        doc.setFont(undefined, 'bold');
+        doc.text('💰 OFFRE SPÉCIALE', 20, yPos);
+        
+        yPos += 6;
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Si ce devis est accepté dans les ${delaiText},`, 20, yPos);
+        
+        yPos += 5;
+        doc.text(`une ristourne de ${devisState.ristourne.pourcent}% sera appliquée,`, 20, yPos);
+        
+        yPos += 5;
+        doc.setFont(undefined, 'bold');
+        doc.text(`soit un montant final de ${totalTTCavecRistourne.toFixed(2)}€ TTC.`, 20, yPos);
+    }
     
     // Sauvegarder
     const filename = `Devis_${(devisState.client.name || 'Client').replace(/ /g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
