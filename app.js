@@ -20,8 +20,7 @@ const devisState = {
     global: {
         tarif: 50,
         tva: 0.06,
-        deplacement: 25,
-        rebouchage: 20  // Prix forfait rebouchage modifiable
+        deplacement: 25
     },
     
     travaux: {
@@ -185,7 +184,6 @@ function updateGlobalSettings() {
     devisState.global.tarif = parseFloat(document.getElementById('globalTarif').value);
     devisState.global.tva = parseFloat(document.getElementById('globalTVA').value);
     devisState.global.deplacement = parseFloat(document.getElementById('globalDeplacement').value);
-    devisState.global.rebouchage = parseFloat(document.getElementById('globalRebouchage').value) || 20;
     saveToLocalStorage();
     updateRecap();
 }
@@ -210,6 +208,7 @@ function createRoom() {
         installType: 'apparent',  // Type installation pour cette pièce
         circuitType: 'existant',  // Circuit pour cette pièce
         rebouchage: false,  // Rebouchage activé pour cette pièce
+        rebouchagePrice: 20,  // Prix rebouchage pour cette pièce (modifiable)
         cabling: {
             internal: { type: '2.45,2.8', length: 0, cost: 0 },  // Entre points
             tableau: { type: '5.25,3.8', length: 0, cost: 0 }    // Jusqu'au tableau
@@ -324,7 +323,11 @@ function renderRooms() {
                         <input type="checkbox" id="rebouchage_${room.id}" ${room.rebouchage ? 'checked' : ''} onchange="updateRoomRebouchage(${room.id})">
                         <div class="checkbox-content">
                             <div class="checkbox-title">Rebouchage et finition</div>
-                            <div class="checkbox-subtitle">+${devisState.global.rebouchage}€ forfait</div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                                <span>Prix:</span>
+                                <input type="number" id="rebouchagePrice_${room.id}" value="${room.rebouchagePrice || 20}" min="0" step="1" onchange="updateRoomRebouchagePrice(${room.id})" style="width: 80px; padding: 6px; border: 2px solid #dee2e6; border-radius: 6px; font-weight: 700;">
+                                <span>€</span>
+                            </div>
                         </div>
                     </label>
                     
@@ -395,6 +398,17 @@ function updateRoomRebouchage(roomId) {
     }
 }
 
+function updateRoomRebouchagePrice(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.rebouchagePrice = parseFloat(document.getElementById(`rebouchagePrice_${roomId}`).value) || 20;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+        renderRooms(); // Re-render pour mettre à jour les articles existants
+        updateRecap();
+    }
+}
+
 function updateRoomPreview(roomId) {
     const preview = document.getElementById(`preview_${roomId}`);
     if (preview) preview.style.display = 'none';
@@ -418,7 +432,7 @@ function calculateRoomArticle(roomId) {
     tempsTotal *= FACTEURS.installation[room.installType];
     tempsTotal *= FACTEURS.circuit[room.circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = room.rebouchage ? devisState.global.rebouchage : 0;
+    const rebouchageTotal = room.rebouchage ? (room.rebouchagePrice || 20) : 0;
     
     let prixUnitaireHT = article.price + (moTotal / quantity);
     if (quantity >= 10) prixUnitaireHT *= 0.75;
@@ -437,7 +451,7 @@ function calculateRoomArticle(roomId) {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
             <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
             <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
-            ${room.rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${devisState.global.rebouchage}€</div>` : ''}
+            ${room.rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
         </div>
@@ -468,7 +482,7 @@ function addArticleToRoom(roomId) {
     tempsTotal *= FACTEURS.installation[room.installType];
     tempsTotal *= FACTEURS.circuit[room.circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = room.rebouchage ? devisState.global.rebouchage : 0;
+    const rebouchageTotal = room.rebouchage ? (room.rebouchagePrice || 20) : 0;
     
     let prixUnitaireHT = article.price + (moTotal / quantity);
     if (quantity >= 10) prixUnitaireHT *= 0.75;
@@ -521,7 +535,7 @@ function renderRoomArticles(room) {
                 <div class="article-pricing">
                     <div>Matériel: ${art.materiel.toFixed(2)}€</div>
                     <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
-                    ${room.rebouchage ? `<div>Rebouchage: ${devisState.global.rebouchage}€</div>` : ''}
+                    ${room.rebouchage ? `<div>Rebouchage: ${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
                 </div>
                 <div class="article-total">TOTAL: ${art.total.toFixed(2)}€ HTVA</div>
             </div>
@@ -839,7 +853,7 @@ function updateRecap() {
                 </div>
                 <div style="font-size: 0.9em; color: #e65100; margin-bottom: 8px;">
                     ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)}
-                    ${room.rebouchage ? ` | Rebouchage (${devisState.global.rebouchage}€)` : ''}
+                    ${room.rebouchage ? ` | Rebouchage (${(room.rebouchagePrice || 20).toFixed(2)}€)` : ''}
                 </div>`;
             
             room.articles.forEach(art => {
