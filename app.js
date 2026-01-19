@@ -30,12 +30,18 @@ const devisState = {
     
     tableau: {
         enabled: false,
-        items: [],
-        total: 0
+        tableaux: [],  // Liste de tableaux (principal + intermédiaires)
+        nextTableauId: 1
     },
     
     administratif: {
         services: []
+    },
+    
+    ristourne: {
+        enabled: false,
+        pourcent: 10,
+        delai: 30
     }
 };
 
@@ -59,6 +65,37 @@ const CATALOGUE = [
     { id: 13, name: "Coffret multimédia", price: 85.00, temps: 1.0, category: "Réseau" },
     { id: 14, name: "Sonnette WiFi", price: 95.00, temps: 0.8, category: "Domotique" },
     { id: 15, name: "Détecteur de fumée", price: 25.00, temps: 0.3, category: "Sécurité" }
+];
+
+// ============================================================================
+// CATALOGUE COMPOSANTS TABLEAU
+// ============================================================================
+
+const CATALOGUE_TABLEAU = [
+    // Disjoncteurs
+    { id: 1, name: "Disjoncteur 10A", price: 18.50, temps: 0.15, category: "Disjoncteurs" },
+    { id: 2, name: "Disjoncteur 16A", price: 20.00, temps: 0.15, category: "Disjoncteurs" },
+    { id: 3, name: "Disjoncteur 20A", price: 22.50, temps: 0.15, category: "Disjoncteurs" },
+    { id: 4, name: "Disjoncteur 25A", price: 25.00, temps: 0.15, category: "Disjoncteurs" },
+    { id: 5, name: "Disjoncteur 32A", price: 28.50, temps: 0.2, category: "Disjoncteurs" },
+    { id: 6, name: "Disjoncteur 40A", price: 32.00, temps: 0.2, category: "Disjoncteurs" },
+    
+    // Différentiels
+    { id: 7, name: "Différentiel 30mA 40A Type A", price: 85.00, temps: 0.3, category: "Différentiels" },
+    { id: 8, name: "Différentiel 30mA 63A Type A", price: 95.00, temps: 0.3, category: "Différentiels" },
+    { id: 9, name: "Différentiel 300mA 40A Type S", price: 120.00, temps: 0.3, category: "Différentiels" },
+    
+    // Protections spéciales
+    { id: 10, name: "Parafoudre Type 2", price: 95.00, temps: 0.25, category: "Protections" },
+    { id: 11, name: "Télérupteur 16A", price: 45.00, temps: 0.2, category: "Protections" },
+    { id: 12, name: "Contacteur jour/nuit 20A", price: 55.00, temps: 0.25, category: "Protections" },
+    
+    // Barrettes et accessoires
+    { id: 13, name: "Barrette de pontage", price: 12.00, temps: 0.1, category: "Accessoires" },
+    { id: 14, name: "Peigne d'alimentation", price: 15.00, temps: 0.15, category: "Accessoires" },
+    { id: 15, name: "Barre de terre 13 trous", price: 25.00, temps: 0.2, category: "Accessoires" },
+    { id: 16, name: "Piquet de terre + cable", price: 65.00, temps: 0.8, category: "Terre" },
+    { id: 17, name: "Cable de terre 25mm² (par m)", price: 3.50, temps: 0.05, category: "Terre" }
 ];
 
 // ============================================================================
@@ -683,84 +720,314 @@ function toggleTableau() {
     const enabled = document.getElementById('tableauToggle').checked;
     devisState.tableau.enabled = enabled;
     document.getElementById('tableauContent').style.display = enabled ? 'block' : 'none';
-    saveToLocalStorage();
-    updateRecap();
-}
-
-function calculateTableau() {
-    const coffret = document.getElementById('tableauCoffret').value.split(',');
-    if (coffret[0] === '0') {
-        devisState.tableau.total = 0;
-        document.getElementById('tableauPrice').textContent = '0€';
-        return;
+    
+    // Si on active pour la première fois, créer un premier tableau
+    if (enabled && devisState.tableau.tableaux.length === 0) {
+        createTableau();
     }
     
-    const price = parseFloat(coffret[0]);
-    const labor = parseFloat(coffret[1]);
-    
-    // Ajouter les disjoncteurs
-    let disjoncteurTotal = 0;
-    devisState.tableau.items.forEach(item => {
-        disjoncteurTotal += item.price * item.quantity;
-    });
-    
-    const total = price + labor + disjoncteurTotal;
-    
-    devisState.tableau.total = total;
-    document.getElementById('tableauPrice').textContent = total.toFixed(2) + '€';
-    
     saveToLocalStorage();
     updateRecap();
 }
 
-function addDisjoncteur() {
-    const name = prompt('Nom du composant (ex: Disjoncteur 16A):', 'Disjoncteur 16A');
-    if (!name) return;
+function createTableau() {
+    const newTableau = {
+        id: devisState.tableau.nextTableauId++,
+        name: `Tableau ${devisState.tableau.tableaux.length + 1}`,
+        coffret: null,  // { type, price, labor }
+        composants: [],
+        nextComposantId: 1
+    };
     
-    const price = parseFloat(prompt('Prix unitaire (€):', '25'));
-    if (isNaN(price)) return;
-    
-    const quantity = parseInt(prompt('Quantité:', '1'));
-    if (isNaN(quantity)) return;
-    
-    devisState.tableau.items.push({
-        id: Date.now(),
-        name: name,
-        price: price,
-        quantity: quantity
-    });
-    
-    renderDisjoncteursList();
-    calculateTableau();
+    devisState.tableau.tableaux.push(newTableau);
+    renderTableaux();
+    saveToLocalStorage();
 }
 
-function renderDisjoncteursList() {
-    const container = document.getElementById('disjoncteursList');
+function renderTableaux() {
+    const container = document.getElementById('tableauxContainer');
     if (!container) return;
     
-    if (devisState.tableau.items.length === 0) {
-        container.innerHTML = '';
+    if (devisState.tableau.tableaux.length === 0) {
+        container.innerHTML = '<div class="empty-state">Cliquez sur "Ajouter un tableau" pour commencer</div>';
+        updateTableauGlobalTotal();
         return;
     }
     
-    container.innerHTML = devisState.tableau.items.map(item => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
-            <div>
-                <strong>${item.quantity}× ${item.name}</strong>
-                <div style="font-size: 0.9em; color: #6c757d;">${item.price}€ / unité</div>
+    container.innerHTML = devisState.tableau.tableaux.map(tableau => {
+        const tableauTotal = calculateTableauTotal(tableau);
+        
+        return `
+            <div class="section" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 3px solid #2196f3; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: #1565c0; margin: 0;">⚡ ${tableau.name}</h3>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="color: #1565c0; font-weight: 700; font-size: 1.2em;">${tableauTotal.toFixed(2)}€ HTVA</div>
+                        <button class="btn-delete" onclick="deleteTableau(${tableau.id})">🗑️ Supprimer</button>
+                    </div>
+                </div>
+                
+                <!-- Type de coffret -->
+                <div class="form-group">
+                    <label><strong>Type de coffret</strong></label>
+                    <select id="coffret_${tableau.id}" onchange="updateTableauCoffret(${tableau.id})" style="width: 100%;">
+                        <option value="">-- Sélectionner --</option>
+                        <option value="45,0.5" ${tableau.coffret && tableau.coffret.type === '45,0.5' ? 'selected' : ''}>Coffret encastré 1 rangée (45€ + 0.5h MO)</option>
+                        <option value="65,0.7" ${tableau.coffret && tableau.coffret.type === '65,0.7' ? 'selected' : ''}>Coffret encastré 2 rangées (65€ + 0.7h MO)</option>
+                        <option value="95,1.0" ${tableau.coffret && tableau.coffret.type === '95,1.0' ? 'selected' : ''}>Coffret encastré 4 rangées (95€ + 1h MO)</option>
+                        <option value="55,0.6" ${tableau.coffret && tableau.coffret.type === '55,0.6' ? 'selected' : ''}>Coffret saillie 2R IP40 (55€ + 0.6h MO)</option>
+                        <option value="85,0.8" ${tableau.coffret && tableau.coffret.type === '85,0.8' ? 'selected' : ''}>Coffret saillie 4R IP65 (85€ + 0.8h MO)</option>
+                    </select>
+                </div>
+                
+                <!-- Ajout composant -->
+                <div class="article-form" style="background: white; margin-top: 15px;">
+                    <h4>➕ Ajouter composants pour ${tableau.name}</h4>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Composant</label>
+                            <select id="composant_${tableau.id}">
+                                <option value="">-- Sélectionner --</option>
+                                ${generateTableauComposantsOptions()}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantité</label>
+                            <input type="number" id="composantQty_${tableau.id}" value="1" min="1" step="1">
+                        </div>
+                    </div>
+                    
+                    <div id="composantPreview_${tableau.id}" class="article-preview" style="display: none;">
+                        <h4>📊 Aperçu</h4>
+                        <div id="composantPreviewContent_${tableau.id}"></div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-info" onclick="calculateTableauComposant(${tableau.id})">🧮 Calculer</button>
+                        <button class="btn btn-success" onclick="addComposantToTableau(${tableau.id})">➕ Ajouter</button>
+                    </div>
+                </div>
+                
+                <!-- Liste composants -->
+                ${renderTableauComposants(tableau)}
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <strong>${(item.price * item.quantity).toFixed(2)}€</strong>
-                <button onclick="deleteDisjoncteur(${item.id})" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+    
+    updateTableauGlobalTotal();
 }
 
-function deleteDisjoncteur(id) {
-    devisState.tableau.items = devisState.tableau.items.filter(item => item.id !== id);
-    renderDisjoncteursList();
-    calculateTableau();
+function generateTableauComposantsOptions() {
+    const categories = {};
+    CATALOGUE_TABLEAU.forEach(comp => {
+        if (!categories[comp.category]) categories[comp.category] = [];
+        categories[comp.category].push(comp);
+    });
+    
+    let html = '';
+    Object.keys(categories).forEach(category => {
+        html += `<optgroup label="${category}">`;
+        categories[category].forEach(comp => {
+            html += `<option value="${comp.id}">${comp.name} (${comp.price}€ + ${comp.temps}h)</option>`;
+        });
+        html += `</optgroup>`;
+    });
+    return html;
+}
+
+function updateTableauCoffret(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (!tableau) return;
+    
+    const select = document.getElementById(`coffret_${tableauId}`);
+    const value = select.value;
+    
+    if (!value) {
+        tableau.coffret = null;
+    } else {
+        const [price, temps] = value.split(',').map(parseFloat);
+        tableau.coffret = {
+            type: value,
+            price: price,
+            temps: temps
+        };
+    }
+    
+    renderTableaux();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function calculateTableauComposant(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (!tableau) return;
+    
+    const composantId = parseInt(document.getElementById(`composant_${tableauId}`).value);
+    if (!composantId) {
+        alert('❌ Sélectionnez un composant');
+        return;
+    }
+    
+    const composant = CATALOGUE_TABLEAU.find(c => c.id === composantId);
+    const quantity = parseInt(document.getElementById(`composantQty_${tableauId}`).value) || 1;
+    
+    const materielTotal = composant.price * quantity;
+    const tempsTotal = composant.temps * quantity;
+    const moTotal = tempsTotal * devisState.global.tarif;
+    const totalHT = materielTotal + moTotal;
+    
+    const html = `
+        <div style="margin-bottom: 10px;">
+            <strong>${quantity}× ${composant.name}</strong>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
+            <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
+            <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
+            <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
+            <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
+        </div>
+    `;
+    
+    document.getElementById(`composantPreviewContent_${tableauId}`).innerHTML = html;
+    document.getElementById(`composantPreview_${tableauId}`).style.display = 'block';
+}
+
+function addComposantToTableau(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (!tableau) return;
+    
+    const composantId = parseInt(document.getElementById(`composant_${tableauId}`).value);
+    if (!composantId) {
+        alert('❌ Sélectionnez un composant');
+        return;
+    }
+    
+    const composant = CATALOGUE_TABLEAU.find(c => c.id === composantId);
+    const quantity = parseInt(document.getElementById(`composantQty_${tableauId}`).value) || 1;
+    
+    const materielTotal = composant.price * quantity;
+    const tempsTotal = composant.temps * quantity;
+    const moTotal = tempsTotal * devisState.global.tarif;
+    const totalHT = materielTotal + moTotal;
+    
+    tableau.composants.push({
+        id: tableau.nextComposantId++,
+        composantId: composantId,
+        name: composant.name,
+        quantity: quantity,
+        materiel: materielTotal,
+        mo: moTotal,
+        temps: tempsTotal,
+        total: totalHT
+    });
+    
+    // Reset
+    document.getElementById(`composant_${tableauId}`).value = '';
+    document.getElementById(`composantQty_${tableauId}`).value = '1';
+    document.getElementById(`composantPreview_${tableauId}`).style.display = 'none';
+    
+    renderTableaux();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function renderTableauComposants(tableau) {
+    if (tableau.composants.length === 0) {
+        return '<div class="empty-state">Aucun composant ajouté</div>';
+    }
+    
+    let html = '<div class="articles-list"><h4>📋 Composants (' + tableau.composants.length + ')</h4>';
+    
+    tableau.composants.forEach(comp => {
+        html += `
+            <div class="article-card">
+                <div class="article-header">
+                    <div>
+                        <div class="article-title">${comp.quantity}× ${comp.name}</div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteTableauComposant(${tableau.id}, ${comp.id})">🗑️</button>
+                </div>
+                <div class="article-pricing">
+                    <div>Matériel: ${comp.materiel.toFixed(2)}€</div>
+                    <div>MO: ${comp.mo.toFixed(2)}€ (${comp.temps.toFixed(2)}h)</div>
+                </div>
+                <div class="article-total">TOTAL: ${comp.total.toFixed(2)}€ HTVA</div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+function deleteTableauComposant(tableauId, composantId) {
+    if (!confirm('Supprimer ce composant ?')) return;
+    
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (tableau) {
+        tableau.composants = tableau.composants.filter(c => c.id !== composantId);
+        renderTableaux();
+        saveToLocalStorage();
+        updateRecap();
+    }
+}
+
+function calculateTableauTotal(tableau) {
+    let total = 0;
+    
+    // Coffret
+    if (tableau.coffret) {
+        total += tableau.coffret.price;
+        total += tableau.coffret.temps * devisState.global.tarif;
+    }
+    
+    // Composants
+    tableau.composants.forEach(comp => {
+        total += comp.total;
+    });
+    
+    return total;
+}
+
+function updateTableauGlobalTotal() {
+    let total = 0;
+    devisState.tableau.tableaux.forEach(tableau => {
+        total += calculateTableauTotal(tableau);
+    });
+    
+    const element = document.getElementById('tableauTotalPrice');
+    if (element) {
+        element.textContent = total.toFixed(2) + '€';
+    }
+}
+
+function deleteTableau(tableauId) {
+    if (!confirm('Supprimer ce tableau et tous ses composants ?')) return;
+    
+    devisState.tableau.tableaux = devisState.tableau.tableaux.filter(t => t.id !== tableauId);
+    renderTableaux();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+// ============================================================================
+// RISTOURNE
+// ============================================================================
+
+function updateRistourne() {
+    const enabled = document.getElementById('ristourneEnabled').checked;
+    devisState.ristourne.enabled = enabled;
+    
+    document.getElementById('ristourneOptions').style.display = enabled ? 'block' : 'none';
+    
+    if (enabled) {
+        devisState.ristourne.pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 0;
+        devisState.ristourne.delai = parseInt(document.getElementById('ristourneDelai').value) || 30;
+    }
+    
+    saveToLocalStorage();
+    updateRecap();
 }
 
 // ============================================================================
@@ -814,12 +1081,27 @@ function updateRecap() {
         travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
     });
     
-    const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
+    // Calcul tableaux
+    let tableauTotal = 0;
+    if (devisState.tableau.enabled) {
+        devisState.tableau.tableaux.forEach(tableau => {
+            tableauTotal += calculateTableauTotal(tableau);
+        });
+    }
+    
     const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
     
     const sousTotal = travauxTotal + tableauTotal + adminTotal;
     const deplacement = devisState.global.deplacement;
-    const totalHT = sousTotal + deplacement;
+    let totalHT = sousTotal + deplacement;
+    
+    // Ristourne
+    let ristourneMontant = 0;
+    if (devisState.ristourne.enabled) {
+        ristourneMontant = totalHT * (devisState.ristourne.pourcent / 100);
+        totalHT -= ristourneMontant;
+    }
+    
     const tva = totalHT * devisState.global.tva;
     const totalTTC = totalHT + tva;
     
@@ -886,15 +1168,42 @@ function updateRecap() {
         </div></div>`;
     }
     
-    // Tableau
+    // Tableau(x)
     if (tableauTotal > 0) {
         html += `<div class="recap-section">
-            <h3>⚡ TABLEAU ÉLECTRIQUE</h3>
-            <div class="recap-line">
-                <span>Configuration tableau</span>
-                <span>${tableauTotal.toFixed(2)}€</span>
-            </div>
-        </div>`;
+            <h3>⚡ TABLEAU ÉLECTRIQUE (${devisState.tableau.tableaux.length} tableau${devisState.tableau.tableaux.length > 1 ? 'x' : ''})</h3>`;
+        
+        devisState.tableau.tableaux.forEach(tableau => {
+            const tTotal = calculateTableauTotal(tableau);
+            
+            html += `<div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #2196f3;">
+                <div style="font-weight: 700; color: #1565c0; margin-bottom: 10px; font-size: 1.15em; display: flex; justify-content: space-between;">
+                    <span>⚡ ${tableau.name}</span>
+                    <span>${tTotal.toFixed(2)}€</span>
+                </div>`;
+            
+            if (tableau.coffret) {
+                const coffretMO = tableau.coffret.temps * devisState.global.tarif;
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>Coffret</span>
+                    <span>${(tableau.coffret.price + coffretMO).toFixed(2)}€</span>
+                </div>`;
+            }
+            
+            tableau.composants.forEach(comp => {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>${comp.quantity}× ${comp.name}</span>
+                    <span>${comp.total.toFixed(2)}€</span>
+                </div>`;
+            });
+            
+            html += `</div>`;
+        });
+        
+        html += `<div class="recap-line" style="font-weight: 700; border-top: 2px solid #1e3c72; padding-top: 10px; margin-top: 10px;">
+            <span>Sous-total tableaux:</span>
+            <span>${tableauTotal.toFixed(2)}€</span>
+        </div></div>`;
     }
     
     // Admin
@@ -923,6 +1232,10 @@ function updateRecap() {
             <span>Déplacement:</span>
             <span>${deplacement.toFixed(2)}€</span>
         </div>` : ''}
+        ${devisState.ristourne.enabled ? `<div class="recap-total-line" style="color: #28a745;">
+            <span>Ristourne (${devisState.ristourne.pourcent}% - valable ${devisState.ristourne.delai} jours):</span>
+            <span>-${ristourneMontant.toFixed(2)}€</span>
+        </div>` : ''}
         <div class="recap-total-line">
             <span>TOTAL HT:</span>
             <span>${totalHT.toFixed(2)}€</span>
@@ -936,6 +1249,17 @@ function updateRecap() {
             <span>${totalTTC.toFixed(2)}€</span>
         </div>
     </div>`;
+    
+    // Update ristourne preview
+    if (devisState.ristourne.enabled) {
+        const previewElement = document.getElementById('ristournePreview');
+        if (previewElement) {
+            previewElement.innerHTML = `
+                💰 Ristourne de ${devisState.ristourne.pourcent}% = -${ristourneMontant.toFixed(2)}€<br>
+                ⏱️ Valable ${devisState.ristourne.delai} jours à partir de la date du devis
+            `;
+        }
+    }
     
     container.innerHTML = html;
 }

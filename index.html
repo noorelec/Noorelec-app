@@ -216,29 +216,20 @@
 
                     <div id="tableauContent" style="display: none;">
                         <div class="info-box">
-                            <p>Configurez ici tous les composants du tableau électrique. Le total sera ajouté automatiquement au devis.</p>
+                            <p>Configurez ici tous les composants du tableau électrique. Vous pouvez créer plusieurs tableaux (principal + intermédiaires).</p>
                         </div>
 
-                        <div class="form-group">
-                            <label>Type de coffret</label>
-                            <select id="tableauCoffret" onchange="calculateTableau()">
-                                <option value="0">-- Sélectionner --</option>
-                                <option value="45,35">Coffret encastré 1 rangée (45€)</option>
-                                <option value="65,45">Coffret encastré 2 rangées (65€)</option>
-                                <option value="95,55">Coffret encastré 4 rangées (95€)</option>
-                                <option value="55,40">Coffret saillie 2R IP40 (55€)</option>
-                                <option value="85,50">Coffret saillie 4R IP65 (85€)</option>
-                            </select>
+                        <!-- LISTE DES TABLEAUX -->
+                        <div id="tableauxContainer">
+                            <!-- Généré dynamiquement -->
                         </div>
 
-                        <button class="btn btn-secondary" onclick="addDisjoncteur()">
-                            ➕ Ajouter disjoncteur
+                        <button class="btn btn-success" onclick="createTableau()" style="margin-top: 15px; width: 100%;">
+                            ➕ Ajouter un tableau
                         </button>
-                        
-                        <div id="disjoncteursList" style="margin-top: 15px;"></div>
 
-                        <div id="tableauTotal" class="section-total">
-                            <strong>Total tableau :</strong> <span id="tableauPrice">0€</span> HTVA
+                        <div id="tableauGlobalTotal" class="section-total" style="margin-top: 20px;">
+                            <strong>Total tableaux :</strong> <span id="tableauTotalPrice">0€</span> HTVA
                         </div>
                     </div>
 
@@ -341,6 +332,34 @@
                     
                     <div id="recapContent" class="recap-content">
                         <!-- Généré dynamiquement -->
+                    </div>
+
+                    <!-- RISTOURNE -->
+                    <div class="section" style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 3px solid #ffc107; margin-top: 20px;">
+                        <h3 style="color: #856404; margin-bottom: 15px;">💰 Ristourne (optionnel)</h3>
+                        
+                        <label class="checkbox-option" style="background: white;">
+                            <input type="checkbox" id="ristourneEnabled" onchange="updateRistourne()">
+                            <div class="checkbox-content">
+                                <div class="checkbox-title">Appliquer une ristourne</div>
+                            </div>
+                        </label>
+
+                        <div id="ristourneOptions" style="display: none; margin-top: 15px;">
+                            <div class="form-grid two-cols">
+                                <div class="form-group">
+                                    <label><strong>Pourcentage (%)</strong></label>
+                                    <input type="number" id="ristournePourcent" value="10" min="0" max="100" step="1" onchange="updateRistourne()">
+                                </div>
+                                <div class="form-group">
+                                    <label><strong>Délai de validité (jours)</strong></label>
+                                    <input type="number" id="ristourneDelai" value="30" min="1" step="1" onchange="updateRistourne()">
+                                </div>
+                            </div>
+                            <div id="ristournePreview" style="margin-top: 10px; padding: 12px; background: white; border-radius: 8px; border: 2px solid #ffc107; font-weight: 700; color: #856404;">
+                                <!-- Aperçu ristourne -->
+                            </div>
+                        </div>
                     </div>
 
                     <div class="recap-actions">
