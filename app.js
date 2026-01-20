@@ -1321,27 +1321,24 @@ function generatePDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF('p', 'mm', 'a4');
     
-    // FOND BLEU pour toute la page
-    doc.setFillColor(41, 98, 255); // Bleu sympathique
-    doc.rect(0, 0, 210, 297, 'F');
-    
-    // Logo NOORELEC en blanc
+    // Logo NOORELEC
     doc.setFontSize(24);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(0, 200, 114);
     doc.text('NOORELEC', 15, 20);
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
     doc.text('L\'ART DU SAVOIR-FAIRE', 15, 26);
     
-    // Date en haut à droite (blanc)
+    // Date en haut à droite
     const today = new Date();
     const dateStr = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
     doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
     doc.text(`Fait le ${dateStr}`, 195, 20, { align: 'right' });
     doc.text(`a ${devisState.client.commune || '____'}`, 195, 26, { align: 'right' });
     
-    // Informations client (blanc)
+    // Informations client
     let yPos = 45;
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
@@ -1369,10 +1366,10 @@ function generatePDF() {
     
     yPos += 10;
     
-    // Titre du devis (blanc)
+    // Titre du devis
     doc.setFontSize(16);
     doc.setFont(undefined, 'bold');
-    doc.setTextColor(255, 255, 255);
+    doc.setTextColor(30, 60, 114);
     doc.text('DEVIS - TRAVAUX ELECTRIQUES', 105, yPos, { align: 'center' });
     
     yPos += 12;
@@ -1452,9 +1449,8 @@ function generatePDF() {
                 head: [['TRAVAUX', 'Montant HTVA']],
                 body: travauxData,
                 theme: 'striped',
-                headStyles: { fillColor: [255, 255, 255], textColor: [41, 98, 255], fontSize: 12, fontStyle: 'bold' },
-                styles: { fontSize: 10, fillColor: [255, 255, 255], textColor: [41, 98, 255] },
-                alternateRowStyles: { fillColor: [240, 245, 255] },
+                headStyles: { fillColor: [30, 60, 114], fontSize: 12, fontStyle: 'bold' },
+                styles: { fontSize: 10 },
                 columnStyles: {
                     0: { cellWidth: 130 },
                     1: { cellWidth: 50, halign: 'right' }
@@ -1476,7 +1472,7 @@ function generatePDF() {
         devisState.tableau.tableaux.forEach(tableau => {
             // Sous-titre tableau
             tableauData.push([
-                { content: tableau.name, styles: { fontStyle: 'bold', textColor: [41, 98, 255] } },
+                { content: tableau.name, styles: { fontStyle: 'bold', textColor: [21, 101, 192] } },
                 ''
             ]);
             
@@ -1505,9 +1501,8 @@ function generatePDF() {
                 head: [['TABLEAU ELECTRIQUE', 'Montant HTVA']],
                 body: tableauData,
                 theme: 'striped',
-                headStyles: { fillColor: [255, 255, 255], textColor: [41, 98, 255], fontSize: 12, fontStyle: 'bold' },
-                styles: { fontSize: 10, fillColor: [255, 255, 255], textColor: [41, 98, 255] },
-                alternateRowStyles: { fillColor: [240, 245, 255] },
+                headStyles: { fillColor: [30, 60, 114], fontSize: 12, fontStyle: 'bold' },
+                styles: { fontSize: 10 },
                 columnStyles: {
                     0: { cellWidth: 130 },
                     1: { cellWidth: 50, halign: 'right' }
@@ -1534,9 +1529,8 @@ function generatePDF() {
             head: [['SERVICES ADMINISTRATIFS', 'Montant HTVA']],
             body: adminData,
             theme: 'striped',
-            headStyles: { fillColor: [255, 255, 255], textColor: [41, 98, 255], fontSize: 12, fontStyle: 'bold' },
-            styles: { fontSize: 10, fillColor: [255, 255, 255], textColor: [41, 98, 255] },
-            alternateRowStyles: { fillColor: [240, 245, 255] },
+            headStyles: { fillColor: [30, 60, 114], fontSize: 12, fontStyle: 'bold' },
+            styles: { fontSize: 10 },
             columnStyles: {
                 0: { cellWidth: 130 },
                 1: { cellWidth: 50, halign: 'right' }
@@ -1548,7 +1542,7 @@ function generatePDF() {
     }
     
     // ============================================================================
-    // TOTAUX (SANS RISTOURNE) - CADRE BLANC
+    // TOTAUX (SANS RISTOURNE)
     // ============================================================================
     
     // Calculer SANS ristourne pour l'affichage principal
@@ -1556,11 +1550,17 @@ function generatePDF() {
     const tvaSansRistourne = totalHTsansRistourne * devisState.global.tva;
     const totalTTCsansRistourne = totalHTsansRistourne + tvaSansRistourne;
     
+    // Vérifier si on a besoin d'une nouvelle page (totaux = 40mm minimum)
+    if (yPos > 237) {
+        doc.addPage();
+        yPos = 20;
+    }
+    
     yPos += 5;
-    doc.setFillColor(255, 255, 255); // Blanc
+    doc.setFillColor(30, 60, 114);
     doc.rect(15, yPos, 180, 40, 'F');
     
-    doc.setTextColor(41, 98, 255); // Bleu
+    doc.setTextColor(255, 255, 255);
     doc.setFontSize(11);
     yPos += 8;
     
@@ -1587,12 +1587,20 @@ function generatePDF() {
     doc.text('TOTAL TTC:', 20, yPos);
     doc.text(`${totalTTCsansRistourne.toFixed(2)}€`, 190, yPos, { align: 'right' });
     
+    yPos += 8; // Position après totaux
+    
     // ============================================================================
-    // OFFRE SPÉCIALE (SI RISTOURNE ACTIVÉE) - CADRE BLANC
+    // OFFRE SPÉCIALE (SI RISTOURNE ACTIVÉE)
     // ============================================================================
     
     if (devisState.ristourne.enabled && ristourneMontant > 0) {
-        yPos += 15;
+        // Vérifier si on a besoin d'une nouvelle page (ristourne = 42mm)
+        if (yPos > 235) {
+            doc.addPage();
+            yPos = 20;
+        }
+        
+        yPos += 10;
         
         // Calculer prix avec ristourne
         const totalHTavecRistourne = totalHTsansRistourne - ristourneMontant;
@@ -1604,12 +1612,14 @@ function generatePDF() {
                          devisState.ristourne.delai < 7 ? `${devisState.ristourne.delai}j` : 
                          `${Math.floor(devisState.ristourne.delai / 7)} semaine${devisState.ristourne.delai / 7 > 1 ? 's' : ''}`;
         
-        // Cadre blanc pour l'offre
-        doc.setFillColor(255, 255, 255);
-        doc.rect(15, yPos, 180, 42, 'F');
+        // Cadre jaune pour l'offre
+        doc.setFillColor(255, 243, 205);
+        doc.setDrawColor(255, 193, 7);
+        doc.setLineWidth(2);
+        doc.rect(15, yPos, 180, 42, 'FD');
         
         yPos += 8;
-        doc.setTextColor(41, 98, 255);
+        doc.setTextColor(133, 100, 4);
         doc.setFontSize(13);
         doc.setFont(undefined, 'bold');
         doc.text('OFFRE SPECIALE', 20, yPos);
@@ -1627,40 +1637,51 @@ function generatePDF() {
         doc.setFont(undefined, 'bold');
         doc.setFontSize(12);
         doc.text(`Prix final: ${totalTTCavecRistourne.toFixed(2)}€ TTC`, 20, yPos);
+        
+        yPos += 10; // Espace après ristourne
     }
     
     // ============================================================================
-    // CONDITIONS DE PAIEMENT - CADRE BLANC
+    // CONDITIONS DE PAIEMENT
     // ============================================================================
     
-    yPos += 20;
+    // Vérifier si on a besoin d'une nouvelle page (conditions = 50mm)
+    if (yPos > 227) {
+        doc.addPage();
+        yPos = 20;
+    }
     
-    // Cadre blanc
-    doc.setFillColor(255, 255, 255);
-    doc.rect(15, yPos, 180, 45, 'F');
+    yPos += 10;
+    
+    // Cadre bleu clair
+    doc.setFillColor(240, 248, 255);
+    doc.setDrawColor(30, 60, 114);
+    doc.setLineWidth(2);
+    doc.rect(15, yPos, 180, 50, 'FD');
     
     yPos += 8;
-    doc.setTextColor(41, 98, 255);
+    doc.setTextColor(30, 60, 114);
     doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
     doc.text('CONDITIONS DE PAIEMENT', 20, yPos);
     
-    yPos += 7;
+    yPos += 8;
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
+    doc.setTextColor(0, 0, 0);
     doc.text('30% a la signature du devis', 25, yPos);
     
-    yPos += 5;
+    yPos += 6;
     doc.text('40% au debut des travaux', 25, yPos);
     
-    yPos += 5;
+    yPos += 6;
     doc.text('30% a la fin du chantier', 25, yPos);
     
-    yPos += 8;
+    yPos += 10;
     doc.setFont(undefined, 'bold');
     doc.text('Paiement sur le compte: BE00 1233 4456 738', 20, yPos);
     
-    yPos += 5;
+    yPos += 6;
     doc.setFont(undefined, 'normal');
     doc.text('Au nom de: Noorelec SRL', 20, yPos);
     
