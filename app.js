@@ -219,8 +219,8 @@ function selectBuildingAge(age) {
 
 function updateGlobalSettings() {
     devisState.global.tarif = parseFloat(document.getElementById('globalTarif').value);
-    devisState.global.tva = parseFloat(document.getElementById('globalTVA').value);
     devisState.global.deplacement = parseFloat(document.getElementById('globalDeplacement').value);
+    // TVA est maintenant définie dans la page Client (selon âge du bâtiment)
     saveToLocalStorage();
     updateRecap();
 }
@@ -305,21 +305,21 @@ function renderRooms() {
                     <div class="form-grid">
                         <div class="form-group">
                             <label>Article</label>
-                            <select id="articleSelect_${room.id}" onchange="updateRoomPreview(${room.id})">
+                            <select id="articleSelect_${room.id}">
                                 <option value="">-- Sélectionner un article --</option>
                                 ${generateArticleOptions()}
                             </select>
                         </div>
                         <div class="form-group">
                             <label>Quantité</label>
-                            <input type="number" id="articleQty_${room.id}" value="1" min="0.1" step="0.1" onchange="updateRoomPreview(${room.id})">
+                            <input type="number" id="articleQty_${room.id}" value="1" min="0.1" step="0.1">
                         </div>
                     </div>
                     
-                    <h4 class="form-section-title">Type d'installation pour ${room.name}</h4>
+                    <h4 class="form-section-title">Type d'installation pour cet article</h4>
                     <div class="radio-grid">
                         <label class="radio-card">
-                            <input type="radio" name="installType_${room.id}" value="apparent" ${room.installType === 'apparent' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'apparent')">
+                            <input type="radio" name="articleInstallType_${room.id}" value="apparent" checked>
                             <div class="radio-content">
                                 <div class="radio-icon">📦</div>
                                 <div class="radio-title">Apparent</div>
@@ -327,7 +327,7 @@ function renderRooms() {
                             </div>
                         </label>
                         <label class="radio-card">
-                            <input type="radio" name="installType_${room.id}" value="encastre" ${room.installType === 'encastre' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'encastre')">
+                            <input type="radio" name="articleInstallType_${room.id}" value="encastre">
                             <div class="radio-content">
                                 <div class="radio-icon">🔨</div>
                                 <div class="radio-title">Encastré</div>
@@ -335,7 +335,7 @@ function renderRooms() {
                             </div>
                         </label>
                         <label class="radio-card">
-                            <input type="radio" name="installType_${room.id}" value="faux-plafond" ${room.installType === 'faux-plafond' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'faux-plafond')">
+                            <input type="radio" name="articleInstallType_${room.id}" value="faux-plafond">
                             <div class="radio-content">
                                 <div class="radio-icon">⬆️</div>
                                 <div class="radio-title">Faux plafond</div>
@@ -343,7 +343,7 @@ function renderRooms() {
                             </div>
                         </label>
                         <label class="radio-card">
-                            <input type="radio" name="installType_${room.id}" value="sous-plancher" ${room.installType === 'sous-plancher' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'sous-plancher')">
+                            <input type="radio" name="articleInstallType_${room.id}" value="sous-plancher">
                             <div class="radio-content">
                                 <div class="radio-icon">⬇️</div>
                                 <div class="radio-title">Sous plancher</div>
@@ -352,10 +352,10 @@ function renderRooms() {
                         </label>
                     </div>
                     
-                    <h4 class="form-section-title">Circuit électrique pour ${room.name}</h4>
+                    <h4 class="form-section-title">Circuit électrique pour cet article</h4>
                     <div class="radio-grid two-cols">
                         <label class="radio-card">
-                            <input type="radio" name="circuitType_${room.id}" value="existant" ${room.circuitType === 'existant' ? 'checked' : ''} onchange="updateRoomCircuitType(${room.id}, 'existant')">
+                            <input type="radio" name="articleCircuitType_${room.id}" value="existant" checked>
                             <div class="radio-content">
                                 <div class="radio-icon">🔄</div>
                                 <div class="radio-title">Circuit existant</div>
@@ -363,7 +363,7 @@ function renderRooms() {
                             </div>
                         </label>
                         <label class="radio-card">
-                            <input type="radio" name="circuitType_${room.id}" value="nouvelle-ligne" ${room.circuitType === 'nouvelle-ligne' ? 'checked' : ''} onchange="updateRoomCircuitType(${room.id}, 'nouvelle-ligne')">
+                            <input type="radio" name="articleCircuitType_${room.id}" value="nouvelle-ligne">
                             <div class="radio-content">
                                 <div class="radio-icon">⚡</div>
                                 <div class="radio-title">Nouvelle ligne</div>
@@ -374,7 +374,7 @@ function renderRooms() {
                     
                     <h4 class="form-section-title">Options</h4>
                     <label class="checkbox-option">
-                        <input type="checkbox" id="rebouchage_${room.id}" ${room.rebouchage ? 'checked' : ''} onchange="updateRoomRebouchage(${room.id})">
+                        <input type="checkbox" id="rebouchage_${room.id}">
                         <div class="checkbox-content">
                             <div class="checkbox-title">Rebouchage et finition</div>
                             <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
@@ -483,12 +483,17 @@ function calculateRoomArticle(roomId) {
     const article = CATALOGUE.find(a => a.id === articleId);
     const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
+    // Lire les paramètres du FORMULAIRE (pas de la pièce)
+    const installType = document.querySelector(`[name="articleInstallType_${roomId}"]:checked`).value;
+    const circuitType = document.querySelector(`[name="articleCircuitType_${roomId}"]:checked`).value;
+    const rebouchage = document.getElementById(`rebouchage_${roomId}`).checked;
+    
     const materielTotal = article.price * quantity;
     let tempsTotal = article.temps * quantity;
-    tempsTotal *= FACTEURS.installation[room.installType];
-    tempsTotal *= FACTEURS.circuit[room.circuitType];
+    tempsTotal *= FACTEURS.installation[installType];
+    tempsTotal *= FACTEURS.circuit[circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = room.rebouchage ? (room.rebouchagePrice || 20) : 0;
+    const rebouchageTotal = rebouchage ? (room.rebouchagePrice || 20) : 0;
     
     let prixUnitaireHT = article.price + (moTotal / quantity);
     if (quantity >= 10) prixUnitaireHT *= 0.75;
@@ -507,12 +512,12 @@ function calculateRoomArticle(roomId) {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
             <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
             <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
-            ${room.rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
+            ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
         </div>
         <div style="margin-top: 10px; padding: 8px; background: rgba(255, 152, 0, 0.1); border-radius: 6px; font-size: 0.85em;">
-            ${room.name}: ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)} | Tarif: ${devisState.global.tarif}€/h
+            ${getInstallTypeLabel(installType)} | ${getCircuitTypeLabel(circuitType)} | Tarif: ${devisState.global.tarif}€/h
         </div>
     `;
     
@@ -533,12 +538,17 @@ function addArticleToRoom(roomId) {
     const article = CATALOGUE.find(a => a.id === articleId);
     const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
+    // Lire les paramètres du FORMULAIRE (pas de la pièce)
+    const installType = document.querySelector(`[name="articleInstallType_${roomId}"]:checked`).value;
+    const circuitType = document.querySelector(`[name="articleCircuitType_${roomId}"]:checked`).value;
+    const rebouchage = document.getElementById(`rebouchage_${roomId}`).checked;
+    
     const materielTotal = article.price * quantity;
     let tempsTotal = article.temps * quantity;
-    tempsTotal *= FACTEURS.installation[room.installType];
-    tempsTotal *= FACTEURS.circuit[room.circuitType];
+    tempsTotal *= FACTEURS.installation[installType];
+    tempsTotal *= FACTEURS.circuit[circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = room.rebouchage ? (room.rebouchagePrice || 20) : 0;
+    const rebouchageTotal = rebouchage ? (room.rebouchagePrice || 20) : 0;
     
     let prixUnitaireHT = article.price + (moTotal / quantity);
     if (quantity >= 10) prixUnitaireHT *= 0.75;
@@ -546,11 +556,14 @@ function addArticleToRoom(roomId) {
     
     const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
     
+    // Sauvegarder l'article AVEC ses paramètres install/circuit
     room.articles.push({
         id: room.nextArticleId++,
         articleId: articleId,
         name: article.name,
         quantity: quantity,
+        installType: installType,  // Sauvegardé par article
+        circuitType: circuitType,  // Sauvegardé par article
         materiel: materielTotal,
         mo: moTotal,
         temps: tempsTotal,
@@ -582,8 +595,8 @@ function renderRoomArticles(room) {
                     <div>
                         <div class="article-title">${art.quantity}× ${art.name}</div>
                         <div class="article-details">
-                            ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)}
-                            ${room.rebouchage ? ' | Rebouchage inclus' : ''}
+                            ${getInstallTypeLabel(art.installType || 'apparent')} | ${getCircuitTypeLabel(art.circuitType || 'existant')}
+                            ${art.rebouchageTotal > 0 ? ` | Rebouchage (${art.rebouchageTotal.toFixed(2)}€)` : ''}
                         </div>
                     </div>
                     <button class="btn-delete" onclick="deleteRoomArticle(${room.id}, ${art.id})">🗑️</button>
@@ -591,7 +604,6 @@ function renderRoomArticles(room) {
                 <div class="article-pricing">
                     <div>Matériel: ${art.materiel.toFixed(2)}€</div>
                     <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
-                    ${room.rebouchage ? `<div>Rebouchage: ${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
                 </div>
                 <div class="article-total">TOTAL: ${art.total.toFixed(2)}€ HTVA</div>
             </div>
