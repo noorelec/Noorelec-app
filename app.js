@@ -858,20 +858,24 @@ function renderTableaux() {
     
     container.innerHTML = devisState.tableau.tableaux.map(tableau => {
         const tableauTotal = calculateTableauTotal(tableau);
+        const isCollapsed = tableau.collapsed || false;
+        const arrow = isCollapsed ? '▶' : '▼';
         
         return `
             <div class="section" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 3px solid #2196f3; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; cursor: pointer;" onclick="event.target.tagName !== 'INPUT' && event.target.tagName !== 'BUTTON' && toggleTableauCollapse(${tableau.id})">
                     <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.2em;">${arrow}</span>
                         <span style="font-size: 1.5em;">⚡</span>
-                        <input type="text" id="tableauName_${tableau.id}" value="${tableau.name}" onchange="updateTableauName(${tableau.id})" style="color: #1565c0; font-size: 1.2em; font-weight: 700; border: 2px solid #2196f3; border-radius: 6px; padding: 5px 10px; background: white; max-width: 250px;">
+                        <input type="text" id="tableauName_${tableau.id}" value="${tableau.name}" onchange="updateTableauName(${tableau.id})" onclick="event.stopPropagation()" style="color: #1565c0; font-size: 1.2em; font-weight: 700; border: 2px solid #2196f3; border-radius: 6px; padding: 5px 10px; background: white; max-width: 250px;">
                     </div>
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="color: #1565c0; font-weight: 700; font-size: 1.2em;">${tableauTotal.toFixed(2)}€ HTVA</div>
-                        <button class="btn-delete" onclick="deleteTableau(${tableau.id})">🗑️ Supprimer</button>
+                        <button class="btn-delete" onclick="event.stopPropagation(); deleteTableau(${tableau.id})">🗑️ Supprimer</button>
                     </div>
                 </div>
                 
+                ${!isCollapsed ? `
                 <!-- Type de coffret -->
                 <div class="form-group">
                     <label><strong>Type de coffret</strong></label>
@@ -916,6 +920,7 @@ function renderTableaux() {
                 
                 <!-- Liste composants -->
                 ${renderTableauComposants(tableau)}
+                ` : ''}
             </div>
         `;
     }).join('');
@@ -1726,21 +1731,21 @@ function generatePDF() {
     // CONDITIONS DE PAIEMENT
     // ============================================================================
     
-    // Vérifier si on a besoin d'une nouvelle page (conditions = 50mm)
-    if (yPos > 227) {
+    // Vérifier si on a besoin d'une nouvelle page (conditions = 60mm)
+    if (yPos > 220) {
         doc.addPage();
         yPos = 20;
     }
     
     yPos += 10;
     
-    // Cadre bleu clair
+    // Cadre bleu clair (agrandi à 58mm)
     doc.setFillColor(240, 248, 255);
     doc.setDrawColor(30, 60, 114);
     doc.setLineWidth(2);
-    doc.rect(15, yPos, 180, 50, 'FD');
+    doc.rect(15, yPos, 180, 58, 'FD');
     
-    yPos += 8;
+    yPos += 10;
     doc.setTextColor(30, 60, 114);
     doc.setFontSize(13);
     doc.setFont(undefined, 'bold');
@@ -1766,13 +1771,18 @@ function generatePDF() {
     doc.setFont(undefined, 'normal');
     doc.text('Au nom de: Noorelec SRL', 20, yPos);
     
-    yPos += 6;
+    yPos += 7;
     doc.setFont(undefined, 'bold');
     doc.text(`Communication: ${devisState.currentDevisNumber}`, 20, yPos);
     
     // Sauvegarder
     const filename = `Devis_${(devisState.client.name || 'Client').replace(/ /g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
     doc.save(filename);
+    
+    // SAUVEGARDER DANS L'HISTORIQUE
+    saveDevisToHistory('attente');
+    alert(`✅ PDF généré et sauvegardé dans l'historique !
+${devisState.currentDevisNumber}`);
 }
 
 function resetDevis() {
@@ -2308,3 +2318,14 @@ function renderCatalogueEditor() {
     
     container.innerHTML = html;
 }
+
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadFromLocalStorage();
+    renderCustomItems();
+    renderDevisHistory();
+});
