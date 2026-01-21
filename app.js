@@ -5,6 +5,8 @@
 // ============================================================================
 
 const devisState = {
+    currentDevisNumber: null, // Numéro du devis en cours
+    
     client: {
         name: '',
         phone: '',
@@ -44,6 +46,33 @@ const devisState = {
         delai: 30
     }
 };
+
+// ============================================================================
+// SYSTÈME DE NUMÉROTATION ET HISTORIQUE
+// ============================================================================
+
+// Compteur global de devis (commence à 1401)
+let devisCounter = parseInt(localStorage.getItem('noorelec_devis_counter')) || 1401;
+
+// Historique des devis
+let devisHistory = JSON.parse(localStorage.getItem('noorelec_devis_history')) || [];
+
+// Articles personnalisés
+let customArticles = JSON.parse(localStorage.getItem('noorelec_custom_articles')) || [];
+
+// Coffrets personnalisés
+let customCoffrets = JSON.parse(localStorage.getItem('noorelec_custom_coffrets')) || [];
+
+// Composants personnalisés
+let customComposants = JSON.parse(localStorage.getItem('noorelec_custom_composants')) || [];
+
+function generateDevisNumber() {
+    const year = new Date().getFullYear().toString().slice(-2); // 26 pour 2026
+    const number = devisCounter.toString().padStart(4, '0');
+    devisCounter++;
+    localStorage.setItem('noorelec_devis_counter', devisCounter);
+    return `DEVIS 26-${number}`;
+}
 
 // ============================================================================
 // CATALOGUE ARTICLES
@@ -411,8 +440,20 @@ function renderRooms() {
 }
 
 function generateArticleOptions() {
+    // Combiner catalogue + articles personnalisés
+    const allArticles = [...CATALOGUE];
+    customArticles.forEach(art => {
+        allArticles.push({
+            id: `custom_${art.id}`,
+            name: art.name,
+            price: art.price,
+            temps: art.temps,
+            category: art.category
+        });
+    });
+    
     const categories = {};
-    CATALOGUE.forEach(article => {
+    allArticles.forEach(article => {
         if (!categories[article.category]) categories[article.category] = [];
         categories[article.category].push(article);
     });
@@ -426,6 +467,25 @@ function generateArticleOptions() {
         html += `</optgroup>`;
     });
     return html;
+}
+
+function getArticleById(articleId) {
+    // Si commence par "custom_", chercher dans customArticles
+    if (typeof articleId === 'string' && articleId.startsWith('custom_')) {
+        const customId = parseInt(articleId.replace('custom_', ''));
+        const customArt = customArticles.find(a => a.id === customId);
+        if (customArt) {
+            return {
+                id: articleId,
+                name: customArt.name,
+                price: customArt.price,
+                temps: customArt.temps,
+                category: customArt.category
+            };
+        }
+    }
+    // Sinon chercher dans CATALOGUE
+    return CATALOGUE.find(a => a.id === articleId);
 }
 
 function updateRoomInstallType(roomId, type) {
@@ -474,13 +534,18 @@ function calculateRoomArticle(roomId) {
     const room = devisState.travaux.rooms.find(r => r.id === roomId);
     if (!room) return;
     
-    const articleId = parseInt(document.getElementById(`articleSelect_${roomId}`).value);
+    const articleId = document.getElementById(`articleSelect_${roomId}`).value;
     if (!articleId) {
         alert('❌ Sélectionnez un article');
         return;
     }
     
-    const article = CATALOGUE.find(a => a.id === articleId);
+    const article = getArticleById(typeof articleId === 'string' && articleId.startsWith('custom_') ? articleId : parseInt(articleId));
+    if (!article) {
+        alert('❌ Article introuvable');
+        return;
+    }
+    
     const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
     // Lire les paramètres du FORMULAIRE (pas de la pièce)
@@ -529,13 +594,18 @@ function addArticleToRoom(roomId) {
     const room = devisState.travaux.rooms.find(r => r.id === roomId);
     if (!room) return;
     
-    const articleId = parseInt(document.getElementById(`articleSelect_${roomId}`).value);
+    const articleId = document.getElementById(`articleSelect_${roomId}`).value;
     if (!articleId) {
         alert('❌ Sélectionnez un article');
         return;
     }
     
-    const article = CATALOGUE.find(a => a.id === articleId);
+    const article = getArticleById(typeof articleId === 'string' && articleId.startsWith('custom_') ? articleId : parseInt(articleId));
+    if (!article) {
+        alert('❌ Article introuvable');
+        return;
+    }
+    
     const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
     // Lire les paramètres du FORMULAIRE (pas de la pièce)
@@ -767,7 +837,8 @@ function createTableau() {
         name: `Tableau ${devisState.tableau.tableaux.length + 1}`,
         coffret: null,  // { type, price, labor }
         composants: [],
-        nextComposantId: 1
+        nextComposantId: 1,
+        collapsed: false  // Pour accordéon
     };
     
     devisState.tableau.tableaux.push(newTableau);
@@ -1372,7 +1443,17 @@ function generatePDF() {
     doc.setTextColor(30, 60, 114);
     doc.text('DEVIS - TRAVAUX ELECTRIQUES', 105, yPos, { align: 'center' });
     
-    yPos += 12;
+    yPos += 7;
+    
+    // Numéro de devis
+    if (!devisState.currentDevisNumber) {
+        devisState.currentDevisNumber = generateDevisNumber();
+    }
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'normal');
+    doc.text(`N° ${devisState.currentDevisNumber}`, 105, yPos, { align: 'center' });
+    
+    yPos += 10;
     
     // ============================================================================
     // CALCUL DES TOTAUX
@@ -1685,6 +1766,10 @@ function generatePDF() {
     doc.setFont(undefined, 'normal');
     doc.text('Au nom de: Noorelec SRL', 20, yPos);
     
+    yPos += 6;
+    doc.setFont(undefined, 'bold');
+    doc.text(`Communication: ${devisState.currentDevisNumber}`, 20, yPos);
+    
     // Sauvegarder
     const filename = `Devis_${(devisState.client.name || 'Client').replace(/ /g, '_')}_${dateStr.replace(/\//g, '-')}.pdf`;
     doc.save(filename);
@@ -1704,6 +1789,315 @@ function resetDevis() {
     saveToLocalStorage();
     updateRecap();
     switchPage('client');
+}
+
+// ============================================================================
+// ARTICLES/COFFRETS/COMPOSANTS PERSONNALISÉS
+// ============================================================================
+
+function addCustomArticle() {
+    const name = document.getElementById('customArticleName').value.trim();
+    const price = parseFloat(document.getElementById('customArticlePrice').value);
+    const temps = parseFloat(document.getElementById('customArticleTemps').value);
+    const category = document.getElementById('customArticleCategory').value;
+    
+    if (!name || isNaN(price) || isNaN(temps)) {
+        alert('❌ Remplissez tous les champs');
+        return;
+    }
+    
+    const newArticle = {
+        id: Date.now(),
+        name: name,
+        price: price,
+        temps: temps,
+        category: category
+    };
+    
+    customArticles.push(newArticle);
+    localStorage.setItem('noorelec_custom_articles', JSON.stringify(customArticles));
+    
+    document.getElementById('customArticleName').value = '';
+    document.getElementById('customArticlePrice').value = '';
+    document.getElementById('customArticleTemps').value = '';
+    
+    renderCustomItems();
+    alert('✅ Article ajouté !');
+}
+
+function addCustomCoffret() {
+    const name = document.getElementById('customCoffretName').value.trim();
+    const price = parseFloat(document.getElementById('customCoffretPrice').value);
+    const temps = parseFloat(document.getElementById('customCoffretTemps').value);
+    
+    if (!name || isNaN(price) || isNaN(temps)) {
+        alert('❌ Remplissez tous les champs');
+        return;
+    }
+    
+    const newCoffret = {
+        id: Date.now(),
+        name: name,
+        price: price,
+        temps: temps
+    };
+    
+    customCoffrets.push(newCoffret);
+    localStorage.setItem('noorelec_custom_coffrets', JSON.stringify(customCoffrets));
+    
+    document.getElementById('customCoffretName').value = '';
+    document.getElementById('customCoffretPrice').value = '';
+    document.getElementById('customCoffretTemps').value = '';
+    
+    renderCustomItems();
+    alert('✅ Coffret ajouté !');
+}
+
+function addCustomComposant() {
+    const name = document.getElementById('customComposantName').value.trim();
+    const price = parseFloat(document.getElementById('customComposantPrice').value);
+    const temps = parseFloat(document.getElementById('customComposantTemps').value);
+    const category = document.getElementById('customComposantCategory').value;
+    
+    if (!name || isNaN(price) || isNaN(temps)) {
+        alert('❌ Remplissez tous les champs');
+        return;
+    }
+    
+    const newComposant = {
+        id: Date.now(),
+        name: name,
+        price: price,
+        temps: temps,
+        category: category
+    };
+    
+    customComposants.push(newComposant);
+    localStorage.setItem('noorelec_custom_composants', JSON.stringify(customComposants));
+    
+    document.getElementById('customComposantName').value = '';
+    document.getElementById('customComposantPrice').value = '';
+    document.getElementById('customComposantTemps').value = '';
+    
+    renderCustomItems();
+    alert('✅ Composant ajouté !');
+}
+
+function renderCustomItems() {
+    // Articles
+    const articlesContainer = document.getElementById('customArticlesList');
+    if (articlesContainer) {
+        if (customArticles.length === 0) {
+            articlesContainer.innerHTML = '<p style="color: #6c757d;">Aucun article personnalisé</p>';
+        } else {
+            articlesContainer.innerHTML = '<h5>Vos articles:</h5>' + customArticles.map(art => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+                    <div>
+                        <strong>${art.name}</strong>
+                        <div style="font-size: 0.9em; color: #6c757d;">${art.price}€ | ${art.temps}h | ${art.category}</div>
+                    </div>
+                    <button onclick="deleteCustomArticle(${art.id})" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>
+                </div>
+            `).join('');
+        }
+    }
+    
+    // Coffrets
+    const coffretsContainer = document.getElementById('customCoffretsList');
+    if (coffretsContainer) {
+        if (customCoffrets.length === 0) {
+            coffretsContainer.innerHTML = '<p style="color: #6c757d;">Aucun coffret personnalisé</p>';
+        } else {
+            coffretsContainer.innerHTML = '<h5>Vos coffrets:</h5>' + customCoffrets.map(cof => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+                    <div>
+                        <strong>${cof.name}</strong>
+                        <div style="font-size: 0.9em; color: #6c757d;">${cof.price}€ | ${cof.temps}h</div>
+                    </div>
+                    <button onclick="deleteCustomCoffret(${cof.id})" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>
+                </div>
+            `).join('');
+        }
+    }
+    
+    // Composants
+    const composantsContainer = document.getElementById('customComposantsList');
+    if (composantsContainer) {
+        if (customComposants.length === 0) {
+            composantsContainer.innerHTML = '<p style="color: #6c757d;">Aucun composant personnalisé</p>';
+        } else {
+            composantsContainer.innerHTML = '<h5>Vos composants:</h5>' + customComposants.map(comp => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+                    <div>
+                        <strong>${comp.name}</strong>
+                        <div style="font-size: 0.9em; color: #6c757d;">${comp.price}€ | ${comp.temps}h | ${comp.category}</div>
+                    </div>
+                    <button onclick="deleteCustomComposant(${comp.id})" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+function deleteCustomArticle(id) {
+    if (!confirm('Supprimer cet article ?')) return;
+    customArticles = customArticles.filter(a => a.id !== id);
+    localStorage.setItem('noorelec_custom_articles', JSON.stringify(customArticles));
+    renderCustomItems();
+}
+
+function deleteCustomCoffret(id) {
+    if (!confirm('Supprimer ce coffret ?')) return;
+    customCoffrets = customCoffrets.filter(c => c.id !== id);
+    localStorage.setItem('noorelec_custom_coffrets', JSON.stringify(customCoffrets));
+    renderCustomItems();
+}
+
+function deleteCustomComposant(id) {
+    if (!confirm('Supprimer ce composant ?')) return;
+    customComposants = customComposants.filter(c => c.id !== id);
+    localStorage.setItem('noorelec_custom_composants', JSON.stringify(customComposants));
+    renderCustomItems();
+}
+
+// ============================================================================
+// HISTORIQUE DEVIS
+// ============================================================================
+
+function saveDevisToHistory(status = 'attente') {
+    // Calculer totaux
+    let travauxTotal = 0;
+    devisState.travaux.rooms.forEach(room => {
+        room.articles.forEach(art => travauxTotal += art.total);
+        travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
+    });
+    
+    let tableauTotal = 0;
+    if (devisState.tableau.enabled) {
+        devisState.tableau.tableaux.forEach(tableau => {
+            tableauTotal += calculateTableauTotal(tableau);
+        });
+    }
+    
+    const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
+    const sousTotal = travauxTotal + tableauTotal + adminTotal;
+    const deplacement = devisState.global.deplacement;
+    
+    let ristourneMontant = 0;
+    if (devisState.ristourne.enabled) {
+        ristourneMontant = (sousTotal + deplacement) * (devisState.ristourne.pourcent / 100);
+    }
+    
+    const totalHT = sousTotal + deplacement - ristourneMontant;
+    const tva = totalHT * devisState.global.tva;
+    const totalTTC = totalHT + tva;
+    
+    const devisEntry = {
+        numero: devisState.currentDevisNumber,
+        client: devisState.client.name,
+        montantTTC: totalTTC,
+        date: new Date().toISOString(),
+        status: status,
+        data: JSON.parse(JSON.stringify(devisState)) // Deep copy
+    };
+    
+    // Vérifier si le devis existe déjà (update)
+    const existingIndex = devisHistory.findIndex(d => d.numero === devisState.currentDevisNumber);
+    if (existingIndex >= 0) {
+        devisHistory[existingIndex] = devisEntry;
+    } else {
+        devisHistory.push(devisEntry);
+    }
+    
+    localStorage.setItem('noorelec_devis_history', JSON.stringify(devisHistory));
+}
+
+function renderDevisHistory(filter = 'all') {
+    const container = document.getElementById('devisHistoryList');
+    if (!container) return;
+    
+    let filteredDevis = devisHistory;
+    if (filter !== 'all') {
+        filteredDevis = devisHistory.filter(d => d.status === filter);
+    }
+    
+    if (filteredDevis.length === 0) {
+        container.innerHTML = '<div class="empty-state">Aucun devis</div>';
+        return;
+    }
+    
+    container.innerHTML = filteredDevis.reverse().map(devis => {
+        const statusColors = {
+            'valide': { bg: '#d4edda', border: '#28a745', icon: '🟢' },
+            'attente': { bg: '#fff3cd', border: '#ffc107', icon: '🟠' },
+            'refuse': { bg: '#f8d7da', border: '#dc3545', icon: '🔴' }
+        };
+        
+        const color = statusColors[devis.status] || statusColors['attente'];
+        const date = new Date(devis.date).toLocaleDateString('fr-BE');
+        
+        return `
+            <div style="background: ${color.bg}; border-left: 5px solid ${color.border}; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0 0 5px 0;">${color.icon} ${devis.numero} - ${devis.client}</h4>
+                        <div style="color: #6c757d; font-size: 0.9em;">${devis.montantTTC.toFixed(2)}€ TTC | ${date}</div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <select onchange="changeDevisStatus('${devis.numero}', this.value)" style="padding: 8px; border-radius: 6px; border: 2px solid ${color.border};">
+                            <option value="attente" ${devis.status === 'attente' ? 'selected' : ''}>🟠 En attente</option>
+                            <option value="valide" ${devis.status === 'valide' ? 'selected' : ''}>🟢 Validé</option>
+                            <option value="refuse" ${devis.status === 'refuse' ? 'selected' : ''}>🔴 Refusé</option>
+                        </select>
+                        <button onclick="loadDevis('${devis.numero}')" class="btn btn-primary">Voir</button>
+                        <button onclick="deleteDevis('${devis.numero}')" class="btn btn-delete">🗑️</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterDevis(filter) {
+    renderDevisHistory(filter);
+}
+
+function changeDevisStatus(numero, newStatus) {
+    const devis = devisHistory.find(d => d.numero === numero);
+    if (devis) {
+        devis.status = newStatus;
+        localStorage.setItem('noorelec_devis_history', JSON.stringify(devisHistory));
+        renderDevisHistory();
+    }
+}
+
+function loadDevis(numero) {
+    const devis = devisHistory.find(d => d.numero === numero);
+    if (devis) {
+        Object.assign(devisState, devis.data);
+        saveToLocalStorage();
+        location.reload(); // Recharger pour appliquer
+    }
+}
+
+function deleteDevis(numero) {
+    if (!confirm('Supprimer ce devis définitivement ?')) return;
+    devisHistory = devisHistory.filter(d => d.numero !== numero);
+    localStorage.setItem('noorelec_devis_history', JSON.stringify(devisHistory));
+    renderDevisHistory();
+}
+
+// ============================================================================
+// TABLEAU COLLAPSE (comme pièces)
+// ============================================================================
+
+function toggleTableauCollapse(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (tableau) {
+        tableau.collapsed = !tableau.collapsed;
+        renderTableaux();
+        saveToLocalStorage();
+    }
 }
 
 // ============================================================================

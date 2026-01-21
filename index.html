@@ -44,6 +44,10 @@
                 <div class="nav-icon">💰</div>
                 <div class="nav-label">Récap</div>
             </button>
+            <button class="nav-item" data-page="historique" onclick="switchPage('historique')">
+                <div class="nav-icon">📊</div>
+                <div class="nav-label">Historique</div>
+            </button>
             <button class="nav-item" data-page="schema" onclick="switchPage('schema')">
                 <div class="nav-icon">📐</div>
                 <div class="nav-label">Schémas</div>
@@ -361,6 +365,30 @@
                 </div>
             </div>
 
+            <!-- PAGE HISTORIQUE -->
+            <div id="page-historique" class="page">
+                <div class="section">
+                    <h2 class="section-title">📊 Historique des Devis</h2>
+                    
+                    <div class="info-box">
+                        <p>Tous vos devis sauvegardés avec leur statut.</p>
+                    </div>
+
+                    <!-- FILTRES -->
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="filterDevis('all')">Tous</button>
+                        <button class="btn" style="background: #28a745;" onclick="filterDevis('valide')">🟢 Validés</button>
+                        <button class="btn" style="background: #ffc107; color: black;" onclick="filterDevis('attente')">🟠 En attente</button>
+                        <button class="btn" style="background: #dc3545;" onclick="filterDevis('refuse')">🔴 Refusés</button>
+                    </div>
+
+                    <!-- LISTE DEVIS -->
+                    <div id="devisHistoryList">
+                        <!-- Généré dynamiquement -->
+                    </div>
+                </div>
+            </div>
+
             <!-- PAGE SCHEMA (garder l'ancien) -->
             <div id="page-schema" class="page">
                 <div class="section">
@@ -436,6 +464,104 @@
                         <div class="form-group">
                             <label>Déplacement par défaut</label>
                             <input type="number" id="param-deplacement" value="25" step="5" min="0" onchange="saveSettings()">
+                        </div>
+                    </div>
+
+                    <!-- AJOUTER ARTICLES PERSONNALISÉS -->
+                    <h3 class="subsection-title">🛠️ Ajouter vos propres articles</h3>
+                    <div class="article-form" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>➕ Nouvel article (pour onglet Travaux)</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Nom de l'article</label>
+                                <input type="text" id="customArticleName" placeholder="Ex: Borne de recharge">
+                            </div>
+                            <div class="form-group">
+                                <label>Prix (€)</label>
+                                <input type="number" id="customArticlePrice" placeholder="450" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Temps MO (heures)</label>
+                                <input type="number" id="customArticleTemps" placeholder="2.5" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Catégorie</label>
+                                <select id="customArticleCategory">
+                                    <option>Prises</option>
+                                    <option>Interrupteurs</option>
+                                    <option>Éclairage</option>
+                                    <option>Réseau</option>
+                                    <option>Domotique</option>
+                                    <option>Sécurité</option>
+                                    <option>Autre</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-success" onclick="addCustomArticle()">➕ Ajouter cet article</button>
+                        
+                        <div id="customArticlesList" style="margin-top: 15px;">
+                            <!-- Liste articles personnalisés -->
+                        </div>
+                    </div>
+
+                    <!-- AJOUTER COFFRETS PERSONNALISÉS -->
+                    <h3 class="subsection-title">📦 Ajouter vos propres coffrets</h3>
+                    <div class="article-form" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>➕ Nouveau type de coffret (pour onglet Tableau)</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Nom du coffret</label>
+                                <input type="text" id="customCoffretName" placeholder="Ex: Coffret saillie 6R">
+                            </div>
+                            <div class="form-group">
+                                <label>Prix (€)</label>
+                                <input type="number" id="customCoffretPrice" placeholder="120" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Temps MO (heures)</label>
+                                <input type="number" id="customCoffretTemps" placeholder="1.2" step="0.1" min="0">
+                            </div>
+                        </div>
+                        <button class="btn btn-success" onclick="addCustomCoffret()">➕ Ajouter ce coffret</button>
+                        
+                        <div id="customCoffretsList" style="margin-top: 15px;">
+                            <!-- Liste coffrets personnalisés -->
+                        </div>
+                    </div>
+
+                    <!-- AJOUTER COMPOSANTS PERSONNALISÉS -->
+                    <h3 class="subsection-title">⚡ Ajouter vos propres composants</h3>
+                    <div class="article-form" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h4>➕ Nouveau composant tableau (pour onglet Tableau)</h4>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label>Nom du composant</label>
+                                <input type="text" id="customComposantName" placeholder="Ex: Disjoncteur différentiel">
+                            </div>
+                            <div class="form-group">
+                                <label>Prix (€)</label>
+                                <input type="number" id="customComposantPrice" placeholder="95" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Temps MO (heures)</label>
+                                <input type="number" id="customComposantTemps" placeholder="0.3" step="0.1" min="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Catégorie</label>
+                                <select id="customComposantCategory">
+                                    <option>Disjoncteurs</option>
+                                    <option>Différentiels</option>
+                                    <option>Protections</option>
+                                    <option>Accessoires</option>
+                                    <option>Terre</option>
+                                    <option>Autre</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-success" onclick="addCustomComposant()">➕ Ajouter ce composant</button>
+                        
+                        <div id="customComposantsList" style="margin-top: 15px;">
+                            <!-- Liste composants personnalisés -->
                         </div>
                     </div>
 
