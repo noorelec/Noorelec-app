@@ -17,8 +17,19 @@
         <!-- HEADER -->
         <header class="app-header">
             <div class="header-content">
-                <div class="logo">⚡ NOORELEC V4</div>
-                <div class="header-subtitle">Devis Électricien Professionnel</div>
+                <div>
+                    <div class="logo">⚡ NOORELEC V4</div>
+                    <div class="header-subtitle">Devis Électricien Professionnel</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div style="text-align: right;">
+                        <div id="user-email" style="color: #fff; font-size: 0.9em; font-weight: 600;"></div>
+                        <div id="user-status" style="color: rgba(255,255,255,0.8); font-size: 0.8em;"></div>
+                    </div>
+                    <button onclick="handleLogout()" style="background: #dc3545; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.3s;">
+                        🚪 Déconnexion
+                    </button>
+                </div>
             </div>
         </header>
 
@@ -575,6 +586,7 @@
         </main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="app.js"></script>
 </body>
 </html>

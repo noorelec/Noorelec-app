@@ -1,6 +1,73 @@
 // NOORELEC V4 - APPLICATION JAVASCRIPT
 
 // ============================================================================
+// SUPABASE CONFIGURATION
+// ============================================================================
+
+const SUPABASE_URL = 'https://ahaingqdlmsdmaimtuve.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoYWlucWdkbG1zZG1haW10dXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMjg5MDQsImV4cCI6MjA4NDYwNDkwNH0.oUMT-XW69F2skvx1xmWB3B6G15OMCqfWywTt55_q-jU';
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let currentUser = null;
+
+// ============================================================================
+// AUTH CHECK
+// ============================================================================
+
+async function checkAuth() {
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!session) {
+        // Pas connecté, rediriger vers auth
+        window.location.href = 'auth.html';
+        return false;
+    }
+    
+    currentUser = session.user;
+    
+    // Récupérer infos utilisateur
+    const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', currentUser.id)
+        .single();
+    
+    if (userData) {
+        // Afficher email
+        document.getElementById('user-email').textContent = userData.email;
+        
+        // Afficher statut
+        let statusText = '';
+        if (userData.role === 'admin') {
+            statusText = '👑 Admin';
+        } else if (userData.role === 'vip_free') {
+            statusText = '🎁 VIP Gratuit';
+        } else if (userData.subscription_status === 'trial') {
+            const daysLeft = Math.ceil((new Date(userData.subscription_end) - new Date()) / (1000 * 60 * 60 * 24));
+            statusText = `🆓 Essai (${daysLeft}j restants)`;
+        } else if (userData.subscription_status === 'active') {
+            statusText = '✅ Abonné';
+        }
+        document.getElementById('user-status').textContent = statusText;
+        
+        // Vérifier expiration
+        if (userData.subscription_status === 'trial' && new Date(userData.subscription_end) < new Date()) {
+            alert('⚠️ Votre essai gratuit a expiré ! Contactez-nous pour continuer.');
+            handleLogout();
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+async function handleLogout() {
+    await supabase.auth.signOut();
+    window.location.href = 'auth.html';
+}
+
+// ============================================================================
 // ÉTAT GLOBAL
 // ============================================================================
 
@@ -2324,7 +2391,12 @@ function renderCatalogueEditor() {
 // INITIALIZATION
 // ============================================================================
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Vérifier auth en premier
+    const isAuth = await checkAuth();
+    if (!isAuth) return;
+    
+    // Charger données
     loadFromLocalStorage();
     renderCustomItems();
     renderDevisHistory();
