@@ -160,7 +160,7 @@ async function handleLogin(event) {
         // Connexion réussie
         showAlert('login-alert', '✅ Connexion réussie !', 'success');
         setTimeout(() => {
-            window.location.href = 'app.html';
+            window.location.href = 'index.html';
         }, 1000);
         
     } catch (error) {
@@ -266,7 +266,7 @@ async function handleSignup(event) {
             
             showAlert('signup-alert', '✅ Compte créé ! Essai gratuit 14 jours activé !', 'success');
             setTimeout(() => {
-                window.location.href = 'app.html';
+                window.location.href = 'index.html';
             }, 2000);
             
         } else {
@@ -345,6 +345,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     
     if (session) {
         // Déjà connecté, rediriger
-        window.location.href = 'app.html';
+        window.location.href = 'index.html';
     }
 });
