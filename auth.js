@@ -4,13 +4,9 @@
 
 const SUPABASE_URL = 'https://ahaingqdlmsdmaimtuve.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoYWlucWdkbG1zZG1haW10dXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMjg5MDQsImV4cCI6MjA4NDYwNDkwNH0.oUMT-XW69F2skvx1xmWB3B6G15OMCqfWywTt55_q-jU';
-const STRIPE_PUBLISHABLE_KEY = 'pk_test_51SsCF8InHJZkcFCzH50gYKAlBuDEOgsYmUwO1xuBdd6FMcm8lF2qV5KUp7mZlLMEl3pjAjdmiKWCNiTxqk760hbI00BBXE0EFE';
 
 // Initialize Supabase
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-// Initialize Stripe
-const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
 
 let selectedPrice = 'monthly';
 
@@ -70,38 +66,13 @@ async function verifyVAT(vatNumber) {
         return { valid: false, error: 'Format TVA belge invalide (ex: BE 0123.456.789)' };
     }
     
-    try {
-        // API VIES européenne (gratuite)
-        const countryCode = cleanVAT.substring(0, 2);
-        const vatNum = cleanVAT.substring(2);
-        
-        const response = await fetch(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNum}`);
-        
-        if (!response.ok) {
-            return { valid: false, error: 'Erreur de vérification TVA' };
-        }
-        
-        const data = await response.json();
-        
-        if (data.valid) {
-            return { 
-                valid: true, 
-                companyName: data.name || '',
-                vatNumber: cleanVAT
-            };
-        } else {
-            return { valid: false, error: 'Numéro TVA invalide ou inactif' };
-        }
-    } catch (error) {
-        console.error('VAT verification error:', error);
-        // En cas d'erreur API, on accepte quand même si le format est bon
-        return { 
-            valid: true, 
-            companyName: '',
-            vatNumber: cleanVAT,
-            warning: 'Impossible de vérifier en ligne, format accepté'
-        };
-    }
+    // Pour simplifier, on accepte tous les formats valides
+    return { 
+        valid: true, 
+        companyName: '',
+        vatNumber: cleanVAT,
+        warning: 'Format accepté (vérification en ligne désactivée)'
+    };
 }
 
 async function checkVATAlreadyUsed(vatNumber) {
@@ -141,26 +112,31 @@ async function handleLogin(event) {
             .eq('id', data.user.id)
             .single();
         
-        if (userError) throw userError;
-        
-        // Vérifier si l'abonnement est actif
-        if (userData.subscription_status === 'expired' || userData.subscription_status === 'cancelled') {
-            showAlert('login-alert', '⚠️ Votre abonnement a expiré. Veuillez renouveler.', 'error');
-            hideLoading('login-btn', 'Se connecter');
-            return;
+        if (userError) {
+            // Pas de données user, on laisse passer quand même
+            console.warn('No user data found, but login successful');
         }
         
-        // Si essai et expiré
-        if (userData.subscription_status === 'trial' && new Date(userData.subscription_end) < new Date()) {
-            showAlert('login-alert', '⚠️ Votre essai gratuit a expiré. Veuillez souscrire.', 'error');
-            hideLoading('login-btn', 'Se connecter');
-            return;
+        if (userData) {
+            // Vérifier si l'abonnement est actif
+            if (userData.subscription_status === 'expired' || userData.subscription_status === 'cancelled') {
+                showAlert('login-alert', '⚠️ Votre abonnement a expiré. Contactez-nous.', 'error');
+                hideLoading('login-btn', 'Se connecter');
+                return;
+            }
+            
+            // Si essai et expiré
+            if (userData.subscription_status === 'trial' && userData.subscription_end && new Date(userData.subscription_end) < new Date()) {
+                showAlert('login-alert', '⚠️ Votre essai gratuit a expiré. Contactez-nous.', 'error');
+                hideLoading('login-btn', 'Se connecter');
+                return;
+            }
         }
         
         // Connexion réussie
         showAlert('login-alert', '✅ Connexion réussie !', 'success');
         setTimeout(() => {
-            window.location.href = 'index.html';
+            window.location.href = 'app.html';
         }, 1000);
         
     } catch (error) {
@@ -266,12 +242,12 @@ async function handleSignup(event) {
             
             showAlert('signup-alert', '✅ Compte créé ! Essai gratuit 14 jours activé !', 'success');
             setTimeout(() => {
-                window.location.href = 'index.html';
+                window.location.href = 'app.html';
             }, 2000);
             
         } else {
-            // Pas de TVA → Rediriger vers Stripe
-            showAlert('signup-alert', '🔄 Redirection vers le paiement...', 'info');
+            // Pas de TVA → Créer compte en attente
+            showAlert('signup-alert', '✅ Compte créé ! Contactez-nous pour activer votre abonnement.', 'success');
             
             // Créer user en attente
             await supabase.from('users').insert({
@@ -287,51 +263,16 @@ async function handleSignup(event) {
                 user_id: userId
             });
             
-            // Rediriger vers Stripe Checkout
-            await createStripeCheckout(userId, email, selectedPrice);
+            setTimeout(() => {
+                // Rediriger vers login
+                switchTab('login');
+                hideLoading('signup-btn', 'Créer mon compte');
+            }, 2000);
         }
         
     } catch (error) {
         console.error('Signup error:', error);
         showAlert('signup-alert', `❌ Erreur: ${error.message}`, 'error');
-        hideLoading('signup-btn', 'Créer mon compte');
-    }
-}
-
-// ============================================================================
-// STRIPE CHECKOUT
-// ============================================================================
-
-async function createStripeCheckout(userId, email, priceType) {
-    try {
-        // Appeler votre backend pour créer une session Checkout
-        // IMPORTANT: Vous devrez créer un petit serveur backend pour ça
-        // Pour l'instant, je vais vous montrer comment faire côté client
-        
-        const response = await fetch('https://your-backend.com/create-checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId: userId,
-                email: email,
-                priceType: priceType
-            })
-        });
-        
-        const session = await response.json();
-        
-        // Rediriger vers Stripe
-        const result = await stripe.redirectToCheckout({
-            sessionId: session.id
-        });
-        
-        if (result.error) {
-            throw new Error(result.error.message);
-        }
-        
-    } catch (error) {
-        console.error('Stripe checkout error:', error);
-        showAlert('signup-alert', '❌ Erreur lors de la création du paiement', 'error');
         hideLoading('signup-btn', 'Créer mon compte');
     }
 }
@@ -345,6 +286,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     
     if (session) {
         // Déjà connecté, rediriger
-        window.location.href = 'index.html';
+        window.location.href = 'app.html';
     }
 });
