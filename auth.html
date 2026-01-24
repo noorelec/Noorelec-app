@@ -258,7 +258,7 @@
 
         <div class="tabs">
             <button class="tab active" onclick="switchTab('login')">Connexion</button>
-            <button class="tab" onclick="switchTab('signup')">Inscription</button>
+            <button class="tab" id="signup-tab-btn">Inscription</button>
         </div>
 
         <!-- CONNEXION -->
@@ -326,5 +326,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="auth.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="auth.js"></script>
+    <script>
+        // Force les événements après le chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('signup-tab-btn').addEventListener('click', function() {
+                switchTab('signup');
+            });
+        });
+    </script>
+</body>
+</html>
+
 </body>
 </html>
