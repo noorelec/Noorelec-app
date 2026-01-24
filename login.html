@@ -339,13 +339,6 @@
             document.getElementById('loginForm').addEventListener('submit', handleLogin);
             document.getElementById('signupForm').addEventListener('submit', handleSignup);
             
-          supabase.auth.getSession().then(function(result) {
-    if (result && result.data && result.data.session) {
-        window.location.href = 'app.html';
-    }
-}).catch(function(error) {
-    console.log('Session check skipped');
-});
         });
     </script>
 </body>
