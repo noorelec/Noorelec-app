@@ -1,11 +1,9 @@
-// CONFIGURATION
 const SUPABASE_URL = 'https://ahaingqdlmsdmaimtuve.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFoYWlucWdkbG1zZG1haW10dXZlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwMjg5MDQsImV4cCI6MjA4NDYwNDkwNH0.oUMT-XW69F2skvx1xmWB3B6G15OMCqfWywTt55_q-jU';
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let selectedPrice = 'monthly';
 
-// UI FUNCTIONS
 function switchTab(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -44,7 +42,6 @@ function hideLoading(buttonId, text) {
     btn.innerHTML = text;
 }
 
-// VAT VERIFICATION
 async function verifyVAT(vatNumber) {
     const cleanVAT = vatNumber.replace(/[.\s-]/g, '').toUpperCase();
     
@@ -56,12 +53,12 @@ async function verifyVAT(vatNumber) {
         valid: true, 
         companyName: '',
         vatNumber: cleanVAT,
-        warning: 'Format accepté (vérification en ligne désactivée)'
+        warning: 'Format accepté'
     };
 }
 
 async function checkVATAlreadyUsed(vatNumber) {
-    const { data, error } = await supabase
+    const { data } = await supabase
         .from('vat_trials')
         .select('*')
         .eq('vat_number', vatNumber)
@@ -70,7 +67,6 @@ async function checkVATAlreadyUsed(vatNumber) {
     return data !== null;
 }
 
-// LOGIN
 async function handleLogin(event) {
     event.preventDefault();
     
@@ -95,31 +91,29 @@ async function handleLogin(event) {
         
         if (userData) {
             if (userData.subscription_status === 'expired' || userData.subscription_status === 'cancelled') {
-                showAlert('login-alert', '⚠️ Votre abonnement a expiré. Contactez-nous.', 'error');
+                showAlert('login-alert', 'Votre abonnement a expiré. Contactez-nous.', 'error');
                 hideLoading('login-btn', 'Se connecter');
                 return;
             }
             
             if (userData.subscription_status === 'trial' && userData.subscription_end && new Date(userData.subscription_end) < new Date()) {
-                showAlert('login-alert', '⚠️ Votre essai gratuit a expiré. Contactez-nous.', 'error');
+                showAlert('login-alert', 'Votre essai gratuit a expiré. Contactez-nous.', 'error');
                 hideLoading('login-btn', 'Se connecter');
                 return;
             }
         }
         
-        showAlert('login-alert', '✅ Connexion réussie !', 'success');
+        showAlert('login-alert', 'Connexion réussie !', 'success');
         setTimeout(() => {
             window.location.href = 'app.html';
         }, 1000);
         
     } catch (error) {
-        console.error('Login error:', error);
-        showAlert('login-alert', '❌ Email ou mot de passe incorrect', 'error');
+        showAlert('login-alert', 'Email ou mot de passe incorrect', 'error');
         hideLoading('login-btn', 'Se connecter');
     }
 }
 
-// SIGNUP
 async function handleSignup(event) {
     event.preventDefault();
     
@@ -129,12 +123,12 @@ async function handleSignup(event) {
     const vatNumber = document.getElementById('signup-vat').value.trim();
     
     if (password !== passwordConfirm) {
-        showAlert('signup-alert', '❌ Les mots de passe ne correspondent pas', 'error');
+        showAlert('signup-alert', 'Les mots de passe ne correspondent pas', 'error');
         return;
     }
     
     if (password.length < 6) {
-        showAlert('signup-alert', '❌ Le mot de passe doit contenir au moins 6 caractères', 'error');
+        showAlert('signup-alert', 'Le mot de passe doit contenir au moins 6 caractères', 'error');
         return;
     }
     
@@ -145,19 +139,19 @@ async function handleSignup(event) {
         let vatData = null;
         
         if (vatNumber) {
-            showAlert('signup-alert', '🔍 Vérification du numéro TVA...', 'info');
+            showAlert('signup-alert', 'Vérification du numéro TVA...', 'info');
             
             vatData = await verifyVAT(vatNumber);
             
             if (!vatData.valid) {
-                showAlert('signup-alert', `❌ ${vatData.error}`, 'error');
+                showAlert('signup-alert', vatData.error, 'error');
                 hideLoading('signup-btn', 'Créer mon compte');
                 return;
             }
             
             const alreadyUsed = await checkVATAlreadyUsed(vatData.vatNumber);
             if (alreadyUsed) {
-                showAlert('signup-alert', '❌ Ce numéro TVA a déjà été utilisé pour un essai gratuit', 'error');
+                showAlert('signup-alert', 'Ce numéro TVA a déjà été utilisé pour un essai gratuit', 'error');
                 hideLoading('signup-btn', 'Créer mon compte');
                 return;
             }
@@ -199,13 +193,13 @@ async function handleSignup(event) {
                 user_id: userId
             });
             
-            showAlert('signup-alert', '✅ Compte créé ! Essai gratuit 14 jours activé !', 'success');
+            showAlert('signup-alert', 'Compte créé ! Essai gratuit 14 jours activé !', 'success');
             setTimeout(() => {
                 window.location.href = 'app.html';
             }, 2000);
             
         } else {
-            showAlert('signup-alert', '✅ Compte créé ! Contactez-nous pour activer votre abonnement.', 'success');
+            showAlert('signup-alert', 'Compte créé ! Contactez-nous pour activer votre abonnement.', 'success');
             
             await supabase.from('users').insert({
                 id: userId,
@@ -226,13 +220,11 @@ async function handleSignup(event) {
         }
         
     } catch (error) {
-        console.error('Signup error:', error);
-        showAlert('signup-alert', `❌ Erreur: ${error.message}`, 'error');
+        showAlert('signup-alert', 'Erreur: ' + error.message, 'error');
         hideLoading('signup-btn', 'Créer mon compte');
     }
 }
 
-// CHECK IF ALREADY LOGGED IN
 window.addEventListener('DOMContentLoaded', async () => {
     const { data: { session } } = await supabase.auth.getSession();
     
