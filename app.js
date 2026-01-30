@@ -24,22 +24,24 @@ const devisState = {
     },
     
     travaux: {
-        articles: [],
-        nextId: 1,
-        cabling: {
-            internal: { length: 0, cost: 0 },
-            tableau: { length: 0, cost: 0 }
-        }
+        rooms: [],  // Chaque pièce contient TOUT (articles, installation, circuit, câblage)
+        nextRoomId: 1
     },
     
     tableau: {
         enabled: false,
-        items: [],
-        total: 0
+        tableaux: [],  // Liste de tableaux (principal + intermédiaires)
+        nextTableauId: 1
     },
     
     administratif: {
         services: []
+    },
+    
+    ristourne: {
+        enabled: false,
+        pourcent: 10,
+        delai: 30
     }
 };
 
@@ -66,6 +68,37 @@ const CATALOGUE = [
 ];
 
 // ============================================================================
+// CATALOGUE COMPOSANTS TABLEAU
+// ============================================================================
+
+const CATALOGUE_TABLEAU = [
+    // Disjoncteurs
+    { id: 1, name: "Disjoncteur 10A", price: 18.50, temps: 0.15, category: "Disjoncteurs" },
+    { id: 2, name: "Disjoncteur 16A", price: 20.00, temps: 0.15, category: "Disjoncteurs" },
+    { id: 3, name: "Disjoncteur 20A", price: 22.50, temps: 0.15, category: "Disjoncteurs" },
+    { id: 4, name: "Disjoncteur 25A", price: 25.00, temps: 0.15, category: "Disjoncteurs" },
+    { id: 5, name: "Disjoncteur 32A", price: 28.50, temps: 0.2, category: "Disjoncteurs" },
+    { id: 6, name: "Disjoncteur 40A", price: 32.00, temps: 0.2, category: "Disjoncteurs" },
+    
+    // Différentiels
+    { id: 7, name: "Différentiel 30mA 40A Type A", price: 85.00, temps: 0.3, category: "Différentiels" },
+    { id: 8, name: "Différentiel 30mA 63A Type A", price: 95.00, temps: 0.3, category: "Différentiels" },
+    { id: 9, name: "Différentiel 300mA 40A Type S", price: 120.00, temps: 0.3, category: "Différentiels" },
+    
+    // Protections spéciales
+    { id: 10, name: "Parafoudre Type 2", price: 95.00, temps: 0.25, category: "Protections" },
+    { id: 11, name: "Télérupteur 16A", price: 45.00, temps: 0.2, category: "Protections" },
+    { id: 12, name: "Contacteur jour/nuit 20A", price: 55.00, temps: 0.25, category: "Protections" },
+    
+    // Barrettes et accessoires
+    { id: 13, name: "Barrette de pontage", price: 12.00, temps: 0.1, category: "Accessoires" },
+    { id: 14, name: "Peigne d'alimentation", price: 15.00, temps: 0.15, category: "Accessoires" },
+    { id: 15, name: "Barre de terre 13 trous", price: 25.00, temps: 0.2, category: "Accessoires" },
+    { id: 16, name: "Piquet de terre + cable", price: 65.00, temps: 0.8, category: "Terre" },
+    { id: 17, name: "Cable de terre 25mm² (par m)", price: 3.50, temps: 0.05, category: "Terre" }
+];
+
+// ============================================================================
 // FACTEURS D'INSTALLATION
 // ============================================================================
 
@@ -88,8 +121,8 @@ const FACTEURS = {
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('NOORELEC V4 - Initialisation');
-    initializeArticleSelect();
     loadFromLocalStorage();
+    renderRooms();
     updateRecap();
 });
 
@@ -119,17 +152,9 @@ function switchPage(pageName) {
         navItem.classList.add('active');
     }
     
-    // Actions spécifiques par page
+    // Mettre à jour le récapitulatif si on y arrive
     if (pageName === 'recapitulatif') {
         updateRecap();
-    }
-    
-    if (pageName === 'administratif') {
-        updateAdminPrices();
-    }
-    
-    if (pageName === 'parametres') {
-        renderCatalogueEditor();
     }
     
     // Scroll to top
@@ -201,79 +226,257 @@ function updateGlobalSettings() {
 }
 
 // ============================================================================
-// PAGE TRAVAUX - ARTICLES
+// PAGE TRAVAUX - GESTION DES PIÈCES COMPLÈTES
 // ============================================================================
 
-function initializeArticleSelect() {
-    const select = document.getElementById('newArticleSelect');
-    if (!select) return;
+function createRoom() {
+    const roomName = document.getElementById('newRoomName').value.trim();
     
-    select.innerHTML = '<option value="">-- Sélectionner un article --</option>';
+    if (!roomName) {
+        alert('❌ Entrez un nom de pièce');
+        return;
+    }
     
+    const newRoom = {
+        id: devisState.travaux.nextRoomId++,
+        name: roomName,
+        articles: [],
+        nextArticleId: 1,
+        installType: 'apparent',  // Type installation pour cette pièce
+        circuitType: 'existant',  // Circuit pour cette pièce
+        rebouchage: false,  // Rebouchage activé pour cette pièce
+        rebouchagePrice: 20,  // Prix rebouchage pour cette pièce (modifiable)
+        cabling: {
+            internal: { type: '2.45,2.8', length: 0, cost: 0 },  // Entre points
+            tableau: { type: '5.25,3.8', length: 0, cost: 0 }    // Jusqu'au tableau
+        }
+    };
+    
+    devisState.travaux.rooms.push(newRoom);
+    document.getElementById('newRoomName').value = '';
+    
+    renderRooms();
+    saveToLocalStorage();
+}
+
+function renderRooms() {
+    const container = document.getElementById('roomsContainer');
+    
+    if (devisState.travaux.rooms.length === 0) {
+        container.innerHTML = '<div class="empty-state">Créez une pièce pour commencer</div>';
+        return;
+    }
+    
+    container.innerHTML = devisState.travaux.rooms.map(room => {
+        const roomTotal = calculateRoomTotal(room);
+        
+        return `
+            <div class="section" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 3px solid #ff9800; margin-bottom: 25px;">
+                <!-- En-tête pièce -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid #ff9800;">
+                    <h3 style="color: #e65100; margin: 0; font-size: 1.5em;">🏠 ${room.name}</h3>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="color: #e65100; font-weight: 700; font-size: 1.3em;">${roomTotal.toFixed(2)}€ HTVA</div>
+                        <button class="btn-delete" onclick="deleteRoom(${room.id})" style="padding: 10px 15px; font-size: 1.1em;">🗑️ Supprimer pièce</button>
+                    </div>
+                </div>
+                
+                <!-- Formulaire ajout article -->
+                <div class="article-form" style="background: white;">
+                    <h3>➕ Ajouter un article dans ${room.name}</h3>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Article</label>
+                            <select id="articleSelect_${room.id}" onchange="updateRoomPreview(${room.id})">
+                                <option value="">-- Sélectionner un article --</option>
+                                ${generateArticleOptions()}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantité</label>
+                            <input type="number" id="articleQty_${room.id}" value="1" min="0.1" step="0.1" onchange="updateRoomPreview(${room.id})">
+                        </div>
+                    </div>
+                    
+                    <h4 class="form-section-title">Type d'installation pour ${room.name}</h4>
+                    <div class="radio-grid">
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="apparent" ${room.installType === 'apparent' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'apparent')">
+                            <div class="radio-content">
+                                <div class="radio-icon">📦</div>
+                                <div class="radio-title">Apparent</div>
+                                <div class="radio-subtitle">Goulotte visible</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="encastre" ${room.installType === 'encastre' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'encastre')">
+                            <div class="radio-content">
+                                <div class="radio-icon">🔨</div>
+                                <div class="radio-title">Encastré</div>
+                                <div class="radio-subtitle">Saignées mur</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="faux-plafond" ${room.installType === 'faux-plafond' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'faux-plafond')">
+                            <div class="radio-content">
+                                <div class="radio-icon">⬆️</div>
+                                <div class="radio-title">Faux plafond</div>
+                                <div class="radio-subtitle">Par plafond</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="installType_${room.id}" value="sous-plancher" ${room.installType === 'sous-plancher' ? 'checked' : ''} onchange="updateRoomInstallType(${room.id}, 'sous-plancher')">
+                            <div class="radio-content">
+                                <div class="radio-icon">⬇️</div>
+                                <div class="radio-title">Sous plancher</div>
+                                <div class="radio-subtitle">Par sol</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <h4 class="form-section-title">Circuit électrique pour ${room.name}</h4>
+                    <div class="radio-grid two-cols">
+                        <label class="radio-card">
+                            <input type="radio" name="circuitType_${room.id}" value="existant" ${room.circuitType === 'existant' ? 'checked' : ''} onchange="updateRoomCircuitType(${room.id}, 'existant')">
+                            <div class="radio-content">
+                                <div class="radio-icon">🔄</div>
+                                <div class="radio-title">Circuit existant</div>
+                                <div class="radio-subtitle">Remplacer/ajouter</div>
+                            </div>
+                        </label>
+                        <label class="radio-card">
+                            <input type="radio" name="circuitType_${room.id}" value="nouvelle-ligne" ${room.circuitType === 'nouvelle-ligne' ? 'checked' : ''} onchange="updateRoomCircuitType(${room.id}, 'nouvelle-ligne')">
+                            <div class="radio-content">
+                                <div class="radio-icon">⚡</div>
+                                <div class="radio-title">Nouvelle ligne</div>
+                                <div class="radio-subtitle">Depuis tableau</div>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <h4 class="form-section-title">Options</h4>
+                    <label class="checkbox-option">
+                        <input type="checkbox" id="rebouchage_${room.id}" ${room.rebouchage ? 'checked' : ''} onchange="updateRoomRebouchage(${room.id})">
+                        <div class="checkbox-content">
+                            <div class="checkbox-title">Rebouchage et finition</div>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 5px;">
+                                <span>Prix:</span>
+                                <input type="number" id="rebouchagePrice_${room.id}" value="${room.rebouchagePrice || 20}" min="0" step="1" onchange="updateRoomRebouchagePrice(${room.id})" style="width: 80px; padding: 6px; border: 2px solid #dee2e6; border-radius: 6px; font-weight: 700;">
+                                <span>€</span>
+                            </div>
+                        </div>
+                    </label>
+                    
+                    <div id="preview_${room.id}" class="article-preview" style="display: none;">
+                        <h4>📊 Aperçu du prix</h4>
+                        <div id="previewContent_${room.id}"></div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-info" onclick="calculateRoomArticle(${room.id})">🧮 Calculer</button>
+                        <button class="btn btn-success" onclick="addArticleToRoom(${room.id})">➕ Ajouter</button>
+                    </div>
+                </div>
+                
+                <!-- Liste articles -->
+                ${renderRoomArticles(room)}
+                
+                <!-- Câblage -->
+                ${renderRoomCabling(room)}
+                
+            </div>
+        `;
+    }).join('');
+}
+
+function generateArticleOptions() {
     const categories = {};
     CATALOGUE.forEach(article => {
-        if (!categories[article.category]) {
-            categories[article.category] = [];
-        }
+        if (!categories[article.category]) categories[article.category] = [];
         categories[article.category].push(article);
     });
     
+    let html = '';
     Object.keys(categories).forEach(category => {
-        const optgroup = document.createElement('optgroup');
-        optgroup.label = category;
-        
+        html += `<optgroup label="${category}">`;
         categories[category].forEach(article => {
-            const option = document.createElement('option');
-            option.value = article.id;
-            option.textContent = `${article.name} (${article.price}€)`;
-            optgroup.appendChild(option);
+            html += `<option value="${article.id}">${article.name} (${article.price}€)</option>`;
         });
-        
-        select.appendChild(optgroup);
+        html += `</optgroup>`;
     });
+    return html;
 }
 
-function updateArticleOptions() {
-    // Fonction appelée quand on change d'article
-    const preview = document.getElementById('articlePreview');
-    preview.style.display = 'none';
+function updateRoomInstallType(roomId, type) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.installType = type;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+    }
 }
 
-function calculateArticlePrice() {
-    const articleId = parseInt(document.getElementById('newArticleSelect').value);
+function updateRoomCircuitType(roomId, type) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.circuitType = type;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+    }
+}
+
+function updateRoomRebouchage(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.rebouchage = document.getElementById(`rebouchage_${roomId}`).checked;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+    }
+}
+
+function updateRoomRebouchagePrice(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.rebouchagePrice = parseFloat(document.getElementById(`rebouchagePrice_${roomId}`).value) || 20;
+        saveToLocalStorage();
+        updateRoomPreview(roomId);
+        renderRooms(); // Re-render pour mettre à jour les articles existants
+        updateRecap();
+    }
+}
+
+function updateRoomPreview(roomId) {
+    const preview = document.getElementById(`preview_${roomId}`);
+    if (preview) preview.style.display = 'none';
+}
+
+function calculateRoomArticle(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    const articleId = parseInt(document.getElementById(`articleSelect_${roomId}`).value);
     if (!articleId) {
-        alert('Sélectionnez un article');
+        alert('❌ Sélectionnez un article');
         return;
     }
     
     const article = CATALOGUE.find(a => a.id === articleId);
-    const quantity = parseFloat(document.getElementById('newArticleQty').value) || 1;
-    const installType = document.querySelector('[name="installType"]:checked').value;
-    const circuitType = document.querySelector('[name="circuitType"]:checked').value;
-    const rebouchage = document.getElementById('rebouchageCheck').checked;
+    const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
-    // Calculs
     const materielTotal = article.price * quantity;
     let tempsTotal = article.temps * quantity;
-    
-    // Appliquer facteurs
-    tempsTotal *= FACTEURS.installation[installType];
-    tempsTotal *= FACTEURS.circuit[circuitType];
-    
+    tempsTotal *= FACTEURS.installation[room.installType];
+    tempsTotal *= FACTEURS.circuit[room.circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = rebouchage ? userSettings.autres.rebouchage : 0;
+    const rebouchageTotal = room.rebouchage ? (room.rebouchagePrice || 20) : 0;
     
-    // Dégressivité
     let prixUnitaireHT = article.price + (moTotal / quantity);
-    if (quantity >= 10) {
-        prixUnitaireHT *= 0.75; // -25%
-    } else if (quantity >= 5) {
-        prixUnitaireHT *= 0.85; // -15%
-    }
+    if (quantity >= 10) prixUnitaireHT *= 0.75;
+    else if (quantity >= 5) prixUnitaireHT *= 0.85;
     
     const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
     
-    // Afficher aperçu
     let degressivite = '';
     if (quantity >= 10) degressivite = '<span style="color: #28a745; font-weight: 700;"> (-25% dégressif!)</span>';
     else if (quantity >= 5) degressivite = '<span style="color: #28a745; font-weight: 700;"> (-15% dégressif!)</span>';
@@ -285,39 +488,38 @@ function calculateArticlePrice() {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
             <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
             <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
-            ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchageTotal.toFixed(2)}€</div>` : ''}
+            ${room.rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
             <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
         </div>
-        <div style="margin-top: 10px; padding: 8px; background: rgba(23, 162, 184, 0.1); border-radius: 6px; font-size: 0.85em;">
-            Installation: ${installType} | Circuit: ${circuitType} | Tarif: ${devisState.global.tarif}€/h
+        <div style="margin-top: 10px; padding: 8px; background: rgba(255, 152, 0, 0.1); border-radius: 6px; font-size: 0.85em;">
+            ${room.name}: ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)} | Tarif: ${devisState.global.tarif}€/h
         </div>
     `;
     
-    document.getElementById('articlePreviewContent').innerHTML = html;
-    document.getElementById('articlePreview').style.display = 'block';
+    document.getElementById(`previewContent_${roomId}`).innerHTML = html;
+    document.getElementById(`preview_${roomId}`).style.display = 'block';
 }
 
-function addArticleToList() {
-    const articleId = parseInt(document.getElementById('newArticleSelect').value);
+function addArticleToRoom(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    const articleId = parseInt(document.getElementById(`articleSelect_${roomId}`).value);
     if (!articleId) {
-        alert('Sélectionnez un article et calculez le prix d\'abord');
+        alert('❌ Sélectionnez un article');
         return;
     }
     
     const article = CATALOGUE.find(a => a.id === articleId);
-    const quantity = parseFloat(document.getElementById('newArticleQty').value) || 1;
-    const installType = document.querySelector('[name="installType"]:checked').value;
-    const circuitType = document.querySelector('[name="circuitType"]:checked').value;
-    const rebouchage = document.getElementById('rebouchageCheck').checked;
+    const quantity = parseFloat(document.getElementById(`articleQty_${roomId}`).value) || 1;
     
-    // Calculs (même logique que calculateArticlePrice)
     const materielTotal = article.price * quantity;
     let tempsTotal = article.temps * quantity;
-    tempsTotal *= FACTEURS.installation[installType];
-    tempsTotal *= FACTEURS.circuit[circuitType];
+    tempsTotal *= FACTEURS.installation[room.installType];
+    tempsTotal *= FACTEURS.circuit[room.circuitType];
     const moTotal = tempsTotal * devisState.global.tarif;
-    const rebouchageTotal = rebouchage ? userSettings.autres.rebouchage : 0;
+    const rebouchageTotal = room.rebouchage ? (room.rebouchagePrice || 20) : 0;
     
     let prixUnitaireHT = article.price + (moTotal / quantity);
     if (quantity >= 10) prixUnitaireHT *= 0.75;
@@ -325,15 +527,11 @@ function addArticleToList() {
     
     const totalHT = (prixUnitaireHT * quantity) + rebouchageTotal;
     
-    // Ajouter à l'état
-    devisState.travaux.articles.push({
-        id: devisState.travaux.nextId++,
+    room.articles.push({
+        id: room.nextArticleId++,
         articleId: articleId,
         name: article.name,
         quantity: quantity,
-        installType: installType,
-        circuitType: circuitType,
-        rebouchage: rebouchage,
         materiel: materielTotal,
         mo: moTotal,
         temps: tempsTotal,
@@ -341,60 +539,160 @@ function addArticleToList() {
         total: totalHT
     });
     
-    // Render
-    renderArticlesList();
+    // Reset
+    document.getElementById(`articleSelect_${roomId}`).value = '';
+    document.getElementById(`articleQty_${roomId}`).value = '1';
+    document.getElementById(`preview_${roomId}`).style.display = 'none';
     
-    // Reset form
-    document.getElementById('newArticleSelect').value = '';
-    document.getElementById('newArticleQty').value = '1';
-    document.getElementById('rebouchageCheck').checked = false;
-    document.getElementById('articlePreview').style.display = 'none';
-    
-    saveToLocalStorage();
-}
-
-function renderArticlesList() {
-    const container = document.getElementById('articlesListContainer');
-    
-    if (devisState.travaux.articles.length === 0) {
-        container.innerHTML = '<div class="empty-state">Aucun article ajouté</div>';
-        document.getElementById('articleCount').textContent = '0';
-        return;
-    }
-    
-    document.getElementById('articleCount').textContent = devisState.travaux.articles.length;
-    
-    container.innerHTML = devisState.travaux.articles.map(art => `
-        <div class="article-card">
-            <div class="article-header">
-                <div>
-                    <div class="article-title">${art.quantity}× ${art.name}</div>
-                    <div class="article-details">
-                        ${getInstallTypeLabel(art.installType)} | ${getCircuitTypeLabel(art.circuitType)}
-                        ${art.rebouchage ? ' | Rebouchage inclus' : ''}
-                    </div>
-                </div>
-                <button class="btn-delete" onclick="deleteArticle(${art.id})">🗑️</button>
-            </div>
-            <div class="article-pricing">
-                <div>Matériel: ${art.materiel.toFixed(2)}€</div>
-                <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
-                ${art.rebouchage ? `<div>Rebouchage: 20€</div>` : ''}
-            </div>
-            <div class="article-total">
-                TOTAL: ${art.total.toFixed(2)}€ HTVA
-            </div>
-        </div>
-    `).join('');
-}
-
-function deleteArticle(id) {
-    if (!confirm('Supprimer cet article ?')) return;
-    devisState.travaux.articles = devisState.travaux.articles.filter(a => a.id !== id);
-    renderArticlesList();
+    renderRooms();
     saveToLocalStorage();
     updateRecap();
 }
+
+function renderRoomArticles(room) {
+    if (room.articles.length === 0) {
+        return '<div class="empty-state">Aucun article dans cette pièce</div>';
+    }
+    
+    let html = '<div class="articles-list"><h3>📋 Articles dans ' + room.name + ' (' + room.articles.length + ')</h3>';
+    
+    room.articles.forEach(art => {
+        html += `
+            <div class="article-card">
+                <div class="article-header">
+                    <div>
+                        <div class="article-title">${art.quantity}× ${art.name}</div>
+                        <div class="article-details">
+                            ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)}
+                            ${room.rebouchage ? ' | Rebouchage inclus' : ''}
+                        </div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteRoomArticle(${room.id}, ${art.id})">🗑️</button>
+                </div>
+                <div class="article-pricing">
+                    <div>Matériel: ${art.materiel.toFixed(2)}€</div>
+                    <div>MO: ${art.mo.toFixed(2)}€ (${art.temps.toFixed(2)}h)</div>
+                    ${room.rebouchage ? `<div>Rebouchage: ${(room.rebouchagePrice || 20).toFixed(2)}€</div>` : ''}
+                </div>
+                <div class="article-total">TOTAL: ${art.total.toFixed(2)}€ HTVA</div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+function renderRoomCabling(room) {
+    return `
+        <div class="cabling-section">
+            <h3>🔌 Câblage ${room.name}</h3>
+            
+            <div class="cable-subsection">
+                <h4>Entre prises / points dans ${room.name}</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type de câble</label>
+                        <select id="cableInternal_${room.id}" onchange="updateRoomCabling(${room.id})">
+                            <option value="2.45,2.8" ${room.cabling.internal.type === '2.45,2.8' ? 'selected' : ''}>XVB 3G2.5mm² (2.45€/m + 2.8€/m MO)</option>
+                            <option value="1.85,2.5" ${room.cabling.internal.type === '1.85,2.5' ? 'selected' : ''}>XVB 3G1.5mm² (1.85€/m + 2.5€/m MO)</option>
+                            <option value="3.95,3.5" ${room.cabling.internal.type === '3.95,3.5' ? 'selected' : ''}>XVB 5G2.5mm² (3.95€/m + 3.5€/m MO)</option>
+                            <option value="0.45,1.5" ${room.cabling.internal.type === '0.45,1.5' ? 'selected' : ''}>VOB 2.5mm² (0.45€/m + 1.5€/m MO)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Longueur (mètres)</label>
+                        <input type="number" id="cableInternalLength_${room.id}" value="${room.cabling.internal.length}" step="0.5" min="0" onchange="updateRoomCabling(${room.id})">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cable-subsection highlight">
+                <h4>Depuis ${room.name} jusqu'au tableau électrique</h4>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Type de câble</label>
+                        <select id="cableTableau_${room.id}" onchange="updateRoomCabling(${room.id})">
+                            <option value="5.25,3.8" ${room.cabling.tableau.type === '5.25,3.8' ? 'selected' : ''}>XVB 3G6mm² (5.25€/m + 3.8€/m MO)</option>
+                            <option value="8.95,4.5" ${room.cabling.tableau.type === '8.95,4.5' ? 'selected' : ''}>XVB 3G10mm² (8.95€/m + 4.5€/m MO)</option>
+                            <option value="8.45,4.2" ${room.cabling.tableau.type === '8.45,4.2' ? 'selected' : ''}>XVB 5G6mm² (8.45€/m + 4.2€/m MO)</option>
+                            <option value="2.45,2.8" ${room.cabling.tableau.type === '2.45,2.8' ? 'selected' : ''}>XVB 3G2.5mm² (2.45€/m + 2.8€/m MO)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Longueur (mètres)</label>
+                        <input type="number" id="cableTableauLength_${room.id}" value="${room.cabling.tableau.length}" step="0.5" min="0" onchange="updateRoomCabling(${room.id})">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cabling-total" style="${room.cabling.internal.cost + room.cabling.tableau.cost > 0 ? '' : 'display: none;'}">
+                <strong>Total câblage ${room.name}:</strong> <span>${(room.cabling.internal.cost + room.cabling.tableau.cost).toFixed(2)}€</span> HTVA
+            </div>
+        </div>
+    `;
+}
+
+function updateRoomCabling(roomId) {
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (!room) return;
+    
+    // Internal
+    const internalSelect = document.getElementById(`cableInternal_${roomId}`);
+    const internalLength = parseFloat(document.getElementById(`cableInternalLength_${roomId}`).value) || 0;
+    const [internalPrice, internalMo] = internalSelect.value.split(',').map(parseFloat);
+    
+    room.cabling.internal.type = internalSelect.value;
+    room.cabling.internal.length = internalLength;
+    room.cabling.internal.cost = internalLength * (internalPrice + internalMo);
+    
+    // Tableau
+    const tableauSelect = document.getElementById(`cableTableau_${roomId}`);
+    const tableauLength = parseFloat(document.getElementById(`cableTableauLength_${roomId}`).value) || 0;
+    const [tableauPrice, tableauMo] = tableauSelect.value.split(',').map(parseFloat);
+    
+    room.cabling.tableau.type = tableauSelect.value;
+    room.cabling.tableau.length = tableauLength;
+    room.cabling.tableau.cost = tableauLength * (tableauPrice + tableauMo);
+    
+    renderRooms();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function calculateRoomTotal(room) {
+    let total = 0;
+    room.articles.forEach(art => total += art.total);
+    total += room.cabling.internal.cost + room.cabling.tableau.cost;
+    return total;
+}
+
+function deleteRoom(roomId) {
+    if (!confirm('Supprimer cette pièce et tous ses articles ?')) return;
+    devisState.travaux.rooms = devisState.travaux.rooms.filter(r => r.id !== roomId);
+    renderRooms();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function deleteRoomArticle(roomId, articleId) {
+    if (!confirm('Supprimer cet article ?')) return;
+    const room = devisState.travaux.rooms.find(r => r.id === roomId);
+    if (room) {
+        room.articles = room.articles.filter(a => a.id !== articleId);
+        renderRooms();
+        saveToLocalStorage();
+        updateRecap();
+    }
+}
+
+// ============================================================================
+// PAGE TRAVAUX - HELPERS
+// ============================================================================
+
+// OLD FUNCTIONS REMOVED - Now integrated per room
+// initializeArticleSelect, calculateArticlePrice, addArticleToList, etc.
+// are all replaced by room-specific functions above
 
 function getInstallTypeLabel(type) {
     const labels = {
@@ -415,41 +713,6 @@ function getCircuitTypeLabel(type) {
 }
 
 // ============================================================================
-// PAGE TRAVAUX - CÂBLAGE
-// ============================================================================
-
-function calculateCabling() {
-    const internalType = document.getElementById('cableInternalType').value.split(',');
-    const internalLength = parseFloat(document.getElementById('cableInternalLength').value) || 0;
-    const internalPrice = parseFloat(internalType[0]);
-    const internalLabor = parseFloat(internalType[1]);
-    
-    const tableauType = document.getElementById('cableTableauType').value.split(',');
-    const tableauLength = parseFloat(document.getElementById('cableTableauLength').value) || 0;
-    const tableauPrice = parseFloat(tableauType[0]);
-    const tableauLabor = parseFloat(tableauType[1]);
-    
-    const internalCost = internalLength * (internalPrice + internalLabor);
-    const tableauCost = tableauLength * (tableauPrice + tableauLabor);
-    const totalCost = internalCost + tableauCost;
-    
-    devisState.travaux.cabling.internal.length = internalLength;
-    devisState.travaux.cabling.internal.cost = internalCost;
-    devisState.travaux.cabling.tableau.length = tableauLength;
-    devisState.travaux.cabling.tableau.cost = tableauCost;
-    
-    if (totalCost > 0) {
-        document.getElementById('cablingPrice').textContent = totalCost.toFixed(2) + '€';
-        document.getElementById('cablingTotal').style.display = 'block';
-    } else {
-        document.getElementById('cablingTotal').style.display = 'none';
-    }
-    
-    saveToLocalStorage();
-    updateRecap();
-}
-
-// ============================================================================
 // PAGE TABLEAU
 // ============================================================================
 
@@ -457,84 +720,314 @@ function toggleTableau() {
     const enabled = document.getElementById('tableauToggle').checked;
     devisState.tableau.enabled = enabled;
     document.getElementById('tableauContent').style.display = enabled ? 'block' : 'none';
-    saveToLocalStorage();
-    updateRecap();
-}
-
-function calculateTableau() {
-    const coffret = document.getElementById('tableauCoffret').value.split(',');
-    if (coffret[0] === '0') {
-        devisState.tableau.total = 0;
-        document.getElementById('tableauPrice').textContent = '0€';
-        return;
+    
+    // Si on active pour la première fois, créer un premier tableau
+    if (enabled && devisState.tableau.tableaux.length === 0) {
+        createTableau();
     }
     
-    const price = parseFloat(coffret[0]);
-    const labor = parseFloat(coffret[1]);
-    
-    // Ajouter les disjoncteurs
-    let disjoncteurTotal = 0;
-    devisState.tableau.items.forEach(item => {
-        disjoncteurTotal += item.price * item.quantity;
-    });
-    
-    const total = price + labor + disjoncteurTotal;
-    
-    devisState.tableau.total = total;
-    document.getElementById('tableauPrice').textContent = total.toFixed(2) + '€';
-    
     saveToLocalStorage();
     updateRecap();
 }
 
-function addDisjoncteur() {
-    const name = prompt('Nom du composant (ex: Disjoncteur 16A):', 'Disjoncteur 16A');
-    if (!name) return;
+function createTableau() {
+    const newTableau = {
+        id: devisState.tableau.nextTableauId++,
+        name: `Tableau ${devisState.tableau.tableaux.length + 1}`,
+        coffret: null,  // { type, price, labor }
+        composants: [],
+        nextComposantId: 1
+    };
     
-    const price = parseFloat(prompt('Prix unitaire (€):', '25'));
-    if (isNaN(price)) return;
-    
-    const quantity = parseInt(prompt('Quantité:', '1'));
-    if (isNaN(quantity)) return;
-    
-    devisState.tableau.items.push({
-        id: Date.now(),
-        name: name,
-        price: price,
-        quantity: quantity
-    });
-    
-    renderDisjoncteursList();
-    calculateTableau();
+    devisState.tableau.tableaux.push(newTableau);
+    renderTableaux();
+    saveToLocalStorage();
 }
 
-function renderDisjoncteursList() {
-    const container = document.getElementById('disjoncteursList');
+function renderTableaux() {
+    const container = document.getElementById('tableauxContainer');
     if (!container) return;
     
-    if (devisState.tableau.items.length === 0) {
-        container.innerHTML = '';
+    if (devisState.tableau.tableaux.length === 0) {
+        container.innerHTML = '<div class="empty-state">Cliquez sur "Ajouter un tableau" pour commencer</div>';
+        updateTableauGlobalTotal();
         return;
     }
     
-    container.innerHTML = devisState.tableau.items.map(item => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
-            <div>
-                <strong>${item.quantity}× ${item.name}</strong>
-                <div style="font-size: 0.9em; color: #6c757d;">${item.price}€ / unité</div>
+    container.innerHTML = devisState.tableau.tableaux.map(tableau => {
+        const tableauTotal = calculateTableauTotal(tableau);
+        
+        return `
+            <div class="section" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 3px solid #2196f3; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: #1565c0; margin: 0;">⚡ ${tableau.name}</h3>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="color: #1565c0; font-weight: 700; font-size: 1.2em;">${tableauTotal.toFixed(2)}€ HTVA</div>
+                        <button class="btn-delete" onclick="deleteTableau(${tableau.id})">🗑️ Supprimer</button>
+                    </div>
+                </div>
+                
+                <!-- Type de coffret -->
+                <div class="form-group">
+                    <label><strong>Type de coffret</strong></label>
+                    <select id="coffret_${tableau.id}" onchange="updateTableauCoffret(${tableau.id})" style="width: 100%;">
+                        <option value="">-- Sélectionner --</option>
+                        <option value="45,0.5" ${tableau.coffret && tableau.coffret.type === '45,0.5' ? 'selected' : ''}>Coffret encastré 1 rangée (45€ + 0.5h MO)</option>
+                        <option value="65,0.7" ${tableau.coffret && tableau.coffret.type === '65,0.7' ? 'selected' : ''}>Coffret encastré 2 rangées (65€ + 0.7h MO)</option>
+                        <option value="95,1.0" ${tableau.coffret && tableau.coffret.type === '95,1.0' ? 'selected' : ''}>Coffret encastré 4 rangées (95€ + 1h MO)</option>
+                        <option value="55,0.6" ${tableau.coffret && tableau.coffret.type === '55,0.6' ? 'selected' : ''}>Coffret saillie 2R IP40 (55€ + 0.6h MO)</option>
+                        <option value="85,0.8" ${tableau.coffret && tableau.coffret.type === '85,0.8' ? 'selected' : ''}>Coffret saillie 4R IP65 (85€ + 0.8h MO)</option>
+                    </select>
+                </div>
+                
+                <!-- Ajout composant -->
+                <div class="article-form" style="background: white; margin-top: 15px;">
+                    <h4>➕ Ajouter composants pour ${tableau.name}</h4>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Composant</label>
+                            <select id="composant_${tableau.id}">
+                                <option value="">-- Sélectionner --</option>
+                                ${generateTableauComposantsOptions()}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantité</label>
+                            <input type="number" id="composantQty_${tableau.id}" value="1" min="1" step="1">
+                        </div>
+                    </div>
+                    
+                    <div id="composantPreview_${tableau.id}" class="article-preview" style="display: none;">
+                        <h4>📊 Aperçu</h4>
+                        <div id="composantPreviewContent_${tableau.id}"></div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button class="btn btn-info" onclick="calculateTableauComposant(${tableau.id})">🧮 Calculer</button>
+                        <button class="btn btn-success" onclick="addComposantToTableau(${tableau.id})">➕ Ajouter</button>
+                    </div>
+                </div>
+                
+                <!-- Liste composants -->
+                ${renderTableauComposants(tableau)}
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <strong>${(item.price * item.quantity).toFixed(2)}€</strong>
-                <button onclick="deleteDisjoncteur(${item.id})" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+    
+    updateTableauGlobalTotal();
 }
 
-function deleteDisjoncteur(id) {
-    devisState.tableau.items = devisState.tableau.items.filter(item => item.id !== id);
-    renderDisjoncteursList();
-    calculateTableau();
+function generateTableauComposantsOptions() {
+    const categories = {};
+    CATALOGUE_TABLEAU.forEach(comp => {
+        if (!categories[comp.category]) categories[comp.category] = [];
+        categories[comp.category].push(comp);
+    });
+    
+    let html = '';
+    Object.keys(categories).forEach(category => {
+        html += `<optgroup label="${category}">`;
+        categories[category].forEach(comp => {
+            html += `<option value="${comp.id}">${comp.name} (${comp.price}€ + ${comp.temps}h)</option>`;
+        });
+        html += `</optgroup>`;
+    });
+    return html;
+}
+
+function updateTableauCoffret(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (!tableau) return;
+    
+    const select = document.getElementById(`coffret_${tableauId}`);
+    const value = select.value;
+    
+    if (!value) {
+        tableau.coffret = null;
+    } else {
+        const [price, temps] = value.split(',').map(parseFloat);
+        tableau.coffret = {
+            type: value,
+            price: price,
+            temps: temps
+        };
+    }
+    
+    renderTableaux();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function calculateTableauComposant(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (!tableau) return;
+    
+    const composantId = parseInt(document.getElementById(`composant_${tableauId}`).value);
+    if (!composantId) {
+        alert('❌ Sélectionnez un composant');
+        return;
+    }
+    
+    const composant = CATALOGUE_TABLEAU.find(c => c.id === composantId);
+    const quantity = parseInt(document.getElementById(`composantQty_${tableauId}`).value) || 1;
+    
+    const materielTotal = composant.price * quantity;
+    const tempsTotal = composant.temps * quantity;
+    const moTotal = tempsTotal * devisState.global.tarif;
+    const totalHT = materielTotal + moTotal;
+    
+    const html = `
+        <div style="margin-bottom: 10px;">
+            <strong>${quantity}× ${composant.name}</strong>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.95em;">
+            <div>Matériel total:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
+            <div>Main d'œuvre:</div><div style="text-align: right;">${moTotal.toFixed(2)}€ (${tempsTotal.toFixed(2)}h)</div>
+            <div style="border-top: 2px solid #17a2b8; padding-top: 8px;"><strong>TOTAL:</strong></div>
+            <div style="border-top: 2px solid #17a2b8; padding-top: 8px; text-align: right;"><strong>${totalHT.toFixed(2)}€ HTVA</strong></div>
+        </div>
+    `;
+    
+    document.getElementById(`composantPreviewContent_${tableauId}`).innerHTML = html;
+    document.getElementById(`composantPreview_${tableauId}`).style.display = 'block';
+}
+
+function addComposantToTableau(tableauId) {
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (!tableau) return;
+    
+    const composantId = parseInt(document.getElementById(`composant_${tableauId}`).value);
+    if (!composantId) {
+        alert('❌ Sélectionnez un composant');
+        return;
+    }
+    
+    const composant = CATALOGUE_TABLEAU.find(c => c.id === composantId);
+    const quantity = parseInt(document.getElementById(`composantQty_${tableauId}`).value) || 1;
+    
+    const materielTotal = composant.price * quantity;
+    const tempsTotal = composant.temps * quantity;
+    const moTotal = tempsTotal * devisState.global.tarif;
+    const totalHT = materielTotal + moTotal;
+    
+    tableau.composants.push({
+        id: tableau.nextComposantId++,
+        composantId: composantId,
+        name: composant.name,
+        quantity: quantity,
+        materiel: materielTotal,
+        mo: moTotal,
+        temps: tempsTotal,
+        total: totalHT
+    });
+    
+    // Reset
+    document.getElementById(`composant_${tableauId}`).value = '';
+    document.getElementById(`composantQty_${tableauId}`).value = '1';
+    document.getElementById(`composantPreview_${tableauId}`).style.display = 'none';
+    
+    renderTableaux();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+function renderTableauComposants(tableau) {
+    if (tableau.composants.length === 0) {
+        return '<div class="empty-state">Aucun composant ajouté</div>';
+    }
+    
+    let html = '<div class="articles-list"><h4>📋 Composants (' + tableau.composants.length + ')</h4>';
+    
+    tableau.composants.forEach(comp => {
+        html += `
+            <div class="article-card">
+                <div class="article-header">
+                    <div>
+                        <div class="article-title">${comp.quantity}× ${comp.name}</div>
+                    </div>
+                    <button class="btn-delete" onclick="deleteTableauComposant(${tableau.id}, ${comp.id})">🗑️</button>
+                </div>
+                <div class="article-pricing">
+                    <div>Matériel: ${comp.materiel.toFixed(2)}€</div>
+                    <div>MO: ${comp.mo.toFixed(2)}€ (${comp.temps.toFixed(2)}h)</div>
+                </div>
+                <div class="article-total">TOTAL: ${comp.total.toFixed(2)}€ HTVA</div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    return html;
+}
+
+function deleteTableauComposant(tableauId, composantId) {
+    if (!confirm('Supprimer ce composant ?')) return;
+    
+    const tableau = devisState.tableau.tableaux.find(t => t.id === tableauId);
+    if (tableau) {
+        tableau.composants = tableau.composants.filter(c => c.id !== composantId);
+        renderTableaux();
+        saveToLocalStorage();
+        updateRecap();
+    }
+}
+
+function calculateTableauTotal(tableau) {
+    let total = 0;
+    
+    // Coffret
+    if (tableau.coffret) {
+        total += tableau.coffret.price;
+        total += tableau.coffret.temps * devisState.global.tarif;
+    }
+    
+    // Composants
+    tableau.composants.forEach(comp => {
+        total += comp.total;
+    });
+    
+    return total;
+}
+
+function updateTableauGlobalTotal() {
+    let total = 0;
+    devisState.tableau.tableaux.forEach(tableau => {
+        total += calculateTableauTotal(tableau);
+    });
+    
+    const element = document.getElementById('tableauTotalPrice');
+    if (element) {
+        element.textContent = total.toFixed(2) + '€';
+    }
+}
+
+function deleteTableau(tableauId) {
+    if (!confirm('Supprimer ce tableau et tous ses composants ?')) return;
+    
+    devisState.tableau.tableaux = devisState.tableau.tableaux.filter(t => t.id !== tableauId);
+    renderTableaux();
+    saveToLocalStorage();
+    updateRecap();
+}
+
+// ============================================================================
+// RISTOURNE
+// ============================================================================
+
+function updateRistourne() {
+    const enabled = document.getElementById('ristourneEnabled').checked;
+    devisState.ristourne.enabled = enabled;
+    
+    document.getElementById('ristourneOptions').style.display = enabled ? 'block' : 'none';
+    
+    if (enabled) {
+        devisState.ristourne.pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 0;
+        devisState.ristourne.delai = parseInt(document.getElementById('ristourneDelai').value) || 30;
+    }
+    
+    saveToLocalStorage();
+    updateRecap();
 }
 
 // ============================================================================
@@ -547,53 +1040,25 @@ function calculateAdmin() {
     
     document.querySelectorAll('.service-toggle').forEach(toggle => {
         if (toggle.checked) {
-            const serviceName = toggle.dataset.service;
-            let servicePrice = 0;
-            let serviceLabelName = '';
-            
-            switch(serviceName) {
-                case 'conformite':
-                    servicePrice = userSettings.services.conformite;
-                    serviceLabelName = 'Mise en conformité';
-                    break;
-                case 'diagnostic':
-                    servicePrice = userSettings.services.diagnostic;
-                    serviceLabelName = 'Diagnostic électrique';
-                    break;
-                case 'certificat':
-                    servicePrice = userSettings.services.certificat;
-                    serviceLabelName = 'Certificat de conformité';
-                    break;
-                case 'schema':
-                    servicePrice = userSettings.services.schema;
-                    serviceLabelName = 'Réalisation schéma';
-                    break;
-                case 'depannage':
-                    const hours = parseFloat(document.getElementById('depannageHours').value) || 0;
-                    servicePrice = hours * devisState.global.tarif;
-                    serviceLabelName = 'Dépannage';
-                    document.getElementById('depannagePrice').textContent = servicePrice.toFixed(2) + '€';
-                    devisState.administratif.services.push({ name: serviceLabelName, price: servicePrice, hours: hours });
-                    total += servicePrice;
-                    return;
+            const price = toggle.dataset.price;
+            if (price === 'hourly') {
+                const hours = parseFloat(document.getElementById('depannageHours').value) || 0;
+                const hourlyPrice = hours * devisState.global.tarif;
+                total += hourlyPrice;
+                devisState.administratif.services.push({ name: 'Dépannage', price: hourlyPrice, hours: hours });
+                document.getElementById('depannagePrice').textContent = hourlyPrice.toFixed(2) + '€';
+            } else {
+                const servicePrice = parseFloat(price);
+                total += servicePrice;
+                const serviceName = toggle.closest('.service-item').querySelector('.service-name').textContent.trim();
+                devisState.administratif.services.push({ name: serviceName, price: servicePrice });
             }
-            
-            total += servicePrice;
-            devisState.administratif.services.push({ name: serviceLabelName, price: servicePrice });
         }
     });
     
     document.getElementById('adminPrice').textContent = total.toFixed(2) + '€';
     saveToLocalStorage();
     updateRecap();
-}
-
-function updateAdminPrices() {
-    // Mettre à jour l'affichage des prix
-    document.getElementById('price-conformite').textContent = userSettings.services.conformite.toFixed(2) + '€';
-    document.getElementById('price-diagnostic').textContent = userSettings.services.diagnostic.toFixed(2) + '€';
-    document.getElementById('price-certificat').textContent = userSettings.services.certificat.toFixed(2) + '€';
-    document.getElementById('price-schema').textContent = userSettings.services.schema.toFixed(2) + '€';
 }
 
 // ============================================================================
@@ -604,15 +1069,39 @@ function updateRecap() {
     const container = document.getElementById('recapContent');
     if (!container) return;
     
-    // Calculer totaux
-    const travauxTotal = devisState.travaux.articles.reduce((sum, art) => sum + art.total, 0);
-    const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
-    const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
+    // Calculer totaux PAR PIÈCE
+    let travauxTotal = 0;
+    let totalArticlesCount = 0;
+    
+    devisState.travaux.rooms.forEach(room => {
+        totalArticlesCount += room.articles.length;
+        room.articles.forEach(art => {
+            travauxTotal += art.total;
+        });
+        travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
+    });
+    
+    // Calcul tableaux
+    let tableauTotal = 0;
+    if (devisState.tableau.enabled) {
+        devisState.tableau.tableaux.forEach(tableau => {
+            tableauTotal += calculateTableauTotal(tableau);
+        });
+    }
+    
     const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
     
-    const sousTotal = travauxTotal + cablingTotal + tableauTotal + adminTotal;
+    const sousTotal = travauxTotal + tableauTotal + adminTotal;
     const deplacement = devisState.global.deplacement;
-    const totalHT = sousTotal + deplacement;
+    let totalHT = sousTotal + deplacement;
+    
+    // Ristourne
+    let ristourneMontant = 0;
+    if (devisState.ristourne.enabled) {
+        ristourneMontant = totalHT * (devisState.ristourne.pourcent / 100);
+        totalHT -= ristourneMontant;
+    }
+    
     const tva = totalHT * devisState.global.tva;
     const totalTTC = totalHT + tva;
     
@@ -631,37 +1120,90 @@ function updateRecap() {
         </div>
     `;
     
-    // Travaux
-    if (devisState.travaux.articles.length > 0) {
+    // Travaux PAR PIÈCE
+    if (totalArticlesCount > 0 || devisState.travaux.rooms.length > 0) {
         html += `<div class="recap-section">
-            <h3>🔨 TRAVAUX (${devisState.travaux.articles.length} articles)</h3>`;
-        devisState.travaux.articles.forEach(art => {
-            html += `<div class="recap-line">
-                <span>${art.quantity}× ${art.name}</span>
-                <span>${art.total.toFixed(2)}€</span>
-            </div>`;
+            <h3>🔨 TRAVAUX (${totalArticlesCount} articles, ${devisState.travaux.rooms.length} pièces)</h3>`;
+        
+        devisState.travaux.rooms.forEach(room => {
+            const roomTotal = calculateRoomTotal(room);
+            
+            html += `<div style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #ff9800;">
+                <div style="font-weight: 700; color: #e65100; margin-bottom: 10px; font-size: 1.15em; display: flex; justify-content: space-between;">
+                    <span>🏠 ${room.name}</span>
+                    <span>${roomTotal.toFixed(2)}€</span>
+                </div>
+                <div style="font-size: 0.9em; color: #e65100; margin-bottom: 8px;">
+                    ${getInstallTypeLabel(room.installType)} | ${getCircuitTypeLabel(room.circuitType)}
+                    ${room.rebouchage ? ` | Rebouchage (${(room.rebouchagePrice || 20).toFixed(2)}€)` : ''}
+                </div>`;
+            
+            room.articles.forEach(art => {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>${art.quantity}× ${art.name}</span>
+                    <span>${art.total.toFixed(2)}€</span>
+                </div>`;
+            });
+            
+            if (room.cabling.internal.length > 0) {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>Câblage entre points (${room.cabling.internal.length}m)</span>
+                    <span>${room.cabling.internal.cost.toFixed(2)}€</span>
+                </div>`;
+            }
+            
+            if (room.cabling.tableau.length > 0) {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>Câblage au tableau (${room.cabling.tableau.length}m)</span>
+                    <span>${room.cabling.tableau.cost.toFixed(2)}€</span>
+                </div>`;
+            }
+            
+            html += `</div>`;
         });
-        if (cablingTotal > 0) {
-            html += `<div class="recap-line">
-                <span>Câblage</span>
-                <span>${cablingTotal.toFixed(2)}€</span>
-            </div>`;
-        }
+        
         html += `<div class="recap-line" style="font-weight: 700; border-top: 2px solid #1e3c72; padding-top: 10px; margin-top: 10px;">
             <span>Sous-total travaux:</span>
-            <span>${(travauxTotal + cablingTotal).toFixed(2)}€</span>
+            <span>${travauxTotal.toFixed(2)}€</span>
         </div></div>`;
     }
     
-    // Tableau
+    // Tableau(x)
     if (tableauTotal > 0) {
         html += `<div class="recap-section">
-            <h3>⚡ TABLEAU ÉLECTRIQUE</h3>
-            <div class="recap-line">
-                <span>Configuration tableau</span>
-                <span>${tableauTotal.toFixed(2)}€</span>
-            </div>
-        </div>`;
+            <h3>⚡ TABLEAU ÉLECTRIQUE (${devisState.tableau.tableaux.length} tableau${devisState.tableau.tableaux.length > 1 ? 'x' : ''})</h3>`;
+        
+        devisState.tableau.tableaux.forEach(tableau => {
+            const tTotal = calculateTableauTotal(tableau);
+            
+            html += `<div style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #2196f3;">
+                <div style="font-weight: 700; color: #1565c0; margin-bottom: 10px; font-size: 1.15em; display: flex; justify-content: space-between;">
+                    <span>⚡ ${tableau.name}</span>
+                    <span>${tTotal.toFixed(2)}€</span>
+                </div>`;
+            
+            if (tableau.coffret) {
+                const coffretMO = tableau.coffret.temps * devisState.global.tarif;
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>Coffret</span>
+                    <span>${(tableau.coffret.price + coffretMO).toFixed(2)}€</span>
+                </div>`;
+            }
+            
+            tableau.composants.forEach(comp => {
+                html += `<div class="recap-line" style="padding-left: 15px;">
+                    <span>${comp.quantity}× ${comp.name}</span>
+                    <span>${comp.total.toFixed(2)}€</span>
+                </div>`;
+            });
+            
+            html += `</div>`;
+        });
+        
+        html += `<div class="recap-line" style="font-weight: 700; border-top: 2px solid #1e3c72; padding-top: 10px; margin-top: 10px;">
+            <span>Sous-total tableaux:</span>
+            <span>${tableauTotal.toFixed(2)}€</span>
+        </div></div>`;
     }
     
     // Admin
@@ -690,6 +1232,10 @@ function updateRecap() {
             <span>Déplacement:</span>
             <span>${deplacement.toFixed(2)}€</span>
         </div>` : ''}
+        ${devisState.ristourne.enabled ? `<div class="recap-total-line" style="color: #28a745;">
+            <span>Ristourne (${devisState.ristourne.pourcent}% - valable ${devisState.ristourne.delai} jours):</span>
+            <span>-${ristourneMontant.toFixed(2)}€</span>
+        </div>` : ''}
         <div class="recap-total-line">
             <span>TOTAL HT:</span>
             <span>${totalHT.toFixed(2)}€</span>
@@ -703,6 +1249,17 @@ function updateRecap() {
             <span>${totalTTC.toFixed(2)}€</span>
         </div>
     </div>`;
+    
+    // Update ristourne preview
+    if (devisState.ristourne.enabled) {
+        const previewElement = document.getElementById('ristournePreview');
+        if (previewElement) {
+            previewElement.innerHTML = `
+                💰 Ristourne de ${devisState.ristourne.pourcent}% = -${ristourneMontant.toFixed(2)}€<br>
+                ⏱️ Valable ${devisState.ristourne.delai} jours à partir de la date du devis
+            `;
+        }
+    }
     
     container.innerHTML = html;
 }
@@ -776,36 +1333,76 @@ function generatePDF() {
     
     yPos += 12;
     
-    // Travaux
-    if (devisState.travaux.articles.length > 0) {
+    // Travaux PAR PIÈCE
+    let travauxTotal = 0;
+    let totalArticlesCount = 0;
+    
+    devisState.travaux.rooms.forEach(room => {
+        totalArticlesCount += room.articles.length;
+        room.articles.forEach(art => travauxTotal += art.total);
+        travauxTotal += room.cabling.internal.cost + room.cabling.tableau.cost;
+    });
+    
+    if (devisState.travaux.rooms.length > 0 && totalArticlesCount > 0) {
         doc.setFontSize(12);
         doc.setTextColor(0, 0, 0);
         doc.text('TRAVAUX', 15, yPos);
         yPos += 8;
         
-        // Tableau des articles
-        const tableData = devisState.travaux.articles.map(art => [
-            `${art.quantity}× ${art.name}`,
-            `${art.total.toFixed(2)}€`
-        ]);
-        
-        if (devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost > 0) {
-            tableData.push([
-                'Câblage',
-                `${(devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost).toFixed(2)}€`
-            ]);
-        }
-        
-        doc.autoTable({
-            startY: yPos,
-            head: [['Description', 'Montant HTVA']],
-            body: tableData,
-            theme: 'striped',
-            headStyles: { fillColor: [30, 60, 114] },
-            margin: { left: 15, right: 15 }
+        // Pour chaque pièce
+        devisState.travaux.rooms.forEach(room => {
+            if (room.articles.length > 0 || room.cabling.internal.length > 0 || room.cabling.tableau.length > 0) {
+                // Nom de la pièce
+                doc.setFontSize(11);
+                doc.setFont(undefined, 'bold');
+                doc.setTextColor(230, 81, 0);
+                doc.text(`  ${room.name}`, 15, yPos);
+                doc.setFont(undefined, 'normal');
+                doc.setTextColor(0, 0, 0);
+                yPos += 6;
+                
+                const roomData = [];
+                
+                // Articles
+                room.articles.forEach(art => {
+                    roomData.push([
+                        `    ${art.quantity}× ${art.name}`,
+                        `${art.total.toFixed(2)}€`
+                    ]);
+                });
+                
+                // Câblage
+                if (room.cabling.internal.length > 0) {
+                    roomData.push([
+                        `    Câblage entre points (${room.cabling.internal.length}m)`,
+                        `${room.cabling.internal.cost.toFixed(2)}€`
+                    ]);
+                }
+                if (room.cabling.tableau.length > 0) {
+                    roomData.push([
+                        `    Câblage au tableau (${room.cabling.tableau.length}m)`,
+                        `${room.cabling.tableau.cost.toFixed(2)}€`
+                    ]);
+                }
+                
+                doc.autoTable({
+                    startY: yPos,
+                    head: [],
+                    body: roomData,
+                    theme: 'plain',
+                    styles: { fontSize: 10, cellPadding: 2 },
+                    columnStyles: {
+                        0: { cellWidth: 130 },
+                        1: { cellWidth: 50, halign: 'right' }
+                    },
+                    margin: { left: 15, right: 15 }
+                });
+                
+                yPos = doc.lastAutoTable.finalY + 2;
+            }
         });
         
-        yPos = doc.lastAutoTable.finalY + 8;
+        yPos += 2;
     }
     
     // Tableau électrique
@@ -852,12 +1449,10 @@ function generatePDF() {
     }
     
     // Totaux
-    const travauxTotal = devisState.travaux.articles.reduce((sum, art) => sum + art.total, 0);
-    const cablingTotal = devisState.travaux.cabling.internal.cost + devisState.travaux.cabling.tableau.cost;
     const tableauTotal = devisState.tableau.enabled ? devisState.tableau.total : 0;
     const adminTotal = devisState.administratif.services.reduce((sum, s) => sum + s.price, 0);
     
-    const sousTotal = travauxTotal + cablingTotal + tableauTotal + adminTotal;
+    const sousTotal = travauxTotal + tableauTotal + adminTotal;
     const deplacement = devisState.global.deplacement;
     const totalHT = sousTotal + deplacement;
     const tva = totalHT * devisState.global.tva;
@@ -1105,7 +1700,7 @@ function renderCatalogueEditor() {
         
         categories[category].forEach(article => {
             html += `
-                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; align-items: center; padding: 10px; background: #f8f9fa; border-radius: 6px; margin-bottom: 8px;">
                     <div><strong>${article.name}</strong></div>
                     <div>
                         <label style="font-size: 0.85em; color: #6c757d;">Prix (€)</label>
@@ -1115,7 +1710,6 @@ function renderCatalogueEditor() {
                         <label style="font-size: 0.85em; color: #6c757d;">Temps (h)</label>
                         <input type="number" id="cat-temps-${article.id}" value="${article.temps}" step="0.05" min="0" style="width: 100%; padding: 6px; border: 2px solid #dee2e6; border-radius: 6px;">
                     </div>
-                    ${article.custom ? `<button onclick="deleteCustomArticle(${article.id})" style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer;">🗑️</button>` : '<div></div>'}
                 </div>
             `;
         });
@@ -1124,71 +1718,4 @@ function renderCatalogueEditor() {
     });
     
     container.innerHTML = html;
-}
-
-function addCustomArticle() {
-    const name = document.getElementById('new-article-name').value.trim();
-    const category = document.getElementById('new-article-category').value;
-    const price = parseFloat(document.getElementById('new-article-price').value);
-    const temps = parseFloat(document.getElementById('new-article-temps').value);
-    
-    if (!name) {
-        alert('❌ Nom de l\'article requis');
-        return;
-    }
-    
-    if (isNaN(price) || price < 0) {
-        alert('❌ Prix invalide');
-        return;
-    }
-    
-    if (isNaN(temps) || temps < 0) {
-        alert('❌ Temps invalide');
-        return;
-    }
-    
-    // Trouver le plus grand ID
-    const maxId = Math.max(...CATALOGUE.map(a => a.id), 0);
-    
-    const newArticle = {
-        id: maxId + 1,
-        name: name,
-        price: price,
-        temps: temps,
-        category: category,
-        custom: true  // Marquer comme article personnalisé
-    };
-    
-    CATALOGUE.push(newArticle);
-    userSettings.catalogue.push(newArticle);
-    
-    // Réinitialiser le formulaire
-    document.getElementById('new-article-name').value = '';
-    document.getElementById('new-article-price').value = '';
-    document.getElementById('new-article-temps').value = '';
-    
-    // Sauvegarder et rafraîchir
-    saveSettings();
-    renderCatalogueEditor();
-    initializeArticleSelect();
-    
-    alert('✅ Article ajouté au catalogue !');
-}
-
-function deleteCustomArticle(id) {
-    if (!confirm('Supprimer cet article du catalogue ?')) return;
-    
-    const index = CATALOGUE.findIndex(a => a.id === id);
-    if (index > -1) {
-        CATALOGUE.splice(index, 1);
-    }
-    
-    const indexSettings = userSettings.catalogue.findIndex(a => a.id === id);
-    if (indexSettings > -1) {
-        userSettings.catalogue.splice(indexSettings, 1);
-    }
-    
-    saveSettings();
-    renderCatalogueEditor();
-    initializeArticleSelect();
 }
