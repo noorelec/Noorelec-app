@@ -3,208 +3,365 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion - DevTech V1.1</title>
+    <title>DevTech - Connexion</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
             padding: 20px;
         }
-        .auth-container {
+
+        .container {
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 450px;
+            overflow: hidden;
+            max-width: 900px;
             width: 100%;
-            padding: 40px;
+            display: flex;
         }
-        .logo { text-align: center; margin-bottom: 30px; }
-        .logo h1 {
-            font-size: 2.5em;
+
+        .left-panel {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 5px;
+            color: white;
+            padding: 60px 40px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .logo p { color: #6c757d; font-size: 0.95em; }
+
+        .left-panel h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .left-panel p {
+            font-size: 18px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .right-panel {
+            padding: 60px 40px;
+            flex: 1;
+        }
+
         .tabs {
             display: flex;
-            gap: 10px;
             margin-bottom: 30px;
-            border-bottom: 2px solid #e9ecef;
+            border-bottom: 2px solid #e0e0e0;
         }
+
         .tab {
             flex: 1;
-            padding: 12px;
-            background: none;
-            border: none;
+            padding: 15px;
+            text-align: center;
             cursor: pointer;
-            font-size: 1em;
             font-weight: 600;
-            color: #6c757d;
+            color: #666;
             transition: all 0.3s;
             border-bottom: 3px solid transparent;
             margin-bottom: -2px;
         }
-        .tab.active { color: #667eea; border-bottom-color: #667eea; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .form-group { margin-bottom: 20px; }
-        .form-group label {
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .form-container {
+            display: none;
+        }
+
+        .form-container.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 600;
             color: #333;
-            font-size: 0.9em;
+            font-weight: 600;
+            font-size: 14px;
         }
-        .form-group input {
+
+        input {
             width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
             border-radius: 10px;
-            font-size: 1em;
+            font-size: 15px;
             transition: all 0.3s;
         }
-        .form-group input:focus {
+
+        input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
-        .btn {
+
+        .optional {
+            color: #999;
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .trial-info {
+            background: #f0f4ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: start;
+        }
+
+        .trial-info-icon {
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .trial-info-text {
+            flex: 1;
+        }
+
+        .trial-info h4 {
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .trial-info p {
+            color: #666;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .validation-status {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .validation-status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+            display: block;
+        }
+
+        .validation-status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+            display: block;
+        }
+
+        .validation-status.info {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+            display: block;
+        }
+
+        button {
             width: 100%;
-            padding: 14px;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
             border-radius: 10px;
-            font-size: 1em;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
-            margin-top: 10px;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
         }
-        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-        .alert {
-            padding: 12px 15px;
-            border-radius: 10px;
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 8px;
             margin-bottom: 20px;
-            font-size: 0.9em;
+            display: none;
+            border-left: 4px solid #ef4444;
         }
-        .alert-error { background: #fee; color: #c00; border: 1px solid #fcc; }
-        .alert-success { background: #efe; color: #0a0; border: 1px solid #cfc; }
-        .vat-section {
-            background: #f8f9fa;
+
+        .loader {
+            display: none;
+            text-align: center;
             padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
         }
-        .vat-section h3 { font-size: 1.1em; margin-bottom: 10px; color: #333; }
-        .vat-section p { font-size: 0.9em; color: #6c757d; margin-bottom: 15px; }
+
+        .loader.active {
+            display: block;
+        }
+
         .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
             border-radius: 50%;
             width: 40px;
             height: 40px;
             animation: spin 1s linear infinite;
-            margin: 0 auto;
+            margin: 0 auto 10px;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .version {
-            text-align: center;
-            margin-top: 20px;
-            color: #999;
-            font-size: 0.8em;
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .left-panel {
+                padding: 40px 30px;
+            }
+
+            .left-panel h1 {
+                font-size: 36px;
+            }
+
+            .right-panel {
+                padding: 40px 30px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="auth-container">
-        <div class="logo">
+    <div class="container">
+        <div class="left-panel">
             <h1>DEVTECH</h1>
             <p>Gestion de devis électriques</p>
         </div>
 
-        <div class="tabs">
-            <button class="tab active" id="tab-login">Connexion</button>
-            <button class="tab" id="tab-signup">Inscription</button>
-        </div>
+        <div class="right-panel">
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('connexion')">Connexion</div>
+                <div class="tab" onclick="switchTab('inscription')">Inscription</div>
+            </div>
 
-        <div id="login-tab" class="tab-content active">
-            <div id="login-alert"></div>
-            <form id="loginForm">
+            <!-- Formulaire de Connexion -->
+            <div id="connexion-form" class="form-container active">
+                <div class="error-message" id="error-connexion"></div>
+                
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" id="login-email" required autocomplete="email">
+                    <input type="email" id="login-email" placeholder="votre@email.com" required>
                 </div>
+
                 <div class="form-group">
                     <label>Mot de passe</label>
-                    <input type="password" id="login-password" required autocomplete="current-password">
+                    <input type="password" id="login-password" placeholder="••••••••" required>
                 </div>
-                <button type="submit" class="btn btn-primary" id="login-btn">Se connecter</button>
-            </form>
-        </div>
 
-        <div id="signup-tab" class="tab-content">
-            <div id="signup-alert"></div>
-            <form id="signupForm">
+                <button onclick="handleLogin()">Se connecter</button>
+
+                <div class="loader" id="loader-connexion">
+                    <div class="spinner"></div>
+                    <p>Connexion en cours...</p>
+                </div>
+            </div>
+
+            <!-- Formulaire d'Inscription -->
+            <div id="inscription-form" class="form-container">
+                <div class="trial-info">
+                    <div class="trial-info-icon">🎁</div>
+                    <div class="trial-info-text">
+                        <h4>Essai gratuit 14 jours</h4>
+                        <p>Professionnel avec TVA belge ? Essayez gratuitement !</p>
+                    </div>
+                </div>
+
+                <div class="error-message" id="error-inscription"></div>
+
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" id="signup-email" required autocomplete="email">
+                    <input type="email" id="signup-email" placeholder="votre@email.com" required>
                 </div>
+
                 <div class="form-group">
                     <label>Mot de passe</label>
-                    <input type="password" id="signup-password" required minlength="6" autocomplete="new-password">
+                    <input type="password" id="signup-password" placeholder="••••••••" minlength="6" required>
                 </div>
+
                 <div class="form-group">
                     <label>Confirmer mot de passe</label>
-                    <input type="password" id="signup-password-confirm" required autocomplete="new-password">
+                    <input type="password" id="signup-password-confirm" placeholder="••••••••" required>
                 </div>
-                <div class="vat-section">
-                    <h3>🎁 Essai gratuit 14 jours</h3>
-                    <p>Professionnel avec TVA belge ? Essayez gratuitement !</p>
-                    <div class="form-group">
-                        <label>Numéro TVA (optionnel)</label>
-                        <input type="text" id="signup-vat" placeholder="BE 0123.456.789" autocomplete="off">
-                    </div>
-                    <p style="font-size: 0.85em;">
-                        ✅ TVA valide = 14 jours gratuits<br>
-                        ❌ Pas de TVA = Contactez-nous
-                    </p>
-                </div>
-                <button type="submit" class="btn btn-primary" id="signup-btn">Créer mon compte</button>
-            </form>
-        </div>
 
-        <div class="version">DevTech V1.1</div>
+                <div class="form-group">
+                    <label>
+                        Numéro TVA <span class="optional">(optionnel)</span>
+                    </label>
+                    <input type="text" id="signup-tva" placeholder="BE 0123.456.789" 
+                           oninput="handleTVAInput(this.value)">
+                    <div class="validation-status" id="tva-status"></div>
+                </div>
+
+                <button onclick="handleSignup()" id="signup-btn">S'inscrire</button>
+
+                <div class="loader" id="loader-inscription">
+                    <div class="spinner"></div>
+                    <p>Création du compte...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, doc, setDoc, getDoc, query, where, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        // Import Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-        // Configuration Firebase - VOS VRAIES CLÉS
+        // ✅ NOUVELLE Configuration Firebase V2
         const firebaseConfig = {
-            apiKey: "AIzaSyD2v9knFsWsOAe_eWudFVWoojylojQFgSU",
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
             authDomain: "devtech-20997.firebaseapp.com",
             projectId: "devtech-20997",
             storageBucket: "devtech-20997.firebasestorage.app",
             messagingSenderId: "95961701207",
-            appId: "1:95961701207:web:34659317465bedf897bc12",
-            measurementId: "G-D9VZ140KSF"
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12",
+            measurementId: "G-7S08YYT59J"
         };
 
         // Initialiser Firebase
@@ -212,293 +369,249 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // UI Functions
-        function switchTab(tab) {
+        console.log('✅ Firebase initialisé avec succès (Config V2)');
+
+        // Variables globales
+        let tvaValidationResult = null;
+
+        // Switch entre onglets
+        window.switchTab = function(tab) {
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            if (tab === 'login') {
-                document.getElementById('tab-login').classList.add('active');
-                document.getElementById('login-tab').classList.add('active');
-            } else {
-                document.getElementById('tab-signup').classList.add('active');
-                document.getElementById('signup-tab').classList.add('active');
-            }
-        }
-
-        function showAlert(elementId, message, type = 'error') {
-            const alertEl = document.getElementById(elementId);
-            alertEl.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            setTimeout(() => { alertEl.innerHTML = ''; }, 5000);
-        }
-
-        function showLoading(buttonId) {
-            const btn = document.getElementById(buttonId);
-            btn.disabled = true;
-            btn.innerHTML = '<div class="spinner"></div>';
-        }
-
-        function hideLoading(buttonId, text) {
-            const btn = document.getElementById(buttonId);
-            btn.disabled = false;
-            btn.innerHTML = text;
-        }
-
-        // Vérification TVA via API VIES (Union Européenne)
-        async function verifyBelgianVAT(vatNumber) {
-            const cleanVAT = vatNumber.replace(/[.\s-]/g, '').toUpperCase();
+            document.querySelectorAll('.form-container').forEach(f => f.classList.remove('active'));
             
-            if (!cleanVAT.match(/^BE[0-9]{10}$/)) {
-                return { valid: false, error: 'Format TVA belge invalide (ex: BE0123456789)' };
+            if (tab === 'connexion') {
+                document.querySelector('.tab:first-child').classList.add('active');
+                document.getElementById('connexion-form').classList.add('active');
+            } else {
+                document.querySelector('.tab:last-child').classList.add('active');
+                document.getElementById('inscription-form').classList.add('active');
             }
+        }
+
+        // Validation du numéro TVA belge
+        window.handleTVAInput = async function(value) {
+            const statusDiv = document.getElementById('tva-status');
+            
+            if (!value || value.trim() === '') {
+                statusDiv.style.display = 'none';
+                tvaValidationResult = null;
+                return;
+            }
+
+            // Nettoyer le numéro (enlever espaces, points, tirets)
+            const cleanTVA = value.replace(/[\s.\-]/g, '');
+            
+            // Vérifier le format belge (BE suivi de 10 chiffres)
+            if (!cleanTVA.match(/^BE[0-9]{10}$/i)) {
+                statusDiv.className = 'validation-status info';
+                statusDiv.innerHTML = '⚠️ Format attendu: BE 0123.456.789';
+                tvaValidationResult = null;
+                return;
+            }
+
+            // Validation via API VIES
+            statusDiv.className = 'validation-status info';
+            statusDiv.innerHTML = '⏳ Vérification du numéro TVA...';
 
             try {
-                const countryCode = 'BE';
-                const vatNum = cleanVAT.substring(2);
+                const countryCode = cleanTVA.substring(0, 2);
+                const vatNumber = cleanTVA.substring(2);
                 
-                const response = await fetch('https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        countryCode: countryCode,
-                        vatNumber: vatNum
-                    })
-                });
-
-                const data = await response.json();
-
-                if (data.valid === true) {
-                    return {
-                        valid: true,
-                        companyName: data.name || '',
-                        vatNumber: cleanVAT
-                    };
+                const response = await fetch(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNumber}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    if (data.valid) {
+                        statusDiv.className = 'validation-status success';
+                        statusDiv.innerHTML = `✅ TVA valide = 14 jours gratuits<br><small>${data.name || 'Entreprise belge'}</small>`;
+                        tvaValidationResult = {
+                            valid: true,
+                            number: cleanTVA,
+                            name: data.name,
+                            address: data.address
+                        };
+                    } else {
+                        statusDiv.className = 'validation-status error';
+                        statusDiv.innerHTML = '❌ Numéro TVA invalide';
+                        tvaValidationResult = { valid: false };
+                    }
                 } else {
-                    return { valid: false, error: 'Numéro TVA non valide ou inactif' };
+                    throw new Error('Service de validation indisponible');
                 }
             } catch (error) {
-                console.error('Erreur vérification TVA:', error);
-                return {
-                    valid: true,
-                    companyName: '',
-                    vatNumber: cleanVAT,
-                    warning: 'Vérification automatique indisponible'
-                };
+                console.error('Erreur validation TVA:', error);
+                statusDiv.className = 'validation-status error';
+                statusDiv.innerHTML = '❌ Impossible de vérifier le TVA. Réessayez plus tard.';
+                tvaValidationResult = null;
             }
         }
 
-        async function checkVATAlreadyUsed(vatNumber) {
-            const q = query(collection(db, 'vat_trials'), where('vat_number', '==', vatNumber));
-            const querySnapshot = await getDocs(q);
-            return !querySnapshot.empty;
-        }
-
-        // Connexion
-        async function handleLogin(event) {
-            event.preventDefault();
+        // Gestion de la connexion
+        window.handleLogin = async function() {
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
-            
-            showLoading('login-btn');
+            const errorDiv = document.getElementById('error-connexion');
+            const loader = document.getElementById('loader-connexion');
+
+            errorDiv.style.display = 'none';
+
+            if (!email || !password) {
+                errorDiv.textContent = 'Veuillez remplir tous les champs';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            loader.classList.add('active');
 
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                const user = userCredential.user;
-
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                console.log('✅ Connexion réussie:', userCredential.user.email);
                 
-                if (!userDoc.exists()) {
-                    throw new Error('Données utilisateur introuvables');
-                }
-
-                const userData = userDoc.data();
-
-                if (userData.subscription_status === 'expired' || userData.subscription_status === 'cancelled') {
-                    await auth.signOut();
-                    showAlert('login-alert', 'Abonnement expiré. Contactez-nous.', 'error');
-                    hideLoading('login-btn', 'Se connecter');
-                    return;
-                }
-
-                if (userData.subscription_status === 'trial') {
-                    const trialEnd = new Date(userData.subscription_end);
-                    if (trialEnd < new Date()) {
-                        await auth.signOut();
-                        showAlert('login-alert', 'Essai gratuit expiré. Contactez-nous.', 'error');
-                        hideLoading('login-btn', 'Se connecter');
-                        return;
-                    }
-                }
-
-                if (userData.subscription_status === 'inactive') {
-                    await auth.signOut();
-                    showAlert('login-alert', 'Compte en attente d\'activation. Contactez-nous.', 'error');
-                    hideLoading('login-btn', 'Se connecter');
-                    return;
-                }
-
-                showAlert('login-alert', 'Connexion réussie !', 'success');
-                setTimeout(() => { window.location.href = 'app.html'; }, 1000);
-
+                // Redirection vers l'application
+                window.location.href = 'app.html';
+                
             } catch (error) {
-                console.error('Erreur connexion:', error);
-                let errorMessage = 'Email ou mot de passe incorrect';
-                if (error.code === 'auth/user-not-found') errorMessage = 'Utilisateur introuvable';
-                if (error.code === 'auth/wrong-password') errorMessage = 'Mot de passe incorrect';
-                if (error.code === 'auth/too-many-requests') errorMessage = 'Trop de tentatives. Réessayez plus tard.';
+                loader.classList.remove('active');
+                console.error('❌ Erreur connexion:', error);
                 
-                showAlert('login-alert', errorMessage, 'error');
-                hideLoading('login-btn', 'Se connecter');
+                let errorMessage = 'Erreur de connexion';
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Aucun compte trouvé avec cet email';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Mot de passe incorrect';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Email invalide';
+                } else if (error.code === 'auth/invalid-credential') {
+                    errorMessage = 'Email ou mot de passe incorrect';
+                }
+                
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
             }
         }
 
-        // Inscription
-        async function handleSignup(event) {
-            event.preventDefault();
+        // Gestion de l'inscription
+        window.handleSignup = async function() {
             const email = document.getElementById('signup-email').value.trim();
             const password = document.getElementById('signup-password').value;
             const passwordConfirm = document.getElementById('signup-password-confirm').value;
-            const vatNumber = document.getElementById('signup-vat').value.trim();
+            const errorDiv = document.getElementById('error-inscription');
+            const loader = document.getElementById('loader-inscription');
+            const signupBtn = document.getElementById('signup-btn');
+
+            errorDiv.style.display = 'none';
+
+            // Validations
+            if (!email || !password || !passwordConfirm) {
+                errorDiv.textContent = 'Veuillez remplir tous les champs obligatoires';
+                errorDiv.style.display = 'block';
+                return;
+            }
 
             if (password !== passwordConfirm) {
-                showAlert('signup-alert', 'Les mots de passe ne correspondent pas', 'error');
+                errorDiv.textContent = 'Les mots de passe ne correspondent pas';
+                errorDiv.style.display = 'block';
                 return;
             }
 
             if (password.length < 6) {
-                showAlert('signup-alert', 'Le mot de passe doit contenir au moins 6 caractères', 'error');
+                errorDiv.textContent = 'Le mot de passe doit contenir au moins 6 caractères';
+                errorDiv.style.display = 'block';
                 return;
             }
 
-            showLoading('signup-btn');
+            signupBtn.disabled = true;
+            loader.classList.add('active');
 
             try {
-                let hasVATTrial = false;
-                let vatData = null;
-
-                if (vatNumber) {
-                    vatData = await verifyBelgianVAT(vatNumber);
-                    
-                    if (!vatData.valid) {
-                        showAlert('signup-alert', vatData.error, 'error');
-                        hideLoading('signup-btn', 'Créer mon compte');
-                        return;
-                    }
-
-                    const alreadyUsed = await checkVATAlreadyUsed(vatData.vatNumber);
-                    if (alreadyUsed) {
-                        showAlert('signup-alert', 'Ce numéro TVA a déjà été utilisé pour un essai gratuit', 'error');
-                        hideLoading('signup-btn', 'Créer mon compte');
-                        return;
-                    }
-
-                    hasVATTrial = true;
-                }
-
+                // Créer l'utilisateur Firebase
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
+                
+                console.log('✅ Utilisateur créé:', user.email);
 
-                if (hasVATTrial) {
-                    const trialEnd = new Date();
+                // Préparer les données utilisateur
+                const userData = {
+                    email: user.email,
+                    createdAt: new Date().toISOString(),
+                    hasTrial: false,
+                    trialStartDate: null,
+                    trialEndDate: null,
+                    vatNumber: null,
+                    companyName: null
+                };
+
+                // Si TVA valide, activer l'essai gratuit
+                if (tvaValidationResult && tvaValidationResult.valid) {
+                    // Vérifier si le TVA n'a pas déjà été utilisé
+                    const tvaDoc = await getDoc(doc(db, 'usedVAT', tvaValidationResult.number));
+                    
+                    if (tvaDoc.exists()) {
+                        errorDiv.textContent = '⚠️ Ce numéro TVA a déjà été utilisé pour un essai gratuit';
+                        errorDiv.style.display = 'block';
+                        signupBtn.disabled = false;
+                        loader.classList.remove('active');
+                        
+                        // Supprimer l'utilisateur créé
+                        await user.delete();
+                        return;
+                    }
+
+                    // Activer l'essai gratuit
+                    const trialStart = new Date();
+                    const trialEnd = new Date(trialStart);
                     trialEnd.setDate(trialEnd.getDate() + 14);
 
-                    await setDoc(doc(db, 'users', user.uid), {
-                        email: email,
-                        role: 'trial',
-                        subscription_status: 'trial',
-                        subscription_end: trialEnd.toISOString(),
-                        vat_number: vatData.vatNumber,
-                        company_name: vatData.companyName || '',
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
+                    userData.hasTrial = true;
+                    userData.trialStartDate = trialStart.toISOString();
+                    userData.trialEndDate = trialEnd.toISOString();
+                    userData.vatNumber = tvaValidationResult.number;
+                    userData.companyName = tvaValidationResult.name;
+
+                    // Marquer le TVA comme utilisé
+                    await setDoc(doc(db, 'usedVAT', tvaValidationResult.number), {
+                        userId: user.uid,
+                        usedAt: new Date().toISOString(),
+                        companyName: tvaValidationResult.name
                     });
 
-                    await setDoc(doc(db, 'vat_trials', vatData.vatNumber), {
-                        vat_number: vatData.vatNumber,
-                        used_by_user_id: user.uid,
-                        used_by_email: email,
-                        trial_start: new Date().toISOString(),
-                        trial_end: trialEnd.toISOString(),
-                        created_at: new Date().toISOString()
-                    });
-
-                    await setDoc(doc(db, 'user_settings', user.uid), {
-                        tarif_modere: 50,
-                        tarif_eleve: 65,
-                        tarif_urgent: 75,
-                        tarif_weekend: 90,
-                        prix_mise_conformite: 450,
-                        prix_diagnostic: 180,
-                        prix_certificat: 80,
-                        prix_schema: 120,
-                        prix_rebouchage: 20,
-                        prix_deplacement: 25,
-                        created_at: new Date().toISOString()
-                    });
-
-                    showAlert('signup-alert', `Compte créé ! Essai gratuit de 14 jours activé ! ${vatData.warning || ''}`, 'success');
-                    setTimeout(() => { window.location.href = 'app.html'; }, 2000);
-
-                } else {
-                    await setDoc(doc(db, 'users', user.uid), {
-                        email: email,
-                        role: 'subscriber',
-                        subscription_status: 'inactive',
-                        subscription_type: 'monthly',
-                        created_at: new Date().toISOString(),
-                        updated_at: new Date().toISOString()
-                    });
-
-                    await setDoc(doc(db, 'user_settings', user.uid), {
-                        tarif_modere: 50,
-                        tarif_eleve: 65,
-                        tarif_urgent: 75,
-                        tarif_weekend: 90,
-                        prix_mise_conformite: 450,
-                        prix_diagnostic: 180,
-                        prix_certificat: 80,
-                        prix_schema: 120,
-                        prix_rebouchage: 20,
-                        prix_deplacement: 25,
-                        created_at: new Date().toISOString()
-                    });
-
-                    showAlert('signup-alert', 'Compte créé ! Contactez-nous pour l\'activer.', 'success');
-                    setTimeout(() => { 
-                        switchTab('login'); 
-                        hideLoading('signup-btn', 'Créer mon compte'); 
-                    }, 2000);
+                    console.log('✅ Essai gratuit activé jusqu\'au', trialEnd.toLocaleDateString('fr-FR'));
                 }
 
+                // Sauvegarder les données utilisateur
+                await setDoc(doc(db, 'users', user.uid), userData);
+                console.log('✅ Données utilisateur sauvegardées');
+
+                // Redirection vers l'application
+                window.location.href = 'app.html';
+
             } catch (error) {
-                console.error('Erreur inscription:', error);
-                let errorMessage = 'Erreur lors de la création du compte';
-                if (error.code === 'auth/email-already-in-use') errorMessage = 'Cet email est déjà utilisé';
-                if (error.code === 'auth/invalid-email') errorMessage = 'Email invalide';
-                if (error.code === 'auth/weak-password') errorMessage = 'Mot de passe trop faible';
-                
-                showAlert('signup-alert', errorMessage, 'error');
-                hideLoading('signup-btn', 'Créer mon compte');
+                signupBtn.disabled = false;
+                loader.classList.remove('active');
+                console.error('❌ Erreur inscription:', error);
+
+                let errorMessage = 'Erreur lors de l\'inscription';
+                if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = 'Cet email est déjà utilisé';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Email invalide';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage = 'Mot de passe trop faible';
+                }
+
+                errorDiv.textContent = errorMessage;
+                errorDiv.style.display = 'block';
             }
         }
 
-        // Event Listeners
-        document.getElementById('tab-login').addEventListener('click', () => switchTab('login'));
-        document.getElementById('tab-signup').addEventListener('click', () => switchTab('signup'));
-        document.getElementById('loginForm').addEventListener('submit', handleLogin);
-        document.getElementById('signupForm').addEventListener('submit', handleSignup);
+        // Permettre la connexion avec Entrée
+        document.getElementById('login-password').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
 
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                getDoc(doc(db, 'users', user.uid)).then((userDoc) => {
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        if (userData.subscription_status === 'active' || 
-                            (userData.subscription_status === 'trial' && new Date(userData.subscription_end) > new Date())) {
-                            window.location.href = 'app.html';
-                        }
-                    }
-                });
-            }
+        document.getElementById('signup-password-confirm').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleSignup();
         });
     </script>
 </body>

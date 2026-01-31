@@ -3,290 +3,456 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Application - DevTech V1.1</title>
+    <title>DevTech - Application</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f5f7fa;
-            min-height: 100vh;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+        }
+
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
+            padding: 20px 40px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
+
         .header h1 {
-            font-size: 1.8em;
+            font-size: 28px;
         }
-        .header .version {
-            font-size: 0.8em;
-            opacity: 0.8;
-        }
+
         .user-info {
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
         }
-        .btn-logout {
-            background: rgba(255,255,255,0.2);
-            color: white;
+
+        .trial-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
+            color: white;
             padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s;
         }
-        .btn-logout:hover {
+
+        .logout-btn:hover {
             background: white;
             color: #667eea;
         }
+
         .container {
             max-width: 1200px;
             margin: 40px auto;
             padding: 0 20px;
         }
+
         .welcome-card {
             background: white;
             border-radius: 15px;
             padding: 40px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             margin-bottom: 30px;
         }
+
         .welcome-card h2 {
             color: #333;
             margin-bottom: 15px;
+            font-size: 32px;
         }
+
         .welcome-card p {
             color: #666;
+            font-size: 16px;
             line-height: 1.6;
         }
-        .status-badge {
-            display: inline-block;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            font-weight: 600;
-            margin-top: 15px;
-        }
-        .status-trial {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        .status-active {
-            background: #e8f5e9;
-            color: #388e3c;
-        }
-        .status-inactive {
-            background: #fff3e0;
-            color: #f57c00;
-        }
-        .info-grid {
+
+        .stats-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
-            margin-top: 30px;
+            margin-bottom: 30px;
         }
-        .info-card {
+
+        .stat-card {
             background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
         }
-        .info-card h3 {
+
+        .stat-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
             color: #667eea;
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
             margin-bottom: 10px;
         }
-        .info-card p {
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .feature-card h3 {
             color: #333;
-            font-size: 1.2em;
-            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 20px;
         }
-        .loading {
+
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .loader {
             text-align: center;
-            padding: 60px 20px;
+            padding: 100px 20px;
         }
+
         .spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #667eea;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             animation: spin 1s linear infinite;
             margin: 0 auto 20px;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #f59e0b;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-color: #10b981;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #3b82f6;
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 15px 20px;
+                flex-direction: column;
+                gap: 15px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .user-info {
+                flex-direction: column;
+                gap: 10px;
+                width: 100%;
+            }
+
+            .logout-btn {
+                width: 100%;
+            }
+
+            .container {
+                margin: 20px auto;
+            }
+
+            .welcome-card {
+                padding: 25px;
+            }
+
+            .welcome-card h2 {
+                font-size: 24px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="header-content">
-            <div>
-                <h1>DevTech</h1>
-                <div class="version">Version 1.1</div>
-            </div>
-            <div class="user-info">
-                <span id="user-email"></span>
-                <button class="btn-logout" id="logout-btn">Déconnexion</button>
-            </div>
+        <h1>DEVTECH</h1>
+        <div class="user-info">
+            <span id="user-email"></span>
+            <span class="trial-badge" id="trial-status"></span>
+            <button class="logout-btn" onclick="handleLogout()">Déconnexion</button>
         </div>
     </div>
 
-    <div class="container">
-        <div id="loading" class="loading">
+    <div class="container" id="app-content">
+        <div class="loader">
             <div class="spinner"></div>
-            <p>Chargement...</p>
-        </div>
-
-        <div id="app-content" style="display: none;">
-            <div class="welcome-card">
-                <h2>Bienvenue sur DevTech ! 👋</h2>
-                <p>Votre application de gestion de devis électriques.</p>
-                <div id="status-info"></div>
-            </div>
-
-            <div class="info-grid">
-                <div class="info-card">
-                    <h3>Email</h3>
-                    <p id="info-email">-</p>
-                </div>
-                <div class="info-card">
-                    <h3>Statut</h3>
-                    <p id="info-status">-</p>
-                </div>
-                <div class="info-card">
-                    <h3>Rôle</h3>
-                    <p id="info-role">-</p>
-                </div>
-                <div class="info-card" id="trial-end-card" style="display: none;">
-                    <h3>Fin de l'essai</h3>
-                    <p id="info-trial-end">-</p>
-                </div>
-            </div>
+            <p>Chargement de votre espace...</p>
         </div>
     </div>
 
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-        import { getAuth, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-        import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        // Import Firebase
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-        // Configuration Firebase - VOS VRAIES CLÉS
+        // ✅ NOUVELLE Configuration Firebase V2
         const firebaseConfig = {
-            apiKey: "AIzaSyD2v9knFsWsOAe_eWudFVWoojylojQFgSU",
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
             authDomain: "devtech-20997.firebaseapp.com",
             projectId: "devtech-20997",
             storageBucket: "devtech-20997.firebasestorage.app",
             messagingSenderId: "95961701207",
-            appId: "1:95961701207:web:34659317465bedf897bc12",
-            measurementId: "G-D9VZ140KSF"
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12",
+            measurementId: "G-7S08YYT59J"
         };
 
+        // Initialiser Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        document.getElementById('logout-btn').addEventListener('click', async () => {
-            try {
-                await signOut(auth);
+        console.log('✅ Firebase initialisé avec succès (Config V2)');
+
+        // Vérifier l'authentification
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                console.log('✅ Utilisateur connecté:', user.email);
+                await loadUserData(user);
+            } else {
+                console.log('❌ Aucun utilisateur connecté, redirection...');
                 window.location.href = 'login.html';
-            } catch (error) {
-                console.error('Erreur déconnexion:', error);
-                alert('Erreur lors de la déconnexion');
             }
         });
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = 'login.html';
-                return;
-            }
-
+        // Charger les données utilisateur
+        async function loadUserData(user) {
             try {
+                // Afficher l'email
+                document.getElementById('user-email').textContent = user.email;
+
+                // Récupérer les données Firestore
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 
-                if (!userDoc.exists()) {
-                    alert('Données utilisateur introuvables');
-                    await signOut(auth);
-                    window.location.href = 'login.html';
-                    return;
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    console.log('📊 Données utilisateur:', userData);
+
+                    // Afficher le statut d'essai
+                    displayTrialStatus(userData);
+
+                    // Afficher le contenu de l'application
+                    displayAppContent(userData);
+                } else {
+                    console.warn('⚠️ Aucune donnée utilisateur trouvée');
+                    displayAppContent(null);
                 }
-
-                const userData = userDoc.data();
-
-                if (userData.subscription_status === 'expired' || userData.subscription_status === 'cancelled') {
-                    alert('Votre abonnement a expiré. Contactez-nous.');
-                    await signOut(auth);
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                if (userData.subscription_status === 'trial') {
-                    const trialEnd = new Date(userData.subscription_end);
-                    if (trialEnd < new Date()) {
-                        alert('Votre essai gratuit est terminé. Contactez-nous pour continuer.');
-                        await signOut(auth);
-                        window.location.href = 'login.html';
-                        return;
-                    }
-                }
-
-                if (userData.subscription_status === 'inactive') {
-                    alert('Votre compte est en attente d\'activation. Contactez-nous.');
-                    await signOut(auth);
-                    window.location.href = 'login.html';
-                    return;
-                }
-
-                document.getElementById('user-email').textContent = userData.email;
-                document.getElementById('info-email').textContent = userData.email;
-                
-                let statusText = userData.subscription_status === 'trial' ? 'Essai gratuit' : 
-                                userData.subscription_status === 'active' ? 'Actif' : 'Inactif';
-                let statusClass = userData.subscription_status === 'trial' ? 'status-trial' : 
-                                 userData.subscription_status === 'active' ? 'status-active' : 'status-inactive';
-                
-                document.getElementById('info-status').textContent = statusText;
-                document.getElementById('status-info').innerHTML = `<span class="status-badge ${statusClass}">${statusText}</span>`;
-                
-                let roleText = userData.role === 'admin' ? 'Administrateur' :
-                              userData.role === 'trial' ? 'Essai' :
-                              userData.role === 'vip_free' ? 'VIP Gratuit' : 'Abonné';
-                document.getElementById('info-role').textContent = roleText;
-
-                if (userData.subscription_status === 'trial' && userData.subscription_end) {
-                    const trialEnd = new Date(userData.subscription_end);
-                    const daysLeft = Math.ceil((trialEnd - new Date()) / (1000 * 60 * 60 * 24));
-                    
-                    document.getElementById('trial-end-card').style.display = 'block';
-                    document.getElementById('info-trial-end').textContent = `${daysLeft} jour${daysLeft > 1 ? 's' : ''} restant${daysLeft > 1 ? 's' : ''}`;
-                }
-
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('app-content').style.display = 'block';
 
             } catch (error) {
-                console.error('Erreur chargement données:', error);
-                alert('Erreur lors du chargement des données');
-                await signOut(auth);
-                window.location.href = 'login.html';
+                console.error('❌ Erreur chargement données:', error);
+                displayError();
             }
-        });
+        }
+
+        // Afficher le statut d'essai
+        function displayTrialStatus(userData) {
+            const trialStatus = document.getElementById('trial-status');
+            
+            if (userData && userData.hasTrial) {
+                const trialEnd = new Date(userData.trialEndDate);
+                const today = new Date();
+                const daysLeft = Math.ceil((trialEnd - today) / (1000 * 60 * 60 * 24));
+
+                if (daysLeft > 0) {
+                    trialStatus.textContent = `🎁 Essai: ${daysLeft} jours restants`;
+                    trialStatus.style.background = 'rgba(16, 185, 129, 0.3)';
+                } else {
+                    trialStatus.textContent = '⏰ Essai expiré';
+                    trialStatus.style.background = 'rgba(239, 68, 68, 0.3)';
+                }
+            } else {
+                trialStatus.style.display = 'none';
+            }
+        }
+
+        // Afficher le contenu de l'application
+        function displayAppContent(userData) {
+            const container = document.getElementById('app-content');
+            
+            let alertHTML = '';
+            
+            if (userData && userData.hasTrial) {
+                const trialEnd = new Date(userData.trialEndDate);
+                const today = new Date();
+                const daysLeft = Math.ceil((trialEnd - today) / (1000 * 60 * 60 * 24));
+
+                if (daysLeft > 0) {
+                    alertHTML = `
+                        <div class="alert alert-success">
+                            <strong>🎉 Bienvenue dans votre essai gratuit !</strong><br>
+                            Vous avez accès à toutes les fonctionnalités jusqu'au ${trialEnd.toLocaleDateString('fr-FR')}.
+                            ${userData.companyName ? `<br>Entreprise : ${userData.companyName}` : ''}
+                        </div>
+                    `;
+                } else {
+                    alertHTML = `
+                        <div class="alert alert-warning">
+                            <strong>⏰ Votre période d'essai a expiré</strong><br>
+                            Contactez-nous pour continuer à utiliser DevTech.
+                        </div>
+                    `;
+                }
+            }
+
+            container.innerHTML = `
+                ${alertHTML}
+
+                <div class="welcome-card">
+                    <h2>Bienvenue sur DevTech ! 👋</h2>
+                    <p>Votre plateforme de gestion de devis électriques est prête à l'emploi.</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Devis créés</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-value">0</div>
+                        <div class="stat-label">Devis validés</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-value">0 €</div>
+                        <div class="stat-label">Chiffre d'affaires</div>
+                    </div>
+                </div>
+
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📝</div>
+                        <h3>Créer un devis</h3>
+                        <p>Générez rapidement des devis professionnels pour vos projets électriques.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">👥</div>
+                        <h3>Gestion clients</h3>
+                        <p>Centralisez toutes les informations de vos clients au même endroit.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📈</div>
+                        <h3>Statistiques</h3>
+                        <p>Suivez vos performances et analysez votre activité en temps réel.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">🔧</div>
+                        <h3>Catalogue produits</h3>
+                        <p>Base de données complète de matériel électrique avec tarifs.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📄</div>
+                        <h3>Export PDF</h3>
+                        <p>Exportez vos devis au format PDF professionnel en un clic.</p>
+                    </div>
+
+                    <div class="feature-card">
+                        <div class="feature-icon">📧</div>
+                        <h3>Envoi automatique</h3>
+                        <p>Envoyez vos devis directement par email à vos clients.</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Afficher une erreur
+        function displayError() {
+            const container = document.getElementById('app-content');
+            container.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>⚠️ Erreur de chargement</strong><br>
+                    Impossible de charger vos données. Veuillez rafraîchir la page.
+                </div>
+            `;
+        }
+
+        // Déconnexion
+        window.handleLogout = async function() {
+            try {
+                await signOut(auth);
+                console.log('✅ Déconnexion réussie');
+                window.location.href = 'login.html';
+            } catch (error) {
+                console.error('❌ Erreur déconnexion:', error);
+                alert('Erreur lors de la déconnexion');
+            }
+        }
     </script>
 </body>
 </html>
