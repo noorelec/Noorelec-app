@@ -494,6 +494,7 @@
             const statusDiv = document.getElementById('tva-status');
             const paymentOptions = document.getElementById('payment-options');
             
+            // Si aucun TVA → Afficher options de paiement
             if (!value || value.trim() === '') {
                 statusDiv.style.display = 'none';
                 paymentOptions.classList.add('active');
@@ -503,6 +504,7 @@
 
             const cleanTVA = value.replace(/[\s.\-]/g, '');
             
+            // Vérifier le format
             if (!cleanTVA.match(/^BE[0-9]{10}$/i)) {
                 statusDiv.className = 'validation-status info';
                 statusDiv.innerHTML = '⚠️ Format attendu: BE 0123.456.789';
@@ -511,22 +513,33 @@
                 return;
             }
 
+            // Afficher le loader
             statusDiv.className = 'validation-status info';
             statusDiv.innerHTML = '⏳ Vérification du numéro TVA...';
+            statusDiv.style.display = 'block';
+
+            // Toujours afficher les options de paiement par défaut
+            paymentOptions.classList.add('active');
 
             try {
                 const countryCode = cleanTVA.substring(0, 2);
                 const vatNumber = cleanTVA.substring(2);
                 
-                const response = await fetch(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNumber}`);
+                const response = await fetch(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNumber}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
                 
                 if (response.ok) {
                     const data = await response.json();
                     
                     if (data.valid) {
+                        // TVA VALIDE = Essai gratuit
                         statusDiv.className = 'validation-status success';
                         statusDiv.innerHTML = `✅ <strong>TVA valide !</strong><br>🎁 Vous bénéficiez de 14 jours gratuits<br><small>${data.name || 'Entreprise belge'}</small>`;
-                        paymentOptions.classList.remove('active');
+                        paymentOptions.classList.remove('active'); // CACHER les options
                         tvaValidationResult = {
                             valid: true,
                             number: cleanTVA,
@@ -534,19 +547,28 @@
                             address: data.address
                         };
                     } else {
+                        // TVA INVALIDE = Paiement requis
                         statusDiv.className = 'validation-status error';
-                        statusDiv.innerHTML = '❌ Numéro TVA invalide<br><small>Choisissez une formule payante ci-dessous</small>';
-                        paymentOptions.classList.add('active');
+                        statusDiv.innerHTML = '❌ Numéro TVA invalide<br><small>Veuillez choisir une formule payante ci-dessous</small>';
+                        paymentOptions.classList.add('active'); // AFFICHER les options
                         tvaValidationResult = { valid: false };
                     }
+                } else if (response.status === 400 || response.status === 404) {
+                    // Erreur 400/404 = TVA invalide
+                    statusDiv.className = 'validation-status error';
+                    statusDiv.innerHTML = '❌ Numéro TVA invalide ou inexistant<br><small>Veuillez choisir une formule payante ci-dessous</small>';
+                    paymentOptions.classList.add('active');
+                    tvaValidationResult = { valid: false };
                 } else {
                     throw new Error('Service indisponible');
                 }
             } catch (error) {
                 console.error('Erreur validation TVA:', error);
+                
+                // En cas d'erreur API = Proposer le paiement
                 statusDiv.className = 'validation-status error';
-                statusDiv.innerHTML = '❌ Impossible de vérifier le TVA<br><small>Choisissez une formule payante ci-dessous</small>';
-                paymentOptions.classList.add('active');
+                statusDiv.innerHTML = `❌ Impossible de vérifier le TVA actuellement<br><small>Service temporairement indisponible.<br>Veuillez choisir une formule payante ci-dessous.</small>`;
+                paymentOptions.classList.add('active'); // TOUJOURS afficher
                 tvaValidationResult = null;
             }
         }
