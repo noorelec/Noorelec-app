@@ -44,6 +44,18 @@
             font-weight: 600;
         }
 
+        .trial-badge.trial {
+            background: rgba(16, 185, 129, 0.3);
+        }
+
+        .trial-badge.expired {
+            background: rgba(239, 68, 68, 0.3);
+        }
+
+        .trial-badge.paid {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
         .logout-btn {
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid white;
@@ -64,6 +76,53 @@
             max-width: 1200px;
             margin: 40px auto;
             padding: 0 20px;
+        }
+
+        .alert {
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-color: #f59e0b;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border-color: #10b981;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-color: #3b82f6;
+        }
+
+        .alert-danger {
+            background: #fee2e2;
+            color: #991b1b;
+            border-color: #ef4444;
+        }
+
+        .payment-btn {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .payment-btn:hover {
+            background: #5568d3;
         }
 
         .welcome-card {
@@ -172,31 +231,6 @@
             100% { transform: rotate(360deg); }
         }
 
-        .alert {
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 5px solid;
-        }
-
-        .alert-warning {
-            background: #fef3c7;
-            color: #92400e;
-            border-color: #f59e0b;
-        }
-
-        .alert-success {
-            background: #d1fae5;
-            color: #065f46;
-            border-color: #10b981;
-        }
-
-        .alert-info {
-            background: #dbeafe;
-            color: #1e40af;
-            border-color: #3b82f6;
-        }
-
         @media (max-width: 768px) {
             .header {
                 padding: 15px 20px;
@@ -250,12 +284,10 @@
     </div>
 
     <script type="module">
-        // Import Firebase
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
         import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-        // ✅ NOUVELLE Configuration Firebase V2
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
             authDomain: "devtech-20997.firebaseapp.com",
@@ -266,98 +298,163 @@
             measurementId: "G-7S08YYT59J"
         };
 
-        // Initialiser Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        console.log('✅ Firebase initialisé avec succès (Config V2)');
-
-        // Vérifier l'authentification
         onAuthStateChanged(auth, async (user) => {
             if (user) {
+                // Vérifier si l'email est vérifié
+                if (!user.emailVerified) {
+                    console.log('❌ Email non vérifié');
+                    displayEmailNotVerified(user);
+                    return;
+                }
+                
                 console.log('✅ Utilisateur connecté:', user.email);
                 await loadUserData(user);
             } else {
-                console.log('❌ Aucun utilisateur connecté, redirection...');
+                console.log('❌ Aucun utilisateur connecté');
                 window.location.href = 'login.html';
             }
         });
 
-        // Charger les données utilisateur
+        function displayEmailNotVerified(user) {
+            const container = document.getElementById('app-content');
+            container.innerHTML = `
+                <div class="alert alert-warning">
+                    <strong>⚠️ Email non vérifié</strong><br><br>
+                    Votre email <strong>${user.email}</strong> n'a pas encore été vérifié.<br><br>
+                    Veuillez vérifier votre boîte mail et cliquer sur le lien de confirmation.
+                    <br><br>
+                    <button class="payment-btn" onclick="window.location.href='login.html'">
+                        Retour à la connexion
+                    </button>
+                </div>
+            `;
+        }
+
         async function loadUserData(user) {
             try {
-                // Afficher l'email
                 document.getElementById('user-email').textContent = user.email;
 
-                // Récupérer les données Firestore
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     console.log('📊 Données utilisateur:', userData);
 
-                    // Afficher le statut d'essai
-                    displayTrialStatus(userData);
-
-                    // Afficher le contenu de l'application
+                    displayAccountStatus(userData);
                     displayAppContent(userData);
                 } else {
-                    console.warn('⚠️ Aucune donnée utilisateur trouvée');
+                    console.warn('⚠️ Aucune donnée utilisateur');
                     displayAppContent(null);
                 }
 
             } catch (error) {
-                console.error('❌ Erreur chargement données:', error);
+                console.error('❌ Erreur:', error);
                 displayError();
             }
         }
 
-        // Afficher le statut d'essai
-        function displayTrialStatus(userData) {
-            const trialStatus = document.getElementById('trial-status');
+        function displayAccountStatus(userData) {
+            const badge = document.getElementById('trial-status');
             
-            if (userData && userData.hasTrial) {
+            if (!userData) {
+                badge.style.display = 'none';
+                return;
+            }
+
+            if (userData.accountType === 'trial' && userData.hasTrial) {
                 const trialEnd = new Date(userData.trialEndDate);
                 const today = new Date();
                 const daysLeft = Math.ceil((trialEnd - today) / (1000 * 60 * 60 * 24));
 
                 if (daysLeft > 0) {
-                    trialStatus.textContent = `🎁 Essai: ${daysLeft} jours restants`;
-                    trialStatus.style.background = 'rgba(16, 185, 129, 0.3)';
+                    badge.textContent = `🎁 Essai: ${daysLeft} jours`;
+                    badge.className = 'trial-badge trial';
                 } else {
-                    trialStatus.textContent = '⏰ Essai expiré';
-                    trialStatus.style.background = 'rgba(239, 68, 68, 0.3)';
+                    badge.textContent = '⏰ Essai expiré';
+                    badge.className = 'trial-badge expired';
+                }
+            } else if (userData.accountType === 'paid') {
+                if (userData.subscriptionStatus === 'pending_payment') {
+                    badge.textContent = '💳 Paiement en attente';
+                    badge.className = 'trial-badge expired';
+                } else if (userData.subscriptionStatus === 'active') {
+                    const planText = userData.paymentPlan === 'monthly' ? 'Mensuel' : 'Annuel';
+                    badge.textContent = `✅ ${planText}`;
+                    badge.className = 'trial-badge paid';
                 }
             } else {
-                trialStatus.style.display = 'none';
+                badge.style.display = 'none';
             }
         }
 
-        // Afficher le contenu de l'application
         function displayAppContent(userData) {
             const container = document.getElementById('app-content');
             
             let alertHTML = '';
             
-            if (userData && userData.hasTrial) {
-                const trialEnd = new Date(userData.trialEndDate);
-                const today = new Date();
-                const daysLeft = Math.ceil((trialEnd - today) / (1000 * 60 * 60 * 24));
+            if (!userData) {
+                alertHTML = `
+                    <div class="alert alert-info">
+                        <strong>ℹ️ Configuration du compte en cours</strong><br>
+                        Votre compte est en cours de configuration.
+                    </div>
+                `;
+            } else {
+                // Compte avec essai gratuit
+                if (userData.accountType === 'trial' && userData.hasTrial) {
+                    const trialEnd = new Date(userData.trialEndDate);
+                    const today = new Date();
+                    const daysLeft = Math.ceil((trialEnd - today) / (1000 * 60 * 60 * 24));
 
-                if (daysLeft > 0) {
-                    alertHTML = `
-                        <div class="alert alert-success">
-                            <strong>🎉 Bienvenue dans votre essai gratuit !</strong><br>
-                            Vous avez accès à toutes les fonctionnalités jusqu'au ${trialEnd.toLocaleDateString('fr-FR')}.
-                            ${userData.companyName ? `<br>Entreprise : ${userData.companyName}` : ''}
-                        </div>
-                    `;
-                } else {
+                    if (daysLeft > 0) {
+                        alertHTML = `
+                            <div class="alert alert-success">
+                                <strong>🎉 Bienvenue dans votre essai gratuit !</strong><br>
+                                Accès complet jusqu'au ${trialEnd.toLocaleDateString('fr-FR')} (${daysLeft} jours restants)<br>
+                                ${userData.companyName ? `Entreprise : ${userData.companyName}` : ''}
+                                <br><br>
+                                <small>⚠️ À la fin de l'essai, vous devrez choisir une formule payante pour continuer.</small>
+                            </div>
+                        `;
+                    } else {
+                        alertHTML = `
+                            <div class="alert alert-danger">
+                                <strong>⏰ Votre essai gratuit a expiré</strong><br>
+                                Pour continuer à utiliser DevTech, veuillez choisir une formule d'abonnement.
+                                <br><br>
+                                <button class="payment-btn" onclick="alert('Système de paiement : à implémenter')">
+                                    💳 Choisir une formule
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+                // Compte payant en attente
+                else if (userData.accountType === 'paid' && userData.subscriptionStatus === 'pending_payment') {
+                    const planText = userData.paymentPlan === 'monthly' ? 'Mensuel (29€/mois)' : 'Annuel (279€/an)';
                     alertHTML = `
                         <div class="alert alert-warning">
-                            <strong>⏰ Votre période d'essai a expiré</strong><br>
-                            Contactez-nous pour continuer à utiliser DevTech.
+                            <strong>💳 Paiement en attente</strong><br>
+                            Formule choisie : <strong>${planText}</strong><br><br>
+                            Finalisez votre paiement pour activer votre compte.
+                            <br><br>
+                            <button class="payment-btn" onclick="alert('Système de paiement : à implémenter')">
+                                💳 Procéder au paiement
+                            </button>
+                        </div>
+                    `;
+                }
+                // Compte payant actif
+                else if (userData.accountType === 'paid' && userData.subscriptionStatus === 'active') {
+                    const planText = userData.paymentPlan === 'monthly' ? 'Mensuel' : 'Annuel';
+                    alertHTML = `
+                        <div class="alert alert-success">
+                            <strong>✅ Compte actif</strong><br>
+                            Abonnement : <strong>${planText}</strong>
                         </div>
                     `;
                 }
@@ -368,7 +465,7 @@
 
                 <div class="welcome-card">
                     <h2>Bienvenue sur DevTech ! 👋</h2>
-                    <p>Votre plateforme de gestion de devis électriques est prête à l'emploi.</p>
+                    <p>Votre plateforme de gestion de devis électriques professionnelle.</p>
                 </div>
 
                 <div class="stats-grid">
@@ -401,55 +498,53 @@
                     <div class="feature-card">
                         <div class="feature-icon">👥</div>
                         <h3>Gestion clients</h3>
-                        <p>Centralisez toutes les informations de vos clients au même endroit.</p>
+                        <p>Centralisez toutes les informations de vos clients.</p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">📈</div>
                         <h3>Statistiques</h3>
-                        <p>Suivez vos performances et analysez votre activité en temps réel.</p>
+                        <p>Suivez vos performances en temps réel.</p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">🔧</div>
                         <h3>Catalogue produits</h3>
-                        <p>Base de données complète de matériel électrique avec tarifs.</p>
+                        <p>Base de données complète de matériel électrique.</p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">📄</div>
                         <h3>Export PDF</h3>
-                        <p>Exportez vos devis au format PDF professionnel en un clic.</p>
+                        <p>Exportez vos devis au format PDF professionnel.</p>
                     </div>
 
                     <div class="feature-card">
                         <div class="feature-icon">📧</div>
                         <h3>Envoi automatique</h3>
-                        <p>Envoyez vos devis directement par email à vos clients.</p>
+                        <p>Envoyez vos devis directement par email.</p>
                     </div>
                 </div>
             `;
         }
 
-        // Afficher une erreur
         function displayError() {
             const container = document.getElementById('app-content');
             container.innerHTML = `
-                <div class="alert alert-warning">
+                <div class="alert alert-danger">
                     <strong>⚠️ Erreur de chargement</strong><br>
                     Impossible de charger vos données. Veuillez rafraîchir la page.
                 </div>
             `;
         }
 
-        // Déconnexion
         window.handleLogout = async function() {
             try {
                 await signOut(auth);
-                console.log('✅ Déconnexion réussie');
+                console.log('✅ Déconnexion');
                 window.location.href = 'login.html';
             } catch (error) {
-                console.error('❌ Erreur déconnexion:', error);
+                console.error('❌ Erreur:', error);
                 alert('Erreur lors de la déconnexion');
             }
         }
