@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTech - Créer un Devis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .progress-bar {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .progress-steps::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #e0e0e0;
+            z-index: 0;
+        }
+
+        .progress-line {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            height: 3px;
+            background: #667eea;
+            transition: width 0.3s;
+            z-index: 1;
+        }
+
+        .step {
+            text-align: center;
+            flex: 1;
+            position: relative;
+            z-index: 2;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-circle {
+            background: #667eea;
+            color: white;
+        }
+
+        .step.completed .step-circle {
+            background: #10b981;
+            color: white;
+        }
+
+        .step-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .step.active .step-label {
+            color: #667eea;
+            font-weight: 600;
+        }
+
+        .form-section {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            display: none;
+        }
+
+        .form-section.active {
+            display: block;
+        }
+
+        .section-title {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .section-description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .required {
+            color: #ef4444;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .pieces-list {
+            margin-top: 30px;
+        }
+
+        .piece-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .piece-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .piece-header h4 {
+            font-size: 18px;
+            color: #333;
+        }
+
+        .delete-piece-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .elements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .element-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .element-item label {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .element-item input {
+            width: 80px;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .add-piece-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+
+        .add-piece-btn:hover {
+            background: #059669;
+        }
+
+        .summary-card {
+            background: #f0f4ff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            padding-top: 15px;
+        }
+
+        .form-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-previous {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-previous:hover {
+            background: #e0e0e0;
+        }
+
+        .btn-next {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-next:hover {
+            background: #5568d3;
+        }
+
+        .btn-generate {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-generate:hover {
+            background: #059669;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            .form-section {
+                padding: 25px 20px;
+            }
+
+            .progress-steps {
+                flex-wrap: wrap;
+            }
+
+            .step {
+                flex-basis: 33%;
+                margin-bottom: 20px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .form-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>📝 Créer un Devis</h1>
+            <a href="app-complet.html" class="back-btn">← Retour</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Barre de progression -->
+        <div class="progress-bar">
+            <div class="progress-steps">
+                <div class="progress-line" id="progress-line"></div>
+                <div class="step active" data-step="1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Client</div>
+                </div>
+                <div class="step" data-step="2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Bâtiment</div>
+                </div>
+                <div class="step" data-step="3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Pièces</div>
+                </div>
+                <div class="step" data-step="4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Coffret</div>
+                </div>
+                <div class="step" data-step="5">
+                    <div class="step-circle">5</div>
+                    <div class="step-label">Récapitulatif</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 1: INFORMATIONS CLIENT -->
+        <div class="form-section active" id="step-1">
+            <h2 class="section-title">Informations Client</h2>
+            <p class="section-description">Renseignez les coordonnées de votre client</p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Nom du client <span class="required">*</span></label>
+                    <input type="text" id="client-nom" placeholder="Ex: Dupont Jean" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Email <span class="required">*</span></label>
+                    <input type="email" id="client-email" placeholder="client@email.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Téléphone <span class="required">*</span></label>
+                    <input type="tel" id="client-tel" placeholder="+32 XXX XX XX XX" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Numéro TVA (optionnel)</label>
+                    <input type="text" id="client-tva" placeholder="BE 0XXX.XXX.XXX">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Adresse complète <span class="required">*</span></label>
+                <textarea id="client-adresse" placeholder="Rue, numéro, code postal, ville" required></textarea>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 2: INFORMATIONS BÂTIMENT -->
+        <div class="form-section" id="step-2">
+            <h2 class="section-title">Informations Bâtiment</h2>
+            <p class="section-description">Détails sur le chantier et calcul de la TVA</p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Type de bâtiment <span class="required">*</span></label>
+                    <select id="batiment-type" onchange="updateTVA()" required>
+                        <option value="">-- Sélectionner --</option>
+                        <option value="habitation-neuf" data-tva="21">Habitation &lt; 10 ans (TVA 21%)</option>
+                        <option value="habitation-ancien" data-tva="6">Habitation &gt; 10 ans (TVA 6%)</option>
+                        <option value="appartement-neuf" data-tva="21">Appartement &lt; 10 ans (TVA 21%)</option>
+                        <option value="appartement-ancien" data-tva="6">Appartement &gt; 10 ans (TVA 6%)</option>
+                        <option value="commerce" data-tva="21">Commerce / Bureau (TVA 21%)</option>
+                        <option value="industriel" data-tva="21">Industriel (TVA 21%)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Type de travaux <span class="required">*</span></label>
+                    <select id="travaux-type" required>
+                        <option value="">-- Sélectionner --</option>
+                        <option value="neuf">Construction neuve</option>
+                        <option value="renovation">Rénovation</option>
+                        <option value="extension">Extension</option>
+                        <option value="mise-conformite">Mise en conformité</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Surface totale (m²)</label>
+                    <input type="number" id="batiment-surface" placeholder="Ex: 120">
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre d'étages</label>
+                    <input type="number" id="batiment-etages" placeholder="Ex: 2">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Adresse du chantier (si différente du client)</label>
+                <textarea id="chantier-adresse" placeholder="Rue, numéro, code postal, ville"></textarea>
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-row">
+                    <span>TVA applicable :</span>
+                    <strong id="tva-display">-- %</strong>
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
+                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 3: PIÈCES ET ÉLÉMENTS -->
+        <div class="form-section" id="step-3">
+            <h2 class="section-title">Pièces et Éléments</h2>
+            <p class="section-description">Ajoutez les pièces et leurs installations électriques</p>
+
+            <div id="pieces-container" class="pieces-list">
+                <!-- Les pièces seront ajoutées dynamiquement ici -->
+            </div>
+
+            <button class="add-piece-btn" onclick="addPiece()">+ Ajouter une pièce</button>
+
+            <div class="form-buttons">
+                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
+                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 4: COFFRET ÉLECTRIQUE -->
+        <div class="form-section" id="step-4">
+            <h2 class="section-title">Coffret Électrique</h2>
+            <p class="section-description">Configuration du tableau électrique</p>
+
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Disjoncteur de branchement</label>
+                    <select id="coffret-disjoncteur">
+                        <option value="40A">40A</option>
+                        <option value="63A">63A</option>
+                        <option value="80A">80A</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre de rangées</label>
+                    <select id="coffret-rangees">
+                        <option value="2">2 rangées (26 modules)</option>
+                        <option value="3">3 rangées (39 modules)</option>
+                        <option value="4">4 rangées (52 modules)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Différentiel 40A Type AC</label>
+                    <input type="number" id="coffret-diff-ac" value="1" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Différentiel 40A Type A</label>
+                    <input type="number" id="coffret-diff-a" value="1" min="0">
+                </div>
+
+                <div class="form-group">
+                    <label>Parafoudre</label>
+                    <select id="coffret-parafoudre">
+                        <option value="non">Non</option>
+                        <option value="oui">Oui</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Contacteur jour/nuit</label>
+                    <input type="number" id="coffret-contacteur" value="0" min="0">
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
+                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
+            </div>
+        </div>
+
+        <!-- ÉTAPE 5: RÉCAPITULATIF -->
+        <div class="form-section" id="step-5">
+            <h2 class="section-title">Récapitulatif du Devis</h2>
+            <p class="section-description">Vérifiez les informations avant génération</p>
+
+            <div id="recap-content">
+                <!-- Le récapitulatif sera généré ici -->
+            </div>
+
+            <div class="summary-card">
+                <div class="summary-row">
+                    <span>Total matériel HT :</span>
+                    <span id="total-materiel-ht">0.00 €</span>
+                </div>
+                <div class="summary-row">
+                    <span>Total main d'œuvre HT :</span>
+                    <span id="total-mo-ht">0.00 €</span>
+                </div>
+                <div class="summary-row">
+                    <span>Sous-total HT :</span>
+                    <span id="sous-total-ht">0.00 €</span>
+                </div>
+                <div class="summary-row">
+                    <span>TVA (<span id="tva-percent">21</span>%) :</span>
+                    <span id="montant-tva">0.00 €</span>
+                </div>
+                <div class="summary-row">
+                    <span>TOTAL TTC :</span>
+                    <span id="total-ttc">0.00 €</span>
+                </div>
+            </div>
+
+            <div class="form-buttons">
+                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
+                <button class="btn btn-generate" onclick="generateDevis()">📄 Générer le PDF</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
+            authDomain: "devtech-20997.firebaseapp.com",
+            projectId: "devtech-20997",
+            storageBucket: "devtech-20997.firebasestorage.app",
+            messagingSenderId: "95961701207",
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12",
+            measurementId: "G-7S08YYT59J"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentStep = 1;
+        let currentUser = null;
+        let pieces = [];
+
+        onAuthStateChanged(auth, (user) => {
+            if (!user || !user.emailVerified) {
+                window.location.href = 'login-v2.html';
+            } else {
+                currentUser = user;
+            }
+        });
+
+        window.nextStep = function() {
+            if (!validateCurrentStep()) return;
+            
+            if (currentStep < 5) {
+                currentStep++;
+                updateStepDisplay();
+            }
+        }
+
+        window.previousStep = function() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepDisplay();
+            }
+        }
+
+        function updateStepDisplay() {
+            // Masquer toutes les sections
+            document.querySelectorAll('.form-section').forEach(section => {
+                section.classList.remove('active');
+            });
+
+            // Afficher la section actuelle
+            document.getElementById('step-' + currentStep).classList.add('active');
+
+            // Mettre à jour les étapes
+            document.querySelectorAll('.step').forEach(step => {
+                const stepNum = parseInt(step.dataset.step);
+                step.classList.remove('active', 'completed');
+                
+                if (stepNum === currentStep) {
+                    step.classList.add('active');
+                } else if (stepNum < currentStep) {
+                    step.classList.add('completed');
+                }
+            });
+
+            // Mettre à jour la barre de progression
+            const progress = ((currentStep - 1) / 4) * 100;
+            document.getElementById('progress-line').style.width = progress + '%';
+
+            // Si étape 5, générer le récapitulatif
+            if (currentStep === 5) {
+                generateRecap();
+            }
+        }
+
+        function validateCurrentStep() {
+            if (currentStep === 1) {
+                const nom = document.getElementById('client-nom').value.trim();
+                const email = document.getElementById('client-email').value.trim();
+                const tel = document.getElementById('client-tel').value.trim();
+                const adresse = document.getElementById('client-adresse').value.trim();
+
+                if (!nom || !email || !tel || !adresse) {
+                    alert('Veuillez remplir tous les champs obligatoires');
+                    return false;
+                }
+            }
+
+            if (currentStep === 2) {
+                const type = document.getElementById('batiment-type').value;
+                const travaux = document.getElementById('travaux-type').value;
+
+                if (!type || !travaux) {
+                    alert('Veuillez remplir tous les champs obligatoires');
+                    return false;
+                }
+            }
+
+            if (currentStep === 3) {
+                if (pieces.length === 0) {
+                    alert('Veuillez ajouter au moins une pièce');
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        window.updateTVA = function() {
+            const select = document.getElementById('batiment-type');
+            const selectedOption = select.options[select.selectedIndex];
+            const tva = selectedOption.dataset.tva;
+            
+            if (tva) {
+                document.getElementById('tva-display').textContent = tva + ' %';
+            }
+        }
+
+        let pieceCounter = 0;
+
+        window.addPiece = function() {
+            pieceCounter++;
+            const pieceId = 'piece-' + pieceCounter;
+            
+            const pieceHTML = `
+                <div class="piece-card" id="${pieceId}">
+                    <div class="piece-header">
+                        <h4>📍 <input type="text" placeholder="Nom de la pièce (ex: Salon)" 
+                            style="border: none; background: transparent; font-size: 18px; font-weight: bold;" 
+                            id="${pieceId}-nom"></h4>
+                        <button class="delete-piece-btn" onclick="deletePiece('${pieceId}')">🗑️ Supprimer</button>
+                    </div>
+                    
+                    <div class="form-grid" style="margin-bottom: 20px;">
+                        <div class="form-group">
+                            <label>Surface (m²)</label>
+                            <input type="number" id="${pieceId}-surface" placeholder="Ex: 20">
+                        </div>
+                        <div class="form-group">
+                            <label>Type de local</label>
+                            <select id="${pieceId}-type">
+                                <option value="sec">Sec</option>
+                                <option value="humide">Humide</option>
+                                <option value="exterieur">Extérieur</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <h5 style="margin-bottom: 15px; color: #667eea;">⚡ Prises et Interrupteurs</h5>
+                    <div class="elements-grid">
+                        <div class="element-item">
+                            <label>Prises simples 16A</label>
+                            <input type="number" id="${pieceId}-prise-simple" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Prises doubles 16A</label>
+                            <input type="number" id="${pieceId}-prise-double" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Prises spécialisées 20A</label>
+                            <input type="number" id="${pieceId}-prise-20a" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Prises spécialisées 32A</label>
+                            <input type="number" id="${pieceId}-prise-32a" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Interrupteurs simples</label>
+                            <input type="number" id="${pieceId}-int-simple" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Va-et-vient</label>
+                            <input type="number" id="${pieceId}-va-vient" value="0" min="0">
+                        </div>
+                    </div>
+
+                    <h5 style="margin: 20px 0 15px; color: #667eea;">💡 Éclairage</h5>
+                    <div class="elements-grid">
+                        <div class="element-item">
+                            <label>Spots LED encastrables</label>
+                            <input type="number" id="${pieceId}-spot-enc" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Spots LED apparents</label>
+                            <input type="number" id="${pieceId}-spot-app" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Réglettes LED</label>
+                            <input type="number" id="${pieceId}-reglette" value="0" min="0">
+                        </div>
+                        <div class="element-item">
+                            <label>Luminaires</label>
+                            <input type="number" id="${pieceId}-luminaire" value="0" min="0">
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('pieces-container').insertAdjacentHTML('beforeend', pieceHTML);
+            pieces.push(pieceId);
+        }
+
+        window.deletePiece = function(pieceId) {
+            if (confirm('Supprimer cette pièce ?')) {
+                document.getElementById(pieceId).remove();
+                pieces = pieces.filter(id => id !== pieceId);
+            }
+        }
+
+        function generateRecap() {
+            // Calcul basique (à améliorer avec les vrais prix)
+            const tvaSelect = document.getElementById('batiment-type');
+            const tvaOption = tvaSelect.options[tvaSelect.selectedIndex];
+            const tvaPercent = parseInt(tvaOption.dataset.tva) || 21;
+
+            document.getElementById('tva-percent').textContent = tvaPercent;
+
+            // Calculs simplifiés pour l'instant
+            const totalMaterielHT = 2500; // À calculer
+            const totalMOHT = 1800; // À calculer
+            const sousTotalHT = totalMaterielHT + totalMOHT;
+            const montantTVA = sousTotalHT * (tvaPercent / 100);
+            const totalTTC = sousTotalHT + montantTVA;
+
+            document.getElementById('total-materiel-ht').textContent = totalMaterielHT.toFixed(2) + ' €';
+            document.getElementById('total-mo-ht').textContent = totalMOHT.toFixed(2) + ' €';
+            document.getElementById('sous-total-ht').textContent = sousTotalHT.toFixed(2) + ' €';
+            document.getElementById('montant-tva').textContent = montantTVA.toFixed(2) + ' €';
+            document.getElementById('total-ttc').textContent = totalTTC.toFixed(2) + ' €';
+
+            // Génération du récapitulatif client
+            const recapHTML = `
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>👤 Client</h3>
+                    <p><strong>Nom:</strong> ${document.getElementById('client-nom').value}</p>
+                    <p><strong>Email:</strong> ${document.getElementById('client-email').value}</p>
+                    <p><strong>Téléphone:</strong> ${document.getElementById('client-tel').value}</p>
+                </div>
+
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>🏗️ Bâtiment</h3>
+                    <p><strong>Type:</strong> ${tvaSelect.options[tvaSelect.selectedIndex].text}</p>
+                    <p><strong>Travaux:</strong> ${document.getElementById('travaux-type').value}</p>
+                </div>
+
+                <div style="background: white; padding: 20px; border-radius: 10px;">
+                    <h3>📍 Pièces (${pieces.length})</h3>
+                    ${pieces.map(pieceId => {
+                        const nom = document.getElementById(pieceId + '-nom').value || 'Pièce sans nom';
+                        return `<p>• ${nom}</p>`;
+                    }).join('')}
+                </div>
+            `;
+
+            document.getElementById('recap-content').innerHTML = recapHTML;
+        }
+
+        window.generateDevis = async function() {
+            if (!currentUser) return;
+
+            const devisData = {
+                userId: currentUser.uid,
+                createdAt: new Date().toISOString(),
+                client: {
+                    nom: document.getElementById('client-nom').value,
+                    email: document.getElementById('client-email').value,
+                    telephone: document.getElementById('client-tel').value,
+                    adresse: document.getElementById('client-adresse').value,
+                    tva: document.getElementById('client-tva').value
+                },
+                batiment: {
+                    type: document.getElementById('batiment-type').value,
+                    travaux: document.getElementById('travaux-type').value,
+                    surface: document.getElementById('batiment-surface').value,
+                    etages: document.getElementById('batiment-etages').value
+                },
+                pieces: pieces.map(pieceId => ({
+                    nom: document.getElementById(pieceId + '-nom').value,
+                    surface: document.getElementById(pieceId + '-surface').value,
+                    // ... tous les éléments
+                })),
+                totaux: {
+                    materielHT: parseFloat(document.getElementById('total-materiel-ht').textContent),
+                    moHT: parseFloat(document.getElementById('total-mo-ht').textContent),
+                    totalTTC: parseFloat(document.getElementById('total-ttc').textContent)
+                }
+            };
+
+            try {
+                const docRef = await addDoc(collection(db, 'devis'), devisData);
+                alert('✅ Devis créé avec succès!\nRéférence: ' + docRef.id);
+                window.location.href = 'mes-devis.html';
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('❌ Erreur lors de la création du devis');
+            }
+        }
+
+        // Initialiser avec une pièce par défaut
+        addPiece();
+    </script>
+</body>
+</html>

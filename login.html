@@ -402,6 +402,17 @@
                     <input type="text" id="signup-tva" placeholder="BE 0123.456.789" 
                            oninput="handleTVAInput(this.value)">
                     <div class="validation-status" id="tva-status"></div>
+                    
+                    <!-- Bouton de bypass manuel toujours visible -->
+                    <div id="manual-bypass" style="display: none; margin-top: 10px;">
+                        <button type="button" onclick="acceptManualVerification()" 
+                                style="width: 100%; padding: 12px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600;">
+                            ✓ J'ai un TVA valide belge - Vérification manuelle
+                        </button>
+                        <p style="font-size: 12px; color: #666; margin-top: 8px; text-align: center;">
+                            Si la vérification automatique ne fonctionne pas
+                        </p>
+                    </div>
                 </div>
 
                 <!-- Options de paiement (affichées si pas de TVA ou TVA invalide) -->
@@ -502,10 +513,10 @@
                 return;
             }
 
-            const cleanTVA = value.replace(/[\s.\-]/g, '');
+            const cleanTVA = value.replace(/[\s.\-]/g, '').toUpperCase();
             
             // Vérifier le format
-            if (!cleanTVA.match(/^BE[0-9]{10}$/i)) {
+            if (!cleanTVA.match(/^BE[0-9]{10}$/)) {
                 statusDiv.className = 'validation-status info';
                 statusDiv.innerHTML = '⚠️ Format attendu: BE 0123.456.789';
                 paymentOptions.classList.add('active');
@@ -515,7 +526,7 @@
 
             // Afficher le loader
             statusDiv.className = 'validation-status info';
-            statusDiv.innerHTML = '⏳ Vérification du numéro TVA...';
+            statusDiv.innerHTML = '⏳ Vérification du numéro TVA...<br><small>Cela peut prendre quelques secondes</small>';
             statusDiv.style.display = 'block';
 
             // Toujours afficher les options de paiement par défaut
@@ -525,52 +536,125 @@
                 const countryCode = cleanTVA.substring(0, 2);
                 const vatNumber = cleanTVA.substring(2);
                 
-                const response = await fetch(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNumber}`, {
+                // Tentative 1 : API REST
+                let response = await fetch(`https://ec.europa.eu/taxation_customs/vies/rest-api/ms/${countryCode}/vat/${vatNumber}`, {
                     method: 'GET',
                     headers: {
-                        'Accept': 'application/json'
-                    }
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    mode: 'cors',
+                    cache: 'no-cache'
                 });
                 
+                // Si échec, essayer l'ancienne API
+                if (!response.ok && response.status >= 500) {
+                    console.log('API REST échouée, tentative avec checkVatService...');
+                    response = await fetch(`https://ec.europa.eu/taxation_customs/vies/services/checkVatService`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/xml; charset=utf-8',
+                            'SOAPAction': ''
+                        },
+                        body: `<?xml version="1.0" encoding="UTF-8"?>
+                        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:ec.europa.eu:taxud:vies:services:checkVat:types">
+                            <soapenv:Header/>
+                            <soapenv:Body>
+                                <urn:checkVat>
+                                    <urn:countryCode>${countryCode}</urn:countryCode>
+                                    <urn:vatNumber>${vatNumber}</urn:vatNumber>
+                                </urn:checkVat>
+                            </soapenv:Body>
+                        </soapenv:Envelope>`
+                    });
+                }
+                
                 if (response.ok) {
-                    const data = await response.json();
+                    const contentType = response.headers.get('content-type');
+                    let isValid = false;
+                    let companyName = '';
                     
-                    if (data.valid) {
+                    if (contentType && contentType.includes('application/json')) {
+                        const data = await response.json();
+                        isValid = data.valid;
+                        companyName = data.name;
+                    } else {
+                        // Parser XML response
+                        const text = await response.text();
+                        isValid = text.includes('<valid>true</valid>');
+                        const nameMatch = text.match(/<name>(.*?)<\/name>/);
+                        companyName = nameMatch ? nameMatch[1] : '';
+                    }
+                    
+                    if (isValid) {
                         // TVA VALIDE = Essai gratuit
                         statusDiv.className = 'validation-status success';
-                        statusDiv.innerHTML = `✅ <strong>TVA valide !</strong><br>🎁 Vous bénéficiez de 14 jours gratuits<br><small>${data.name || 'Entreprise belge'}</small>`;
-                        paymentOptions.classList.remove('active'); // CACHER les options
+                        statusDiv.innerHTML = `✅ <strong>TVA valide !</strong><br>🎁 Vous bénéficiez de 14 jours gratuits<br><small>${companyName || 'Entreprise belge vérifiée'}</small>`;
+                        paymentOptions.classList.remove('active');
                         tvaValidationResult = {
                             valid: true,
                             number: cleanTVA,
-                            name: data.name,
-                            address: data.address
+                            name: companyName,
+                            address: ''
                         };
+                        console.log('✅ TVA validé:', cleanTVA);
                     } else {
-                        // TVA INVALIDE = Paiement requis
+                        // TVA INVALIDE
                         statusDiv.className = 'validation-status error';
-                        statusDiv.innerHTML = '❌ Numéro TVA invalide<br><small>Veuillez choisir une formule payante ci-dessous</small>';
-                        paymentOptions.classList.add('active'); // AFFICHER les options
+                        statusDiv.innerHTML = '❌ Numéro TVA invalide ou inexistant<br><small>Veuillez choisir une formule payante ci-dessous</small>';
+                        paymentOptions.classList.add('active');
                         tvaValidationResult = { valid: false };
+                        console.log('❌ TVA invalide:', cleanTVA);
                     }
                 } else if (response.status === 400 || response.status === 404) {
-                    // Erreur 400/404 = TVA invalide
+                    // TVA invalide
                     statusDiv.className = 'validation-status error';
-                    statusDiv.innerHTML = '❌ Numéro TVA invalide ou inexistant<br><small>Veuillez choisir une formule payante ci-dessous</small>';
+                    statusDiv.innerHTML = '❌ Numéro TVA invalide<br><small>Veuillez choisir une formule payante ci-dessous</small>';
                     paymentOptions.classList.add('active');
                     tvaValidationResult = { valid: false };
                 } else {
-                    throw new Error('Service indisponible');
+                    throw new Error('Service indisponible - Status: ' + response.status);
                 }
             } catch (error) {
-                console.error('Erreur validation TVA:', error);
+                console.error('❌ Erreur validation TVA:', error);
                 
-                // En cas d'erreur API = Proposer le paiement
-                statusDiv.className = 'validation-status error';
-                statusDiv.innerHTML = `❌ Impossible de vérifier le TVA actuellement<br><small>Service temporairement indisponible.<br>Veuillez choisir une formule payante ci-dessous.</small>`;
-                paymentOptions.classList.add('active'); // TOUJOURS afficher
+                // OPTION DE SECOURS : Permettre de continuer avec validation manuelle
+                statusDiv.className = 'validation-status info';
+                statusDiv.innerHTML = `
+                    ⚠️ <strong>Service de vérification temporairement indisponible</strong><br>
+                    <small>Le numéro ${cleanTVA} sera vérifié manuellement sous 24h.<br>
+                    <strong>Vous pouvez continuer l'inscription :</strong><br>
+                    • <strong>Si vous avez un TVA valide</strong> : Laissez-le et inscrivez-vous (vérification manuelle)<br>
+                    • <strong>Sinon</strong> : Choisissez une formule payante ci-dessous</small>
+                    <br><br>
+                    <button onclick="acceptManualVerification('${cleanTVA}')" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                        ✓ J'ai un TVA valide, continuer
+                    </button>
+                `;
+                paymentOptions.classList.add('active');
                 tvaValidationResult = null;
             }
+        }
+
+        // Fonction pour accepter la vérification manuelle
+        window.acceptManualVerification = function(tva) {
+            const statusDiv = document.getElementById('tva-status');
+            const paymentOptions = document.getElementById('payment-options');
+            
+            statusDiv.className = 'validation-status success';
+            statusDiv.innerHTML = `✅ <strong>TVA ${tva} enregistré</strong><br>
+            <small>⏳ Vérification manuelle en cours (sous 24h)<br>
+            Vous recevrez un email de confirmation une fois vérifié.</small>`;
+            
+            paymentOptions.classList.remove('active');
+            
+            tvaValidationResult = {
+                valid: true,
+                number: tva,
+                name: 'En cours de vérification',
+                address: '',
+                manualVerification: true
+            };
         }
 
         // Connexion
