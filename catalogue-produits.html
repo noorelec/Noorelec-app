@@ -59,18 +59,30 @@
         }
 
         .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-bottom: 30px;
         }
 
         .page-title {
             font-size: 36px;
             color: #333;
-            margin-bottom: 10px;
         }
 
-        .page-description {
-            color: #666;
+        .add-product-btn {
+            background: #10b981;
+            color: white;
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
             font-size: 16px;
+            font-weight: 600;
+        }
+
+        .add-product-btn:hover {
+            background: #059669;
         }
 
         .success-message {
@@ -85,89 +97,231 @@
 
         .success-message.show {
             display: block;
+            animation: slideDown 0.3s;
         }
 
-        .category-section {
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .product-card {
             background: white;
             border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
+            padding: 25px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s;
         }
 
-        .category-header {
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #f0f0f0;
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
         }
 
-        .category-title {
-            font-size: 24px;
-            color: #333;
+        .product-header {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
         }
 
-        .products-table {
-            width: 100%;
-            border-collapse: collapse;
+        .product-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
         }
 
-        .products-table thead {
-            background: #f8f9fa;
-        }
-
-        .products-table th {
-            padding: 15px;
-            text-align: left;
+        .product-category {
+            display: inline-block;
+            background: #e0e7ff;
+            color: #667eea;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
             font-weight: 600;
-            color: #555;
+            margin-top: 5px;
+        }
+
+        .product-details {
+            margin: 15px 0;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #666;
             font-size: 14px;
         }
 
-        .products-table td {
-            padding: 15px;
-            border-bottom: 1px solid #f0f0f0;
+        .detail-value {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .product-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .btn-edit {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #2563eb;
+        }
+
+        .btn-delete {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
             font-size: 15px;
         }
 
-        .products-table tbody tr:hover {
-            background: #f8f9ff;
-        }
-
-        .input-small {
-            width: 80px;
-            padding: 8px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            text-align: right;
-            font-weight: 600;
-            color: #667eea;
-        }
-
-        .input-small:focus {
+        .form-group input:focus,
+        .form-group select:focus {
             outline: none;
             border-color: #667eea;
         }
 
-        .save-btn {
-            background: #10b981;
-            color: white;
-            padding: 15px 40px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            display: block;
-            margin: 30px auto;
-            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
         }
 
-        .save-btn:hover {
-            background: #059669;
-            transform: translateY(-2px);
+        .modal-buttons button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-save {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 15px;
+        }
+
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+        }
+
+        .loader {
+            text-align: center;
+            padding: 100px 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @media (max-width: 768px) {
@@ -175,17 +329,12 @@
                 padding: 20px 15px;
             }
 
-            .products-table {
-                font-size: 13px;
+            .products-grid {
+                grid-template-columns: 1fr;
             }
 
-            .products-table th,
-            .products-table td {
-                padding: 10px 8px;
-            }
-
-            .input-small {
-                width: 60px;
+            .modal-content {
+                padding: 25px 20px;
             }
         }
     </style>
@@ -200,241 +349,73 @@
 
     <div class="container">
         <div class="page-header">
-            <h1 class="page-title">Catalogue de Matériel Électrique</h1>
-            <p class="page-description">Personnalisez les prix et temps d'intervention - Prix en € HT, Temps en heures</p>
+            <h1 class="page-title">Gestion du Catalogue</h1>
+            <button class="add-product-btn" onclick="openAddProductModal()">+ Nouveau produit</button>
         </div>
 
         <div class="success-message" id="success-message">
-            ✅ Prix et temps sauvegardés avec succès !
+            ✅ Opération réussie !
         </div>
 
-        <!-- CATÉGORIE 1: PRISES ÉLECTRIQUES -->
-        <div class="category-section">
-            <div class="category-header">
-                <h2 class="category-title">🔌 Prises électriques</h2>
+        <div id="products-container">
+            <div class="loader">
+                <div class="spinner"></div>
+                <p>Chargement du catalogue...</p>
             </div>
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Désignation</th>
-                        <th>Marque</th>
-                        <th>Prix HT (€)</th>
-                        <th>Temps (h)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>PR-SIM-001</td>
-                        <td>Prise simple 16A</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="3.50" step="0.25" data-ref="PR-SIM-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.25" step="0.25" data-ref="PR-SIM-001"></td>
-                    </tr>
-                    <tr>
-                        <td>PR-DOU-001</td>
-                        <td>Prise double 16A</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="5.80" step="0.25" data-ref="PR-DOU-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.25" data-ref="PR-DOU-001"></td>
-                    </tr>
-                    <tr>
-                        <td>PR-TRI-001</td>
-                        <td>Prise triple 16A</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="8.20" step="0.25" data-ref="PR-TRI-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.25" data-ref="PR-TRI-001"></td>
-                    </tr>
-                    <tr>
-                        <td>PR-USB-001</td>
-                        <td>Prise avec USB</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="12.50" step="0.25" data-ref="PR-USB-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.25" data-ref="PR-USB-001"></td>
-                    </tr>
-                    <tr>
-                        <td>PR-SPE-001</td>
-                        <td>Prise spécialisée 20A</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="input-small price-input" value="8.50" step="0.25" data-ref="PR-SPE-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.5" step="0.25" data-ref="PR-SPE-001"></td>
-                    </tr>
-                    <tr>
-                        <td>PR-SPE-002</td>
-                        <td>Prise spécialisée 32A</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="input-small price-input" value="15.00" step="0.25" data-ref="PR-SPE-002"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.6" step="0.25" data-ref="PR-SPE-002"></td>
-                    </tr>
-                </tbody>
-            </table>
         </div>
+    </div>
 
-        <!-- CATÉGORIE 2: INTERRUPTEURS -->
-        <div class="category-section">
-            <div class="category-header">
-                <h2 class="category-title">💡 Interrupteurs</h2>
+    <!-- Modal Ajout/Modification Produit -->
+    <div class="modal" id="product-modal">
+        <div class="modal-content">
+            <h2 id="modal-title">Ajouter un produit</h2>
+            
+            <div class="form-group">
+                <label>Référence *</label>
+                <input type="text" id="product-ref" placeholder="Ex: PR-SIM-001" required>
             </div>
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Désignation</th>
-                        <th>Marque</th>
-                        <th>Prix HT (€)</th>
-                        <th>Temps (h)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>INT-SIM-001</td>
-                        <td>Interrupteur simple</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="2.80" step="0.25" data-ref="INT-SIM-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.25" step="0.25" data-ref="INT-SIM-001"></td>
-                    </tr>
-                    <tr>
-                        <td>INT-DOU-001</td>
-                        <td>Interrupteur double</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="4.50" step="0.25" data-ref="INT-DOU-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.25" data-ref="INT-DOU-001"></td>
-                    </tr>
-                    <tr>
-                        <td>INT-VAE-001</td>
-                        <td>Interrupteur va-et-vient</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="input-small price-input" value="3.20" step="0.25" data-ref="INT-VAE-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.25" data-ref="INT-VAE-001"></td>
-                    </tr>
-                    <tr>
-                        <td>VAR-LED-001</td>
-                        <td>Variateur LED 400W</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="input-small price-input" value="18.50" step="0.25" data-ref="VAR-LED-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.35" step="0.25" data-ref="VAR-LED-001"></td>
-                    </tr>
-                    <tr>
-                        <td>DET-MOU-001</td>
-                        <td>Détecteur de mouvement</td>
-                        <td>Hager</td>
-                        <td><input type="number" class="input-small price-input" value="22.00" step="0.25" data-ref="DET-MOU-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.5" step="0.25" data-ref="DET-MOU-001"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
 
-        <!-- CATÉGORIE 3: ÉCLAIRAGE -->
-        <div class="category-section">
-            <div class="category-header">
-                <h2 class="category-title">💡 Éclairage LED</h2>
+            <div class="form-group">
+                <label>Nom du produit *</label>
+                <input type="text" id="product-name" placeholder="Ex: Prise simple 16A" required>
             </div>
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Désignation</th>
-                        <th>Marque</th>
-                        <th>Prix HT (€)</th>
-                        <th>Temps (h)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>LED-SP6-001</td>
-                        <td>Spot LED encastrable 6W</td>
-                        <td>Philips</td>
-                        <td><input type="number" class="input-small price-input" value="8.50" step="0.25" data-ref="LED-SP6-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.25" data-ref="LED-SP6-001"></td>
-                    </tr>
-                    <tr>
-                        <td>LED-SP10-001</td>
-                        <td>Spot LED encastrable 10W</td>
-                        <td>Philips</td>
-                        <td><input type="number" class="input-small price-input" value="12.00" step="0.25" data-ref="LED-SP10-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.25" data-ref="LED-SP10-001"></td>
-                    </tr>
-                    <tr>
-                        <td>LED-APP-001</td>
-                        <td>Spot LED apparent 10W</td>
-                        <td>Osram</td>
-                        <td><input type="number" class="input-small price-input" value="15.00" step="0.25" data-ref="LED-APP-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.25" data-ref="LED-APP-001"></td>
-                    </tr>
-                    <tr>
-                        <td>LED-REG120-001</td>
-                        <td>Réglette LED 120cm 36W</td>
-                        <td>Osram</td>
-                        <td><input type="number" class="input-small price-input" value="25.00" step="0.25" data-ref="LED-REG120-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.5" step="0.25" data-ref="LED-REG120-001"></td>
-                    </tr>
-                    <tr>
-                        <td>LED-PLAF-001</td>
-                        <td>Plafonnier LED 24W</td>
-                        <td>Philips</td>
-                        <td><input type="number" class="input-small price-input" value="35.00" step="0.25" data-ref="LED-PLAF-001"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.6" step="0.25" data-ref="LED-PLAF-001"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
 
-        <!-- CATÉGORIE 4: CÂBLES -->
-        <div class="category-section">
-            <div class="category-header">
-                <h2 class="category-title">🔗 Câbles électriques</h2>
+            <div class="form-group">
+                <label>Catégorie *</label>
+                <select id="product-category" required>
+                    <option value="">-- Sélectionner --</option>
+                    <option value="Prises">Prises</option>
+                    <option value="Interrupteurs">Interrupteurs</option>
+                    <option value="Éclairage">Éclairage</option>
+                    <option value="Câbles">Câbles</option>
+                    <option value="Protections">Protections</option>
+                    <option value="Coffrets">Coffrets</option>
+                    <option value="Gaines">Gaines et accessoires</option>
+                    <option value="Autre">Autre</option>
+                </select>
             </div>
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Désignation</th>
-                        <th>Marque</th>
-                        <th>Prix HT (€/m)</th>
-                        <th>Temps (h/m)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>CAB-XVB-1.5</td>
-                        <td>Câble XVB 3G1.5mm² (éclairage)</td>
-                        <td>Nexans</td>
-                        <td><input type="number" class="input-small price-input" value="1.20" step="0.25" data-ref="CAB-XVB-1.5"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.05" step="0.25" data-ref="CAB-XVB-1.5"></td>
-                    </tr>
-                    <tr>
-                        <td>CAB-XVB-2.5</td>
-                        <td>Câble XVB 3G2.5mm² (prises 16A)</td>
-                        <td>Nexans</td>
-                        <td><input type="number" class="input-small price-input" value="1.80" step="0.25" data-ref="CAB-XVB-2.5"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.05" step="0.25" data-ref="CAB-XVB-2.5"></td>
-                    </tr>
-                    <tr>
-                        <td>CAB-XVB-4</td>
-                        <td>Câble XVB 3G4mm² (prises 20A)</td>
-                        <td>Nexans</td>
-                        <td><input type="number" class="input-small price-input" value="2.50" step="0.25" data-ref="CAB-XVB-4"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.06" step="0.25" data-ref="CAB-XVB-4"></td>
-                    </tr>
-                    <tr>
-                        <td>CAB-XVB-6</td>
-                        <td>Câble XVB 3G6mm² (prises 32A)</td>
-                        <td>Nexans</td>
-                        <td><input type="number" class="input-small price-input" value="3.80" step="0.25" data-ref="CAB-XVB-6"></td>
-                        <td><input type="number" class="input-small temps-input" value="0.07" step="0.25" data-ref="CAB-XVB-6"></td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
 
-        <button class="save-btn" onclick="saveAllPricesAndTemps()">💾 Enregistrer tous les prix et temps</button>
+            <div class="form-group">
+                <label>Prix HT (€) *</label>
+                <input type="number" id="product-price" placeholder="Ex: 3.50" step="0.01" min="0" required>
+            </div>
+
+            <div class="form-group">
+                <label>Temps d'installation (heures) *</label>
+                <input type="number" id="product-temps" placeholder="Ex: 0.25" step="0.25" min="0" required>
+            </div>
+
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeProductModal()">Annuler</button>
+                <button class="btn-save" onclick="saveProduct()">Enregistrer</button>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
@@ -451,76 +432,201 @@
         const db = getFirestore(app);
 
         let currentUser = null;
+        let allProducts = [];
+        let editingProductId = null;
 
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = 'login.html';
             } else {
                 currentUser = user;
-                await loadUserPrices();
+                await loadProducts();
             }
         });
 
-        async function loadUserPrices() {
+        async function loadProducts() {
             try {
-                const pricesDoc = await getDoc(doc(db, 'user_prices', currentUser.uid));
-                const tempsDoc = await getDoc(doc(db, 'user_temps', currentUser.uid));
+                const snapshot = await getDocs(collection(db, 'products'));
                 
-                if (pricesDoc.exists()) {
-                    const prices = pricesDoc.data();
-                    document.querySelectorAll('.price-input').forEach(input => {
-                        const ref = input.dataset.ref;
-                        if (prices[ref]) {
-                            input.value = prices[ref];
-                        }
-                    });
+                if (snapshot.empty) {
+                    // Initialiser avec des produits de base
+                    await initializeDefaultProducts();
+                    await loadProducts(); // Recharger après initialisation
+                    return;
                 }
 
-                if (tempsDoc.exists()) {
-                    const temps = tempsDoc.data();
-                    document.querySelectorAll('.temps-input').forEach(input => {
-                        const ref = input.dataset.ref;
-                        if (temps[ref]) {
-                            input.value = temps[ref];
-                        }
-                    });
-                }
+                allProducts = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+
+                displayProducts(allProducts);
+
             } catch (error) {
-                console.error('Erreur chargement:', error);
+                console.error('Erreur chargement produits:', error);
+                document.getElementById('products-container').innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">❌</div>
+                        <h2>Erreur de chargement</h2>
+                        <p>${error.message}</p>
+                    </div>
+                `;
             }
         }
 
-        window.saveAllPricesAndTemps = async function() {
-            if (!currentUser) return;
+        async function initializeDefaultProducts() {
+            const defaultProducts = [
+                { ref: 'PR-SIM-001', name: 'Prise simple 16A', category: 'Prises', price: 3.50, temps: 0.25 },
+                { ref: 'PR-DOU-001', name: 'Prise double 16A', category: 'Prises', price: 5.80, temps: 0.25 },
+                { ref: 'PR-TRI-001', name: 'Prise triple 16A', category: 'Prises', price: 8.20, temps: 0.50 },
+                { ref: 'PR-USB-001', name: 'Prise avec USB', category: 'Prises', price: 12.50, temps: 0.50 },
+                { ref: 'PR-SPE-001', name: 'Prise spécialisée 20A', category: 'Prises', price: 8.50, temps: 0.50 },
+                { ref: 'PR-SPE-002', name: 'Prise spécialisée 32A', category: 'Prises', price: 15.00, temps: 0.75 },
+                { ref: 'INT-SIM-001', name: 'Interrupteur simple', category: 'Interrupteurs', price: 2.80, temps: 0.25 },
+                { ref: 'INT-VAE-001', name: 'Va-et-vient', category: 'Interrupteurs', price: 3.20, temps: 0.50 },
+                { ref: 'VAR-LED-001', name: 'Variateur LED 400W', category: 'Interrupteurs', price: 18.50, temps: 0.50 },
+                { ref: 'LED-SP6-001', name: 'Spot LED 6W', category: 'Éclairage', price: 8.50, temps: 0.25 },
+                { ref: 'LED-SP10-001', name: 'Spot LED 10W', category: 'Éclairage', price: 12.00, temps: 0.25 },
+                { ref: 'CAB-XVB-1.5', name: 'Câble XVB 3G1.5mm²', category: 'Câbles', price: 1.20, temps: 0.05 },
+                { ref: 'CAB-XVB-2.5', name: 'Câble XVB 3G2.5mm²', category: 'Câbles', price: 1.80, temps: 0.05 }
+            ];
 
-            const allPrices = {};
-            const allTemps = {};
-            
-            document.querySelectorAll('.price-input').forEach(input => {
-                const ref = input.dataset.ref;
-                allPrices[ref] = parseFloat(input.value) || 0;
-            });
+            for (const product of defaultProducts) {
+                await addDoc(collection(db, 'products'), product);
+            }
 
-            document.querySelectorAll('.temps-input').forEach(input => {
-                const ref = input.dataset.ref;
-                allTemps[ref] = parseFloat(input.value) || 0;
-            });
+            console.log('✅ Catalogue initialisé avec', defaultProducts.length, 'produits');
+        }
+
+        function displayProducts(products) {
+            const container = document.getElementById('products-container');
+
+            if (products.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📦</div>
+                        <h2>Aucun produit</h2>
+                        <p>Cliquez sur "+ Nouveau produit" pour commencer</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = `<div class="products-grid">` + products.map(product => `
+                <div class="product-card">
+                    <div class="product-header">
+                        <div>
+                            <div class="product-name">${product.name}</div>
+                            <span class="product-category">${product.category}</span>
+                        </div>
+                    </div>
+
+                    <div class="product-details">
+                        <div class="detail-row">
+                            <span class="detail-label">Référence</span>
+                            <span class="detail-value">${product.ref}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Prix HT</span>
+                            <span class="detail-value">${product.price.toFixed(2)} €</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">Temps installation</span>
+                            <span class="detail-value">${product.temps.toFixed(2)} h</span>
+                        </div>
+                    </div>
+
+                    <div class="product-actions">
+                        <button class="btn btn-edit" onclick="editProduct('${product.id}')">
+                            ✏️ Modifier
+                        </button>
+                        <button class="btn btn-delete" onclick="deleteProduct('${product.id}')">
+                            🗑️ Supprimer
+                        </button>
+                    </div>
+                </div>
+            `).join('') + `</div>`;
+        }
+
+        window.openAddProductModal = function() {
+            editingProductId = null;
+            document.getElementById('modal-title').textContent = 'Ajouter un produit';
+            document.getElementById('product-ref').value = '';
+            document.getElementById('product-name').value = '';
+            document.getElementById('product-category').value = '';
+            document.getElementById('product-price').value = '';
+            document.getElementById('product-temps').value = '';
+            document.getElementById('product-modal').classList.add('active');
+        }
+
+        window.closeProductModal = function() {
+            document.getElementById('product-modal').classList.remove('active');
+        }
+
+        window.editProduct = function(productId) {
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) return;
+
+            editingProductId = productId;
+            document.getElementById('modal-title').textContent = 'Modifier le produit';
+            document.getElementById('product-ref').value = product.ref;
+            document.getElementById('product-name').value = product.name;
+            document.getElementById('product-category').value = product.category;
+            document.getElementById('product-price').value = product.price;
+            document.getElementById('product-temps').value = product.temps;
+            document.getElementById('product-modal').classList.add('active');
+        }
+
+        window.saveProduct = async function() {
+            const ref = document.getElementById('product-ref').value.trim();
+            const name = document.getElementById('product-name').value.trim();
+            const category = document.getElementById('product-category').value;
+            const price = parseFloat(document.getElementById('product-price').value);
+            const temps = parseFloat(document.getElementById('product-temps').value);
+
+            if (!ref || !name || !category || !price || !temps) {
+                alert('Veuillez remplir tous les champs');
+                return;
+            }
+
+            const productData = { ref, name, category, price, temps };
 
             try {
-                await setDoc(doc(db, 'user_prices', currentUser.uid), allPrices);
-                await setDoc(doc(db, 'user_temps', currentUser.uid), allTemps);
-                
-                const successMsg = document.getElementById('success-message');
-                successMsg.classList.add('show');
-                
-                setTimeout(() => {
-                    successMsg.classList.remove('show');
-                }, 3000);
-                
+                if (editingProductId) {
+                    await updateDoc(doc(db, 'products', editingProductId), productData);
+                    showSuccess('Produit modifié avec succès');
+                } else {
+                    await addDoc(collection(db, 'products'), productData);
+                    showSuccess('Produit ajouté avec succès');
+                }
+
+                closeProductModal();
+                await loadProducts();
+
             } catch (error) {
                 console.error('Erreur:', error);
                 alert('❌ Erreur lors de la sauvegarde');
             }
+        }
+
+        window.deleteProduct = async function(productId) {
+            if (!confirm('Supprimer ce produit définitivement ?')) return;
+
+            try {
+                await deleteDoc(doc(db, 'products', productId));
+                showSuccess('Produit supprimé avec succès');
+                await loadProducts();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('❌ Erreur lors de la suppression');
+            }
+        }
+
+        function showSuccess(message) {
+            const msg = document.getElementById('success-message');
+            msg.textContent = '✅ ' + message;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 3000);
         }
     </script>
 </body>
