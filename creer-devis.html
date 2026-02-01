@@ -805,6 +805,11 @@
                 ];
 
                 console.log('Catalogue chargé:', catalogueProduits.length, 'produits');
+                
+                // Re-render les pièces existantes pour mettre à jour les menus déroulants
+                if (devisState.rooms.length > 0) {
+                    renderRooms();
+                }
             } catch (error) {
                 console.error('Erreur chargement catalogue:', error);
             }
@@ -1002,6 +1007,15 @@
                                     </div>
                                 </div>
                                 <button class="btn btn-info" onclick="calculateCabling(${room.id})" style="width: 100%;">Calculer le câblage</button>
+                                
+                                ${(room.cabling.internal.cost > 0 || room.cabling.tableau.cost > 0) ? `
+                                    <div style="background: white; margin-top: 15px; padding: 15px; border-radius: 8px; border: 2px solid #3b82f6;">
+                                        <h4 style="margin-bottom: 10px;">💰 Coûts câblage</h4>
+                                        ${room.cabling.internal.cost > 0 ? `<div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>Câblage interne:</span><strong>${room.cabling.internal.cost.toFixed(2)}€</strong></div>` : ''}
+                                        ${room.cabling.tableau.cost > 0 ? `<div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>Câblage → Tableau:</span><strong>${room.cabling.tableau.cost.toFixed(2)}€</strong></div>` : ''}
+                                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 2px solid #3b82f6; margin-top: 10px;"><strong>Total câblage:</strong><strong style="color: #3b82f6;">${(room.cabling.internal.cost + room.cabling.tableau.cost).toFixed(2)}€</strong></div>
+                                    </div>
+                                ` : ''}
                             </div>
                         </div>
                     </div>
@@ -1151,6 +1165,8 @@
             if (!room) return;
 
             const tarif = parseFloat(document.getElementById('globalTarif').value);
+            let totalCabling = 0;
+            let details = '';
 
             // Câblage interne
             const internalSelect = document.getElementById(`cable-internal-${roomId}`).value;
@@ -1158,6 +1174,10 @@
             if (internalSelect && internalLength > 0) {
                 const [price, temps] = internalSelect.split(',').map(parseFloat);
                 room.cabling.internal.cost = internalLength * (price + (temps * tarif));
+                totalCabling += room.cabling.internal.cost;
+                details += `Câblage interne: ${internalLength}m = ${room.cabling.internal.cost.toFixed(2)}€\n`;
+            } else {
+                room.cabling.internal.cost = 0;
             }
 
             // Câblage tableau
@@ -1166,9 +1186,19 @@
             if (tableauSelect && tableauLength > 0) {
                 const [price, temps] = tableauSelect.split(',').map(parseFloat);
                 room.cabling.tableau.cost = tableauLength * (price + (temps * tarif));
+                totalCabling += room.cabling.tableau.cost;
+                details += `Câblage → Tableau: ${tableauLength}m = ${room.cabling.tableau.cost.toFixed(2)}€\n`;
+            } else {
+                room.cabling.tableau.cost = 0;
             }
 
-            alert('Câblage calculé !');
+            if (totalCabling > 0) {
+                alert(`✅ Câblage calculé !\n\n${details}\nTotal câblage: ${totalCabling.toFixed(2)}€`);
+            } else {
+                alert('⚠️ Veuillez renseigner le type de câble et la longueur');
+            }
+            
+            renderRooms();
         }
 
         // Supprimer pièce
