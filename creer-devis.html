@@ -741,7 +741,31 @@
         const db = getFirestore(app);
 
         let currentUser = null;
-        let catalogueProduits = [];
+        
+        // Catalogue par défaut (chargé immédiatement)
+        let catalogueProduits = [
+            { ref: 'PR-SIM-001', name: 'Prise simple 16A', price: 3.50, temps: 0.25, category: 'Prises' },
+            { ref: 'PR-DOU-001', name: 'Prise double 16A', price: 5.80, temps: 0.25, category: 'Prises' },
+            { ref: 'PR-TRI-001', name: 'Prise triple 16A', price: 8.20, temps: 0.50, category: 'Prises' },
+            { ref: 'PR-USB-001', name: 'Prise avec USB', price: 12.50, temps: 0.50, category: 'Prises' },
+            { ref: 'PR-SPE-001', name: 'Prise spécialisée 20A', price: 8.50, temps: 0.50, category: 'Prises' },
+            { ref: 'PR-SPE-002', name: 'Prise spécialisée 32A', price: 15.00, temps: 0.75, category: 'Prises' },
+            { ref: 'PR-RJ45-001', name: 'Prise RJ45 Cat.6', price: 6.50, temps: 0.50, category: 'Prises' },
+            { ref: 'INT-SIM-001', name: 'Interrupteur simple', price: 2.80, temps: 0.25, category: 'Interrupteurs' },
+            { ref: 'INT-DOU-001', name: 'Interrupteur double', price: 4.50, temps: 0.25, category: 'Interrupteurs' },
+            { ref: 'INT-VAE-001', name: 'Va-et-vient', price: 3.20, temps: 0.50, category: 'Interrupteurs' },
+            { ref: 'VAR-LED-001', name: 'Variateur LED 400W', price: 18.50, temps: 0.50, category: 'Interrupteurs' },
+            { ref: 'DET-MOU-001', name: 'Détecteur de mouvement', price: 22.00, temps: 0.50, category: 'Interrupteurs' },
+            { ref: 'LED-SP6-001', name: 'Spot LED encastrable 6W', price: 8.50, temps: 0.25, category: 'Éclairage' },
+            { ref: 'LED-SP10-001', name: 'Spot LED encastrable 10W', price: 12.00, temps: 0.25, category: 'Éclairage' },
+            { ref: 'LED-APP-001', name: 'Spot LED apparent 10W', price: 15.00, temps: 0.50, category: 'Éclairage' },
+            { ref: 'LED-REG120-001', name: 'Réglette LED 120cm 36W', price: 25.00, temps: 0.50, category: 'Éclairage' },
+            { ref: 'LED-PLAF-001', name: 'Plafonnier LED 24W', price: 35.00, temps: 0.75, category: 'Éclairage' },
+            { ref: 'CAB-XVB-1.5', name: 'Câble XVB 3G1.5mm² (éclairage)', price: 1.20, temps: 0.05, category: 'Câbles' },
+            { ref: 'CAB-XVB-2.5', name: 'Câble XVB 3G2.5mm² (prises 16A)', price: 1.80, temps: 0.05, category: 'Câbles' },
+            { ref: 'CAB-XVB-4', name: 'Câble XVB 3G4mm² (prises 20A)', price: 2.50, temps: 0.05, category: 'Câbles' },
+            { ref: 'CAB-XVB-6', name: 'Câble XVB 3G6mm² (prises 32A)', price: 3.80, temps: 0.05, category: 'Câbles' }
+        ];
         
         // État du devis
         const devisState = {
@@ -787,31 +811,26 @@
                 const customPrices = pricesDoc.exists() ? pricesDoc.data() : {};
                 const customTemps = tempsDoc.exists() ? tempsDoc.data() : {};
 
-                // Catalogue par défaut
-                catalogueProduits = [
-                    { ref: 'PR-SIM-001', name: 'Prise simple 16A', price: customPrices['PR-SIM-001'] || 3.50, temps: customTemps['PR-SIM-001'] || 0.25, category: 'Prises' },
-                    { ref: 'PR-DOU-001', name: 'Prise double 16A', price: customPrices['PR-DOU-001'] || 5.80, temps: customTemps['PR-DOU-001'] || 0.25, category: 'Prises' },
-                    { ref: 'PR-TRI-001', name: 'Prise triple 16A', price: customPrices['PR-TRI-001'] || 8.20, temps: customTemps['PR-TRI-001'] || 0.50, category: 'Prises' },
-                    { ref: 'PR-SPE-001', name: 'Prise spécialisée 20A', price: customPrices['PR-SPE-001'] || 8.50, temps: customTemps['PR-SPE-001'] || 0.50, category: 'Prises' },
-                    { ref: 'PR-SPE-002', name: 'Prise spécialisée 32A', price: customPrices['PR-SPE-002'] || 15.00, temps: customTemps['PR-SPE-002'] || 0.75, category: 'Prises' },
-                    { ref: 'INT-SIM-001', name: 'Interrupteur simple', price: customPrices['INT-SIM-001'] || 2.80, temps: customTemps['INT-SIM-001'] || 0.25, category: 'Interrupteurs' },
-                    { ref: 'INT-VAE-001', name: 'Va-et-vient', price: customPrices['INT-VAE-001'] || 3.20, temps: customTemps['INT-VAE-001'] || 0.50, category: 'Interrupteurs' },
-                    { ref: 'VAR-LED-001', name: 'Variateur LED', price: customPrices['VAR-LED-001'] || 18.50, temps: customTemps['VAR-LED-001'] || 0.50, category: 'Interrupteurs' },
-                    { ref: 'LED-SP6-001', name: 'Spot LED 6W', price: customPrices['LED-SP6-001'] || 8.50, temps: customTemps['LED-SP6-001'] || 0.25, category: 'Éclairage' },
-                    { ref: 'LED-SP10-001', name: 'Spot LED 10W', price: customPrices['LED-SP10-001'] || 12.00, temps: customTemps['LED-SP10-001'] || 0.25, category: 'Éclairage' },
-                    { ref: 'CAB-XVB-1.5', name: 'Câble XVB 3G1.5mm²', price: customPrices['CAB-XVB-1.5'] || 1.20, temps: customTemps['CAB-XVB-1.5'] || 0.05, category: 'Câbles' },
-                    { ref: 'CAB-XVB-2.5', name: 'Câble XVB 3G2.5mm²', price: customPrices['CAB-XVB-2.5'] || 1.80, temps: customTemps['CAB-XVB-2.5'] || 0.05, category: 'Câbles' },
-                    { ref: 'CAB-XVB-4', name: 'Câble XVB 3G4mm²', price: customPrices['CAB-XVB-4'] || 2.50, temps: customTemps['CAB-XVB-4'] || 0.05, category: 'Câbles' }
-                ];
+                // Mettre à jour les prix personnalisés si l'utilisateur en a
+                catalogueProduits.forEach(product => {
+                    if (customPrices[product.ref]) {
+                        product.price = customPrices[product.ref];
+                    }
+                    if (customTemps[product.ref]) {
+                        product.temps = customTemps[product.ref];
+                    }
+                });
 
-                console.log('Catalogue chargé:', catalogueProduits.length, 'produits');
+                console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
+                console.log('Prix personnalisés appliqués:', Object.keys(customPrices).length);
                 
                 // Re-render les pièces existantes pour mettre à jour les menus déroulants
                 if (devisState.rooms.length > 0) {
                     renderRooms();
                 }
             } catch (error) {
-                console.error('Erreur chargement catalogue:', error);
+                console.error('❌ Erreur chargement catalogue:', error);
+                // Le catalogue par défaut reste disponible même en cas d'erreur
             }
         }
 
