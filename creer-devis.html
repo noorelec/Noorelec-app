@@ -5,12 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevTech - Créer un Devis</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -114,15 +110,6 @@
             font-size: 24px;
             color: #333;
             margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .subsection-title {
-            font-size: 18px;
-            color: #667eea;
-            margin: 25px 0 15px;
         }
 
         .form-grid {
@@ -184,7 +171,8 @@
             background: #f0f4ff;
         }
 
-        .option-card input[type="radio"] {
+        .option-card input[type="radio"],
+        .option-card input[type="checkbox"] {
             display: none;
         }
 
@@ -219,6 +207,7 @@
             margin-bottom: 20px;
             padding-bottom: 15px;
             border-bottom: 2px solid #e0e0e0;
+            cursor: pointer;
         }
 
         .room-title {
@@ -237,50 +226,12 @@
             font-size: 14px;
         }
 
-        .article-selector {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 15px;
-            align-items: center;
-        }
-
-        .article-selector select {
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-        }
-
-        .article-selector input {
-            padding: 10px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .add-article-btn {
-            background: #10b981;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-        }
-
-        .articles-list {
-            margin-top: 20px;
-        }
-
-        .article-item {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr auto;
-            gap: 15px;
-            padding: 12px;
+        .article-form {
             background: white;
-            border-radius: 8px;
-            margin-bottom: 10px;
-            align-items: center;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
         }
 
         .btn {
@@ -298,18 +249,101 @@
             color: white;
         }
 
-        .btn-primary:hover {
-            background: #5568d3;
-        }
-
         .btn-success {
             background: #10b981;
+            color: white;
+        }
+
+        .btn-info {
+            background: #3b82f6;
             color: white;
         }
 
         .btn-block {
             width: 100%;
             margin-top: 20px;
+        }
+
+        .articles-list {
+            margin-top: 20px;
+        }
+
+        .article-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .article-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .cabling-section {
+            background: #e7f3ff;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .service-item {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .toggle-slider {
+            background-color: #10b981;
+        }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(30px);
         }
 
         .recap-card {
@@ -339,6 +373,14 @@
             color: #999;
         }
 
+        .collapsed-content {
+            display: none;
+        }
+
+        .collapsed-content.active {
+            display: block;
+        }
+
         @media (max-width: 768px) {
             .app-container {
                 padding: 10px;
@@ -352,11 +394,6 @@
                 min-width: 80px;
                 padding: 10px;
             }
-
-            .article-selector,
-            .article-item {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
@@ -365,7 +402,7 @@
         <!-- HEADER -->
         <header class="app-header">
             <div class="logo">⚡ DEVTECH</div>
-            <a href="app-complet.html" class="back-btn">← Retour</a>
+            <a href="app.html" class="back-btn">← Retour</a>
         </header>
 
         <!-- NAVIGATION -->
@@ -381,6 +418,10 @@
             <button class="nav-item" data-page="tableau" onclick="switchPage('tableau')">
                 <div class="nav-icon">⚡</div>
                 <div class="nav-label">Tableau</div>
+            </button>
+            <button class="nav-item" data-page="administratif" onclick="switchPage('administratif')">
+                <div class="nav-icon">📋</div>
+                <div class="nav-label">Admin</div>
             </button>
             <button class="nav-item" data-page="recapitulatif" onclick="switchPage('recapitulatif')">
                 <div class="nav-icon">💰</div>
@@ -423,7 +464,7 @@
                 </div>
             </div>
 
-            <h3 class="subsection-title">🏠 Type de projet</h3>
+            <h3 style="margin: 25px 0 15px; color: #667eea;">🏠 Type de projet</h3>
             <div class="option-cards">
                 <label class="option-card active">
                     <input type="radio" name="projectType" value="residential" checked>
@@ -439,7 +480,7 @@
                 </label>
             </div>
 
-            <h3 class="subsection-title">📅 Âge du bâtiment (détermine la TVA)</h3>
+            <h3 style="margin: 25px 0 15px; color: #667eea;">📅 Âge du bâtiment</h3>
             <div class="option-cards">
                 <label class="option-card active">
                     <input type="radio" name="buildingAge" value="old" checked>
@@ -524,38 +565,83 @@
                     <label>Type de coffret</label>
                     <select id="coffretType">
                         <option value="">Sélectionner...</option>
-                        <option value="2R">2 rangées (26 modules) - 45€</option>
-                        <option value="3R">3 rangées (39 modules) - 55€</option>
-                        <option value="4R">4 rangées (52 modules) - 65€</option>
+                        <option value="45">Coffret 2R (26 modules) - 45€</option>
+                        <option value="55">Coffret 3R (39 modules) - 55€</option>
+                        <option value="65">Coffret 4R (52 modules) - 65€</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Disjoncteur de branchement</label>
-                    <select id="disjoncteurBranchement">
-                        <option value="40A">40A - 85€</option>
-                        <option value="63A">63A - 110€</option>
-                        <option value="80A">80A - 135€</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Différentiel 40A Type AC</label>
+                    <label>Différentiel 40A Type AC (35€)</label>
                     <input type="number" id="diffAC" value="1" min="0">
                 </div>
                 <div class="form-group">
-                    <label>Différentiel 40A Type A</label>
+                    <label>Différentiel 40A Type A (45€)</label>
                     <input type="number" id="diffA" value="1" min="0">
                 </div>
                 <div class="form-group">
-                    <label>Parafoudre</label>
+                    <label>Parafoudre (120€)</label>
                     <select id="parafoudre">
                         <option value="non">Non</option>
-                        <option value="oui">Oui - 120€</option>
+                        <option value="oui">Oui</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Contacteur jour/nuit</label>
+                    <label>Contacteur jour/nuit (28€)</label>
                     <input type="number" id="contacteur" value="0" min="0">
                 </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" onclick="switchPage('administratif')">
+                Suivant : Services administratifs →
+            </button>
+        </div>
+
+        <!-- PAGE ADMINISTRATIVE -->
+        <div id="page-administratif" class="page">
+            <h2 class="section-title">📋 Services Administratifs</h2>
+            
+            <div class="service-item">
+                <div>
+                    <div style="font-weight: bold; font-size: 16px;">Mise en conformité</div>
+                    <div style="color: #667eea; font-size: 18px; font-weight: bold;">450€</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="service-conformite">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="service-item">
+                <div>
+                    <div style="font-weight: bold; font-size: 16px;">Diagnostic électrique</div>
+                    <div style="color: #667eea; font-size: 18px; font-weight: bold;">180€</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="service-diagnostic">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="service-item">
+                <div>
+                    <div style="font-weight: bold; font-size: 16px;">Certificat de conformité</div>
+                    <div style="color: #667eea; font-size: 18px; font-weight: bold;">80€</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="service-certificat">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="service-item">
+                <div>
+                    <div style="font-weight: bold; font-size: 16px;">Schéma électrique</div>
+                    <div style="color: #667eea; font-size: 18px; font-weight: bold;">120€</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="service-schema">
+                    <span class="toggle-slider"></span>
+                </label>
             </div>
 
             <button class="btn btn-primary btn-block" onclick="switchPage('recapitulatif')">
@@ -571,6 +657,29 @@
                 <!-- Le récapitulatif sera généré ici -->
             </div>
 
+            <!-- RISTOURNE -->
+            <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 3px solid #ffc107; padding: 20px; border-radius: 12px; margin: 20px 0;">
+                <h3 style="color: #856404; margin-bottom: 15px;">💰 Ristourne (optionnel)</h3>
+                
+                <label class="option-card" style="display: flex; align-items: center; padding: 15px;">
+                    <input type="checkbox" id="ristourneEnabled" onchange="toggleRistourne()">
+                    <span style="margin-left: 10px; font-weight: bold;">Appliquer une ristourne</span>
+                </label>
+
+                <div id="ristourneOptions" style="display: none; margin-top: 15px;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Pourcentage (%)</label>
+                            <input type="number" id="ristournePourcent" value="10" min="0" max="100">
+                        </div>
+                        <div class="form-group">
+                            <label>Validité (jours)</label>
+                            <input type="number" id="ristourneDelai" value="30" min="1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="recap-card">
                 <div class="recap-row">
                     <span>Total matériel HT :</span>
@@ -581,12 +690,20 @@
                     <span id="totalMOHT">0.00 €</span>
                 </div>
                 <div class="recap-row">
+                    <span>Services administratifs :</span>
+                    <span id="totalServicesHT">0.00 €</span>
+                </div>
+                <div class="recap-row">
                     <span>Déplacement :</span>
                     <span id="totalDeplacement">25.00 €</span>
                 </div>
                 <div class="recap-row">
                     <span>Sous-total HT :</span>
                     <span id="sousTotalHT">0.00 €</span>
+                </div>
+                <div class="recap-row" id="ristourneRow" style="display: none; color: #28a745;">
+                    <span>Ristourne (-<span id="ristournePercentDisplay">10</span>%) :</span>
+                    <span id="montantRistourne">0.00 €</span>
                 </div>
                 <div class="recap-row">
                     <span>TVA (<span id="tvaPercent">6</span>%) :</span>
@@ -607,7 +724,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, collection, addDoc, getDocs, setDoc, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
@@ -624,39 +741,67 @@
         const db = getFirestore(app);
 
         let currentUser = null;
-        let devisState = {
+        let catalogueProduits = [];
+        
+        // État du devis
+        const devisState = {
             client: {},
             global: { tarif: 50, tva: 0.06, deplacement: 25 },
             rooms: [],
             tableau: {},
+            services: {},
+            ristourne: { enabled: false, pourcent: 10, delai: 30 },
             nextRoomId: 1
         };
 
-        let catalogueProduits = [];
+        // Facteurs multiplicateurs
+        const FACTEURS = {
+            installation: {
+                'apparent': 1.0,
+                'encastre': 1.5,
+                'faux-plafond': 1.3,
+                'sous-plancher': 1.4
+            },
+            circuit: {
+                'existant': 1.0,
+                'nouvelle-ligne': 1.2
+            }
+        };
 
+        // Vérifier authentification
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = 'login-v2.html';
             } else {
                 currentUser = user;
-                await loadCatalogueProduits();
+                await loadCatalogue();
             }
         });
 
-        async function loadCatalogueProduits() {
+        // Charger le catalogue
+        async function loadCatalogue() {
             try {
-                // Charger les prix personnalisés de l'utilisateur
                 const pricesDoc = await getDoc(doc(db, 'user_prices', currentUser.uid));
+                const tempsDoc = await getDoc(doc(db, 'user_temps', currentUser.uid));
+                
                 const customPrices = pricesDoc.exists() ? pricesDoc.data() : {};
+                const customTemps = tempsDoc.exists() ? tempsDoc.data() : {};
 
                 // Catalogue par défaut
                 catalogueProduits = [
-                    { ref: 'PR-SIM-001', name: 'Prise simple 16A', price: customPrices['PR-SIM-001'] || 3.50, temps: 0.3, category: 'Prises' },
-                    { ref: 'PR-DOU-001', name: 'Prise double 16A', price: customPrices['PR-DOU-001'] || 5.80, temps: 0.3, category: 'Prises' },
-                    { ref: 'INT-SIM-001', name: 'Interrupteur simple', price: customPrices['INT-SIM-001'] || 2.80, temps: 0.25, category: 'Interrupteurs' },
-                    { ref: 'INT-VAE-001', name: 'Va-et-vient', price: customPrices['INT-VAE-001'] || 3.20, temps: 0.4, category: 'Interrupteurs' },
-                    { ref: 'LED-SP6-001', name: 'Spot LED 6W', price: customPrices['LED-SP6-001'] || 8.50, temps: 0.3, category: 'Éclairage' },
-                    { ref: 'LED-SP10-001', name: 'Spot LED 10W', price: customPrices['LED-SP10-001'] || 12.00, temps: 0.3, category: 'Éclairage' }
+                    { ref: 'PR-SIM-001', name: 'Prise simple 16A', price: customPrices['PR-SIM-001'] || 3.50, temps: customTemps['PR-SIM-001'] || 0.25, category: 'Prises' },
+                    { ref: 'PR-DOU-001', name: 'Prise double 16A', price: customPrices['PR-DOU-001'] || 5.80, temps: customTemps['PR-DOU-001'] || 0.25, category: 'Prises' },
+                    { ref: 'PR-TRI-001', name: 'Prise triple 16A', price: customPrices['PR-TRI-001'] || 8.20, temps: customTemps['PR-TRI-001'] || 0.50, category: 'Prises' },
+                    { ref: 'PR-SPE-001', name: 'Prise spécialisée 20A', price: customPrices['PR-SPE-001'] || 8.50, temps: customTemps['PR-SPE-001'] || 0.50, category: 'Prises' },
+                    { ref: 'PR-SPE-002', name: 'Prise spécialisée 32A', price: customPrices['PR-SPE-002'] || 15.00, temps: customTemps['PR-SPE-002'] || 0.75, category: 'Prises' },
+                    { ref: 'INT-SIM-001', name: 'Interrupteur simple', price: customPrices['INT-SIM-001'] || 2.80, temps: customTemps['INT-SIM-001'] || 0.25, category: 'Interrupteurs' },
+                    { ref: 'INT-VAE-001', name: 'Va-et-vient', price: customPrices['INT-VAE-001'] || 3.20, temps: customTemps['INT-VAE-001'] || 0.50, category: 'Interrupteurs' },
+                    { ref: 'VAR-LED-001', name: 'Variateur LED', price: customPrices['VAR-LED-001'] || 18.50, temps: customTemps['VAR-LED-001'] || 0.50, category: 'Interrupteurs' },
+                    { ref: 'LED-SP6-001', name: 'Spot LED 6W', price: customPrices['LED-SP6-001'] || 8.50, temps: customTemps['LED-SP6-001'] || 0.25, category: 'Éclairage' },
+                    { ref: 'LED-SP10-001', name: 'Spot LED 10W', price: customPrices['LED-SP10-001'] || 12.00, temps: customTemps['LED-SP10-001'] || 0.25, category: 'Éclairage' },
+                    { ref: 'CAB-XVB-1.5', name: 'Câble XVB 3G1.5mm²', price: customPrices['CAB-XVB-1.5'] || 1.20, temps: customTemps['CAB-XVB-1.5'] || 0.05, category: 'Câbles' },
+                    { ref: 'CAB-XVB-2.5', name: 'Câble XVB 3G2.5mm²', price: customPrices['CAB-XVB-2.5'] || 1.80, temps: customTemps['CAB-XVB-2.5'] || 0.05, category: 'Câbles' },
+                    { ref: 'CAB-XVB-4', name: 'Câble XVB 3G4mm²', price: customPrices['CAB-XVB-4'] || 2.50, temps: customTemps['CAB-XVB-4'] || 0.05, category: 'Câbles' }
                 ];
 
                 console.log('Catalogue chargé:', catalogueProduits.length, 'produits');
@@ -665,16 +810,14 @@
             }
         }
 
+        // Navigation entre pages
         window.switchPage = function(pageName) {
-            // Désactiver tous les nav-items et pages
-            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
 
-            // Activer le nav-item et la page sélectionnés
+            document.getElementById('page-' + pageName).classList.add('active');
             document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
-            document.getElementById(`page-${pageName}`).classList.add('active');
 
-            // Si on va sur récap, calculer
             if (pageName === 'recapitulatif') {
                 calculateRecap();
             }
@@ -686,10 +829,12 @@
                 const parent = this.parentElement;
                 parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
                 this.classList.add('active');
-                this.querySelector('input[type="radio"]').checked = true;
+                const input = this.querySelector('input[type="radio"], input[type="checkbox"]');
+                if (input) input.checked = true;
             });
         });
 
+        // Créer une pièce
         window.createRoom = function() {
             const roomName = document.getElementById('newRoomName').value.trim();
             if (!roomName) {
@@ -700,7 +845,12 @@
             const room = {
                 id: devisState.nextRoomId++,
                 name: roomName,
-                articles: []
+                articles: [],
+                cabling: {
+                    internal: { type: '', length: 0, cost: 0 },
+                    tableau: { type: '', length: 0, cost: 0 }
+                },
+                collapsed: false
             };
 
             devisState.rooms.push(room);
@@ -708,6 +858,7 @@
             renderRooms();
         }
 
+        // Afficher les pièces
         function renderRooms() {
             const container = document.getElementById('roomsContainer');
             
@@ -716,65 +867,311 @@
                 return;
             }
 
-            container.innerHTML = devisState.rooms.map(room => `
-                <div class="room-card">
-                    <div class="room-header">
-                        <div class="room-title">📍 ${room.name}</div>
-                        <button class="delete-room-btn" onclick="deleteRoom(${room.id})">🗑️ Supprimer</button>
-                    </div>
-
-                    <div class="article-selector">
-                        <select id="article-select-${room.id}">
-                            <option value="">Sélectionner un article...</option>
-                            ${catalogueProduits.map(p => `
-                                <option value="${p.ref}">${p.name} - ${p.price.toFixed(2)}€</option>
-                            `).join('')}
-                        </select>
-                        <input type="number" id="qty-${room.id}" placeholder="Qté" value="1" min="1">
-                        <button class="add-article-btn" onclick="addArticleToRoom(${room.id})">➕ Ajouter</button>
-                    </div>
-
-                    <div class="articles-list" id="articles-${room.id}">
-                        ${room.articles.map((article, idx) => `
-                            <div class="article-item">
-                                <div>${article.name}</div>
-                                <div>${article.qty}x</div>
-                                <div>${article.price.toFixed(2)}€</div>
-                                <div>${(article.qty * article.price).toFixed(2)}€</div>
-                                <button onclick="deleteArticle(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
+            container.innerHTML = devisState.rooms.map(room => {
+                const arrow = room.collapsed ? '▶' : '▼';
+                return `
+                    <div class="room-card">
+                        <div class="room-header" onclick="toggleRoom(${room.id})">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span>${arrow}</span>
+                                <div class="room-title">📍 ${room.name}</div>
                             </div>
-                        `).join('') || '<div style="text-align: center; color: #999; padding: 20px;">Aucun article ajouté</div>'}
+                            <button class="delete-room-btn" onclick="event.stopPropagation(); deleteRoom(${room.id})">🗑️</button>
+                        </div>
+
+                        <div class="collapsed-content ${room.collapsed ? '' : 'active'}">
+                            <!-- FORMULAIRE AJOUT ARTICLE -->
+                            <div class="article-form">
+                                <h4>➕ Ajouter un article</h4>
+                                
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Article</label>
+                                        <select id="article-${room.id}">
+                                            <option value="">-- Sélectionner --</option>
+                                            ${generateCatalogueOptions()}
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Quantité</label>
+                                        <input type="number" id="qty-${room.id}" value="1" min="1">
+                                    </div>
+                                </div>
+
+                                <h4 style="margin: 15px 0 10px;">🔧 Type d'installation</h4>
+                                <div class="option-cards">
+                                    <label class="option-card active">
+                                        <input type="radio" name="install-${room.id}" value="apparent" checked>
+                                        <div class="card-icon">📦</div>
+                                        <div class="card-title">Apparent</div>
+                                    </label>
+                                    <label class="option-card">
+                                        <input type="radio" name="install-${room.id}" value="encastre">
+                                        <div class="card-icon">🔨</div>
+                                        <div class="card-title">Encastré</div>
+                                    </label>
+                                    <label class="option-card">
+                                        <input type="radio" name="install-${room.id}" value="faux-plafond">
+                                        <div class="card-icon">⬆️</div>
+                                        <div class="card-title">Faux plafond</div>
+                                    </label>
+                                </div>
+
+                                <h4 style="margin: 15px 0 10px;">⚡ Type de circuit</h4>
+                                <div class="option-cards">
+                                    <label class="option-card active">
+                                        <input type="radio" name="circuit-${room.id}" value="existant" checked>
+                                        <div class="card-icon">🔄</div>
+                                        <div class="card-title">Existant</div>
+                                    </label>
+                                    <label class="option-card">
+                                        <input type="radio" name="circuit-${room.id}" value="nouvelle-ligne">
+                                        <div class="card-icon">⚡</div>
+                                        <div class="card-title">Nouvelle ligne</div>
+                                    </label>
+                                </div>
+
+                                <h4 style="margin: 15px 0 10px;">🏗️ Options</h4>
+                                <label class="option-card" style="display: flex; align-items: center; padding: 15px;">
+                                    <input type="checkbox" id="rebouchage-${room.id}">
+                                    <div style="margin-left: 10px;">
+                                        <strong>Rebouchage et finition</strong>
+                                        <div style="margin-top: 5px;">
+                                            Prix: <input type="number" id="rebouchage-price-${room.id}" value="20" style="width: 80px; padding: 5px; border: 2px solid #e0e0e0; border-radius: 5px;"> €
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                                    <button class="btn btn-info" onclick="calculateArticle(${room.id})" style="flex: 1;">🧮 Calculer</button>
+                                    <button class="btn btn-success" onclick="addArticle(${room.id})" style="flex: 1;">➕ Ajouter</button>
+                                </div>
+
+                                <div id="preview-${room.id}" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 10px; margin-top: 15px;">
+                                    <h4>📊 Aperçu</h4>
+                                    <div id="preview-content-${room.id}"></div>
+                                </div>
+                            </div>
+
+                            <!-- LISTE ARTICLES -->
+                            <div class="articles-list">
+                                ${room.articles.map((art, idx) => `
+                                    <div class="article-item">
+                                        <div class="article-header">
+                                            <strong>${art.qty}x ${art.name}</strong>
+                                            <button onclick="deleteArticle(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
+                                        </div>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
+                                            <div>Matériel:</div><div style="text-align: right;">${art.materiel.toFixed(2)}€</div>
+                                            <div>Main d'œuvre:</div><div style="text-align: right;">${art.mo.toFixed(2)}€</div>
+                                            ${art.rebouchage > 0 ? `<div>Rebouchage:</div><div style="text-align: right;">${art.rebouchage.toFixed(2)}€</div>` : ''}
+                                            <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
+                                            <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${art.total.toFixed(2)}€</strong></div>
+                                        </div>
+                                    </div>
+                                `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article ajouté</div>'}
+                            </div>
+
+                            <!-- CÂBLAGE -->
+                            <div class="cabling-section">
+                                <h4>🔗 Câblage</h4>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Câble interne</label>
+                                        <select id="cable-internal-${room.id}">
+                                            <option value="">-- Type --</option>
+                                            <option value="1.2,0.05">XVB 3G1.5 (1.20€/m)</option>
+                                            <option value="1.8,0.05">XVB 3G2.5 (1.80€/m)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Longueur (m)</label>
+                                        <input type="number" id="cable-internal-length-${room.id}" value="0" min="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Câble → Tableau</label>
+                                        <select id="cable-tableau-${room.id}">
+                                            <option value="">-- Type --</option>
+                                            <option value="1.8,0.05">XVB 3G2.5 (1.80€/m)</option>
+                                            <option value="2.5,0.05">XVB 3G4 (2.50€/m)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Longueur (m)</label>
+                                        <input type="number" id="cable-tableau-length-${room.id}" value="0" min="0">
+                                    </div>
+                                </div>
+                                <button class="btn btn-info" onclick="calculateCabling(${room.id})" style="width: 100%;">Calculer le câblage</button>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
-        window.addArticleToRoom = function(roomId) {
+        // Générer options du catalogue
+        function generateCatalogueOptions() {
+            const categories = {};
+            catalogueProduits.forEach(p => {
+                if (!categories[p.category]) categories[p.category] = [];
+                categories[p.category].push(p);
+            });
+
+            let html = '';
+            Object.keys(categories).forEach(cat => {
+                html += `<optgroup label="${cat}">`;
+                categories[cat].forEach(p => {
+                    html += `<option value="${p.ref}">${p.name} (${p.price.toFixed(2)}€)</option>`;
+                });
+                html += `</optgroup>`;
+            });
+            return html;
+        }
+
+        // Plier/déplier pièce
+        window.toggleRoom = function(roomId) {
             const room = devisState.rooms.find(r => r.id === roomId);
-            if (!room) return;
+            if (room) {
+                room.collapsed = !room.collapsed;
+                renderRooms();
+            }
+        }
 
-            const articleRef = document.getElementById(`article-select-${roomId}`).value;
+        // Calculer article
+        window.calculateArticle = function(roomId) {
+            const ref = document.getElementById(`article-${roomId}`).value;
             const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
-
-            if (!articleRef) {
-                alert('Veuillez sélectionner un article');
+            
+            if (!ref) {
+                alert('Sélectionnez un article');
                 return;
             }
 
-            const produit = catalogueProduits.find(p => p.ref === articleRef);
-            if (!produit) return;
+            const product = catalogueProduits.find(p => p.ref === ref);
+            if (!product) return;
+
+            const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
+            const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
+            const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
+            const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
+
+            const tarif = parseFloat(document.getElementById('globalTarif').value);
+            
+            const materiel = product.price * qty;
+            let temps = product.temps * qty;
+            temps *= FACTEURS.installation[installType];
+            temps *= FACTEURS.circuit[circuitType];
+            const mo = temps * tarif;
+            const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
+
+            let prixUnitaire = product.price + (mo / qty);
+            if (qty >= 10) prixUnitaire *= 0.75;
+            else if (qty >= 5) prixUnitaire *= 0.85;
+
+            const total = (prixUnitaire * qty) + rebouchageTotal;
+
+            let degressif = '';
+            if (qty >= 10) degressif = '<span style="color: #28a745;">(-25% dégressif!)</span>';
+            else if (qty >= 5) degressif = '<span style="color: #28a745;">(-15% dégressif!)</span>';
+
+            document.getElementById(`preview-${roomId}`).style.display = 'block';
+            document.getElementById(`preview-content-${roomId}`).innerHTML = `
+                <div><strong>${qty}x ${product.name}</strong> ${degressif}</div>
+                <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                    <div>Matériel:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
+                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${temps.toFixed(2)}h)</div>
+                    ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
+                    <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
+                    <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${total.toFixed(2)}€</strong></div>
+                </div>
+            `;
+        }
+
+        // Ajouter article
+        window.addArticle = function(roomId) {
+            const room = devisState.rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            const ref = document.getElementById(`article-${roomId}`).value;
+            const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
+            
+            if (!ref) {
+                alert('Sélectionnez un article');
+                return;
+            }
+
+            const product = catalogueProduits.find(p => p.ref === ref);
+            if (!product) return;
+
+            const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
+            const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
+            const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
+            const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
+
+            const tarif = parseFloat(document.getElementById('globalTarif').value);
+            
+            const materiel = product.price * qty;
+            let temps = product.temps * qty;
+            temps *= FACTEURS.installation[installType];
+            temps *= FACTEURS.circuit[circuitType];
+            const mo = temps * tarif;
+            const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
+
+            let prixUnitaire = product.price + (mo / qty);
+            if (qty >= 10) prixUnitaire *= 0.75;
+            else if (qty >= 5) prixUnitaire *= 0.85;
+
+            const total = (prixUnitaire * qty) + rebouchageTotal;
 
             room.articles.push({
-                ref: produit.ref,
-                name: produit.name,
-                price: produit.price,
-                temps: produit.temps,
-                qty: qty
+                ref: product.ref,
+                name: product.name,
+                qty: qty,
+                materiel: materiel,
+                mo: mo,
+                rebouchage: rebouchageTotal,
+                total: total
             });
 
             renderRooms();
         }
 
+        // Supprimer article
+        window.deleteArticle = function(roomId, idx) {
+            const room = devisState.rooms.find(r => r.id === roomId);
+            if (room && confirm('Supprimer cet article ?')) {
+                room.articles.splice(idx, 1);
+                renderRooms();
+            }
+        }
+
+        // Calculer câblage
+        window.calculateCabling = function(roomId) {
+            const room = devisState.rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            const tarif = parseFloat(document.getElementById('globalTarif').value);
+
+            // Câblage interne
+            const internalSelect = document.getElementById(`cable-internal-${roomId}`).value;
+            const internalLength = parseFloat(document.getElementById(`cable-internal-length-${roomId}`).value) || 0;
+            if (internalSelect && internalLength > 0) {
+                const [price, temps] = internalSelect.split(',').map(parseFloat);
+                room.cabling.internal.cost = internalLength * (price + (temps * tarif));
+            }
+
+            // Câblage tableau
+            const tableauSelect = document.getElementById(`cable-tableau-${roomId}`).value;
+            const tableauLength = parseFloat(document.getElementById(`cable-tableau-length-${roomId}`).value) || 0;
+            if (tableauSelect && tableauLength > 0) {
+                const [price, temps] = tableauSelect.split(',').map(parseFloat);
+                room.cabling.tableau.cost = tableauLength * (price + (temps * tarif));
+            }
+
+            alert('Câblage calculé !');
+        }
+
+        // Supprimer pièce
         window.deleteRoom = function(roomId) {
             if (confirm('Supprimer cette pièce ?')) {
                 devisState.rooms = devisState.rooms.filter(r => r.id !== roomId);
@@ -782,14 +1179,14 @@
             }
         }
 
-        window.deleteArticle = function(roomId, articleIdx) {
-            const room = devisState.rooms.find(r => r.id === roomId);
-            if (room) {
-                room.articles.splice(articleIdx, 1);
-                renderRooms();
-            }
+        // Toggle ristourne
+        window.toggleRistourne = function() {
+            const enabled = document.getElementById('ristourneEnabled').checked;
+            document.getElementById('ristourneOptions').style.display = enabled ? 'block' : 'none';
+            devisState.ristourne.enabled = enabled;
         }
 
+        // Calculer récapitulatif
         function calculateRecap() {
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             const deplacement = parseFloat(document.getElementById('globalDeplacement').value);
@@ -797,46 +1194,76 @@
             const tva = buildingAge === 'old' ? 0.06 : 0.21;
 
             let totalMateriel = 0;
-            let totalTemps = 0;
+            let totalMO = 0;
 
+            // Articles des pièces
             devisState.rooms.forEach(room => {
-                room.articles.forEach(article => {
-                    totalMateriel += article.price * article.qty;
-                    totalTemps += article.temps * article.qty;
+                room.articles.forEach(art => {
+                    totalMateriel += art.materiel + art.rebouchage;
+                    totalMO += art.mo;
                 });
+                totalMateriel += room.cabling.internal.cost + room.cabling.tableau.cost;
             });
 
-            const totalMO = totalTemps * tarif;
-            const sousTotalHT = totalMateriel + totalMO + deplacement;
+            // Tableau
+            const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
+            const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
+            const diffA = parseInt(document.getElementById('diffA').value) || 0;
+            const parafoudre = document.getElementById('parafoudre').value === 'oui' ? 120 : 0;
+            const contacteur = (parseInt(document.getElementById('contacteur').value) || 0) * 28;
+
+            totalMateriel += coffret + (diffAC * 35) + (diffA * 45) + parafoudre + contacteur;
+
+            // Services
+            let totalServices = 0;
+            if (document.getElementById('service-conformite').checked) totalServices += 450;
+            if (document.getElementById('service-diagnostic').checked) totalServices += 180;
+            if (document.getElementById('service-certificat').checked) totalServices += 80;
+            if (document.getElementById('service-schema').checked) totalServices += 120;
+
+            let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
+
+            // Ristourne
+            let montantRistourne = 0;
+            if (devisState.ristourne.enabled) {
+                const pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 10;
+                montantRistourne = sousTotalHT * (pourcent / 100);
+                sousTotalHT -= montantRistourne;
+                
+                document.getElementById('ristourneRow').style.display = 'flex';
+                document.getElementById('ristournePercentDisplay').textContent = pourcent;
+                document.getElementById('montantRistourne').textContent = '-' + montantRistourne.toFixed(2) + ' €';
+            } else {
+                document.getElementById('ristourneRow').style.display = 'none';
+            }
+
             const montantTVA = sousTotalHT * tva;
             const totalTTC = sousTotalHT + montantTVA;
 
             document.getElementById('totalMaterielHT').textContent = totalMateriel.toFixed(2) + ' €';
             document.getElementById('totalMOHT').textContent = totalMO.toFixed(2) + ' €';
+            document.getElementById('totalServicesHT').textContent = totalServices.toFixed(2) + ' €';
             document.getElementById('totalDeplacement').textContent = deplacement.toFixed(2) + ' €';
-            document.getElementById('sousTotalHT').textContent = sousTotalHT.toFixed(2) + ' €';
+            document.getElementById('sousTotalHT').textContent = (sousTotalHT + montantRistourne).toFixed(2) + ' €';
             document.getElementById('tvaPercent').textContent = (tva * 100).toFixed(0);
             document.getElementById('montantTVA').textContent = montantTVA.toFixed(2) + ' €';
             document.getElementById('totalTTC').textContent = totalTTC.toFixed(2) + ' €';
 
-            // Récap content
+            // Récap détaillé
             document.getElementById('recapContent').innerHTML = `
                 <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                     <h3>👤 Client</h3>
                     <p><strong>${document.getElementById('clientName').value || 'Non renseigné'}</strong></p>
-                    <p>${document.getElementById('clientEmail').value || ''}</p>
-                    <p>${document.getElementById('clientPhone').value || ''}</p>
+                    <p>${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}</p>
                 </div>
-
-                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <div style="background: white; padding: 20px; border-radius: 10px;">
                     <h3>📍 Pièces (${devisState.rooms.length})</h3>
-                    ${devisState.rooms.map(room => `
-                        <p><strong>${room.name}</strong> - ${room.articles.length} articles</p>
-                    `).join('')}
+                    ${devisState.rooms.map(room => `<p><strong>${room.name}</strong> - ${room.articles.length} articles</p>`).join('')}
                 </div>
             `;
         }
 
+        // Sauvegarder le devis
         window.saveDevis = async function() {
             if (!currentUser) return;
 
@@ -849,7 +1276,7 @@
             };
 
             if (!clientData.nom) {
-                alert('Veuillez renseigner au moins le nom du client');
+                alert('Veuillez renseigner le nom du client');
                 return;
             }
 
@@ -861,25 +1288,6 @@
                     createdAt: new Date().toISOString()
                 });
 
-                // Calculer totaux
-                const tarif = parseFloat(document.getElementById('globalTarif').value);
-                const deplacement = parseFloat(document.getElementById('globalDeplacement').value);
-                const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
-                const tva = buildingAge === 'old' ? 0.06 : 0.21;
-
-                let totalMateriel = 0;
-                let totalTemps = 0;
-                devisState.rooms.forEach(room => {
-                    room.articles.forEach(article => {
-                        totalMateriel += article.price * article.qty;
-                        totalTemps += article.temps * article.qty;
-                    });
-                });
-
-                const totalMO = totalTemps * tarif;
-                const sousTotalHT = totalMateriel + totalMO + deplacement;
-                const totalTTC = sousTotalHT * (1 + tva);
-
                 // Sauvegarder le devis
                 const devisRef = await addDoc(collection(db, 'devis'), {
                     userId: currentUser.uid,
@@ -887,29 +1295,25 @@
                     client: clientData,
                     batiment: {
                         type: document.querySelector('input[name="projectType"]:checked').value,
-                        buildingAge: buildingAge
+                        age: document.querySelector('input[name="buildingAge"]:checked').value
                     },
-                    pieces: devisState.rooms,
-                    tableau: {
-                        coffret: document.getElementById('coffretType').value,
-                        disjoncteur: document.getElementById('disjoncteurBranchement').value
-                    },
+                    rooms: devisState.rooms,
                     totaux: {
-                        materielHT: totalMateriel,
-                        moHT: totalMO,
-                        deplacement: deplacement,
-                        totalTTC: totalTTC
+                        materielHT: parseFloat(document.getElementById('totalMaterielHT').textContent),
+                        moHT: parseFloat(document.getElementById('totalMOHT').textContent),
+                        servicesHT: parseFloat(document.getElementById('totalServicesHT').textContent),
+                        totalTTC: parseFloat(document.getElementById('totalTTC').textContent)
                     },
                     status: 'draft',
                     createdAt: new Date().toISOString()
                 });
 
-                alert('✅ Devis créé avec succès!\nRéférence: ' + devisRef.id.substring(0, 8).toUpperCase());
+                alert('✅ Devis créé!\nRéf: ' + devisRef.id.substring(0, 8).toUpperCase());
                 window.location.href = 'mes-devis.html';
 
             } catch (error) {
                 console.error('Erreur:', error);
-                alert('❌ Erreur lors de la création du devis');
+                alert('❌ Erreur lors de la sauvegarde');
             }
         }
     </script>
