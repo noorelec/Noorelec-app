@@ -73,36 +73,18 @@
             font-size: 16px;
         }
 
-        .search-bar {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            margin-bottom: 30px;
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-
-        .search-bar input {
-            flex: 1;
-            padding: 12px 20px;
-            border: 2px solid #e0e0e0;
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px 20px;
             border-radius: 10px;
-            font-size: 16px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #10b981;
         }
 
-        .search-bar input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .search-bar select {
-            padding: 12px 20px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
-            cursor: pointer;
+        .success-message.show {
+            display: block;
         }
 
         .category-section {
@@ -114,9 +96,6 @@
         }
 
         .category-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             margin-bottom: 25px;
             padding-bottom: 15px;
             border-bottom: 2px solid #f0f0f0;
@@ -128,10 +107,6 @@
             display: flex;
             align-items: center;
             gap: 10px;
-        }
-
-        .category-icon {
-            font-size: 32px;
         }
 
         .products-table {
@@ -161,8 +136,8 @@
             background: #f8f9ff;
         }
 
-        .price-input {
-            width: 100px;
+        .input-small {
+            width: 80px;
             padding: 8px;
             border: 2px solid #e0e0e0;
             border-radius: 6px;
@@ -171,7 +146,7 @@
             color: #667eea;
         }
 
-        .price-input:focus {
+        .input-small:focus {
             outline: none;
             border-color: #667eea;
         }
@@ -193,42 +168,11 @@
         .save-btn:hover {
             background: #059669;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
-        }
-
-        .success-message {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 15px 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: none;
-            border-left: 4px solid #10b981;
-        }
-
-        .success-message.show {
-            display: block;
-            animation: slideDown 0.3s;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         @media (max-width: 768px) {
             .container {
                 padding: 20px 15px;
-            }
-
-            .search-bar {
-                flex-direction: column;
             }
 
             .products-table {
@@ -240,8 +184,8 @@
                 padding: 10px 8px;
             }
 
-            .price-input {
-                width: 80px;
+            .input-small {
+                width: 60px;
             }
         }
     </style>
@@ -257,32 +201,17 @@
     <div class="container">
         <div class="page-header">
             <h1 class="page-title">Catalogue de Matériel Électrique</h1>
-            <p class="page-description">Personnalisez les prix de votre catalogue - Tous les prix sont en € HT</p>
+            <p class="page-description">Personnalisez les prix et temps d'intervention - Prix en € HT, Temps en heures</p>
         </div>
 
         <div class="success-message" id="success-message">
-            ✅ Prix sauvegardés avec succès !
-        </div>
-
-        <div class="search-bar">
-            <input type="text" id="searchInput" placeholder="🔍 Rechercher un produit..." onkeyup="filterProducts()">
-            <select id="categoryFilter" onchange="filterByCategory()">
-                <option value="all">Toutes les catégories</option>
-                <option value="prises">Prises électriques</option>
-                <option value="interrupteurs">Interrupteurs</option>
-                <option value="eclairage">Éclairage</option>
-                <option value="cables">Câbles</option>
-                <option value="coffrets">Coffrets et protections</option>
-                <option value="gaines">Gaines et accessoires</option>
-            </select>
+            ✅ Prix et temps sauvegardés avec succès !
         </div>
 
         <!-- CATÉGORIE 1: PRISES ÉLECTRIQUES -->
-        <div class="category-section" data-category="prises">
+        <div class="category-section">
             <div class="category-header">
-                <h2 class="category-title">
-                    <span class="category-icon">🔌</span> Prises électriques
-                </h2>
+                <h2 class="category-title">🔌 Prises électriques</h2>
             </div>
             <table class="products-table">
                 <thead>
@@ -291,7 +220,7 @@
                         <th>Désignation</th>
                         <th>Marque</th>
                         <th>Prix HT (€)</th>
-                        <th>Unité</th>
+                        <th>Temps (h)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -299,68 +228,52 @@
                         <td>PR-SIM-001</td>
                         <td>Prise simple 16A</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="3.50" step="0.01" data-ref="PR-SIM-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="3.50" step="0.01" data-ref="PR-SIM-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.1" data-ref="PR-SIM-001"></td>
                     </tr>
                     <tr>
                         <td>PR-DOU-001</td>
                         <td>Prise double 16A</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="5.80" step="0.01" data-ref="PR-DOU-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="5.80" step="0.01" data-ref="PR-DOU-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.1" data-ref="PR-DOU-001"></td>
                     </tr>
                     <tr>
                         <td>PR-TRI-001</td>
                         <td>Prise triple 16A</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="8.20" step="0.01" data-ref="PR-TRI-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="8.20" step="0.01" data-ref="PR-TRI-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.1" data-ref="PR-TRI-001"></td>
                     </tr>
                     <tr>
                         <td>PR-USB-001</td>
                         <td>Prise avec USB</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="12.50" step="0.01" data-ref="PR-USB-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="12.50" step="0.01" data-ref="PR-USB-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.1" data-ref="PR-USB-001"></td>
                     </tr>
                     <tr>
                         <td>PR-SPE-001</td>
-                        <td>Prise spécialisée 20A (lave-linge)</td>
+                        <td>Prise spécialisée 20A</td>
                         <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="8.50" step="0.01" data-ref="PR-SPE-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="8.50" step="0.01" data-ref="PR-SPE-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.5" step="0.1" data-ref="PR-SPE-001"></td>
                     </tr>
                     <tr>
                         <td>PR-SPE-002</td>
-                        <td>Prise spécialisée 32A (four/cuisinière)</td>
+                        <td>Prise spécialisée 32A</td>
                         <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="15.00" step="0.01" data-ref="PR-SPE-002"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>PR-RJ45-001</td>
-                        <td>Prise RJ45 Cat.6 (réseau)</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="6.50" step="0.01" data-ref="PR-RJ45-001"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>PR-EXT-001</td>
-                        <td>Prise étanche IP44 (extérieur)</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="9.80" step="0.01" data-ref="PR-EXT-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="15.00" step="0.01" data-ref="PR-SPE-002"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.6" step="0.1" data-ref="PR-SPE-002"></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <!-- CATÉGORIE 2: INTERRUPTEURS -->
-        <div class="category-section" data-category="interrupteurs">
+        <div class="category-section">
             <div class="category-header">
-                <h2 class="category-title">
-                    <span class="category-icon">💡</span> Interrupteurs
-                </h2>
+                <h2 class="category-title">💡 Interrupteurs</h2>
             </div>
             <table class="products-table">
                 <thead>
@@ -369,7 +282,7 @@
                         <th>Désignation</th>
                         <th>Marque</th>
                         <th>Prix HT (€)</th>
-                        <th>Unité</th>
+                        <th>Temps (h)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -377,54 +290,45 @@
                         <td>INT-SIM-001</td>
                         <td>Interrupteur simple</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="2.80" step="0.01" data-ref="INT-SIM-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="2.80" step="0.01" data-ref="INT-SIM-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.25" step="0.1" data-ref="INT-SIM-001"></td>
                     </tr>
                     <tr>
                         <td>INT-DOU-001</td>
                         <td>Interrupteur double</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="4.50" step="0.01" data-ref="INT-DOU-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="4.50" step="0.01" data-ref="INT-DOU-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.1" data-ref="INT-DOU-001"></td>
                     </tr>
                     <tr>
                         <td>INT-VAE-001</td>
                         <td>Interrupteur va-et-vient</td>
                         <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="3.20" step="0.01" data-ref="INT-VAE-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="3.20" step="0.01" data-ref="INT-VAE-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.1" data-ref="INT-VAE-001"></td>
                     </tr>
                     <tr>
                         <td>VAR-LED-001</td>
                         <td>Variateur LED 400W</td>
                         <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="18.50" step="0.01" data-ref="VAR-LED-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="18.50" step="0.01" data-ref="VAR-LED-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.35" step="0.1" data-ref="VAR-LED-001"></td>
                     </tr>
                     <tr>
                         <td>DET-MOU-001</td>
                         <td>Détecteur de mouvement</td>
                         <td>Hager</td>
-                        <td><input type="number" class="price-input" value="22.00" step="0.01" data-ref="DET-MOU-001"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>MIN-001</td>
-                        <td>Minuterie d'escalier</td>
-                        <td>Hager</td>
-                        <td><input type="number" class="price-input" value="28.00" step="0.01" data-ref="MIN-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="22.00" step="0.01" data-ref="DET-MOU-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.5" step="0.1" data-ref="DET-MOU-001"></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <!-- CATÉGORIE 3: ÉCLAIRAGE -->
-        <div class="category-section" data-category="eclairage">
+        <div class="category-section">
             <div class="category-header">
-                <h2 class="category-title">
-                    <span class="category-icon">💡</span> Éclairage LED
-                </h2>
+                <h2 class="category-title">💡 Éclairage LED</h2>
             </div>
             <table class="products-table">
                 <thead>
@@ -433,7 +337,7 @@
                         <th>Désignation</th>
                         <th>Marque</th>
                         <th>Prix HT (€)</th>
-                        <th>Unité</th>
+                        <th>Temps (h)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -441,61 +345,45 @@
                         <td>LED-SP6-001</td>
                         <td>Spot LED encastrable 6W</td>
                         <td>Philips</td>
-                        <td><input type="number" class="price-input" value="8.50" step="0.01" data-ref="LED-SP6-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="8.50" step="0.01" data-ref="LED-SP6-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.1" data-ref="LED-SP6-001"></td>
                     </tr>
                     <tr>
                         <td>LED-SP10-001</td>
                         <td>Spot LED encastrable 10W</td>
                         <td>Philips</td>
-                        <td><input type="number" class="price-input" value="12.00" step="0.01" data-ref="LED-SP10-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="12.00" step="0.01" data-ref="LED-SP10-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.3" step="0.1" data-ref="LED-SP10-001"></td>
                     </tr>
                     <tr>
                         <td>LED-APP-001</td>
-                        <td>Spot LED apparent orientable 10W</td>
+                        <td>Spot LED apparent 10W</td>
                         <td>Osram</td>
-                        <td><input type="number" class="price-input" value="15.00" step="0.01" data-ref="LED-APP-001"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>LED-REG60-001</td>
-                        <td>Réglette LED 60cm 18W</td>
-                        <td>Osram</td>
-                        <td><input type="number" class="price-input" value="15.80" step="0.01" data-ref="LED-REG60-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="15.00" step="0.01" data-ref="LED-APP-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.4" step="0.1" data-ref="LED-APP-001"></td>
                     </tr>
                     <tr>
                         <td>LED-REG120-001</td>
                         <td>Réglette LED 120cm 36W</td>
                         <td>Osram</td>
-                        <td><input type="number" class="price-input" value="25.00" step="0.01" data-ref="LED-REG120-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="25.00" step="0.01" data-ref="LED-REG120-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.5" step="0.1" data-ref="LED-REG120-001"></td>
                     </tr>
                     <tr>
                         <td>LED-PLAF-001</td>
                         <td>Plafonnier LED 24W</td>
                         <td>Philips</td>
-                        <td><input type="number" class="price-input" value="35.00" step="0.01" data-ref="LED-PLAF-001"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>LED-APPL-001</td>
-                        <td>Applique murale LED 12W</td>
-                        <td>Philips</td>
-                        <td><input type="number" class="price-input" value="28.00" step="0.01" data-ref="LED-APPL-001"></td>
-                        <td>pièce</td>
+                        <td><input type="number" class="input-small price-input" value="35.00" step="0.01" data-ref="LED-PLAF-001"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.6" step="0.1" data-ref="LED-PLAF-001"></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
         <!-- CATÉGORIE 4: CÂBLES -->
-        <div class="category-section" data-category="cables">
+        <div class="category-section">
             <div class="category-header">
-                <h2 class="category-title">
-                    <span class="category-icon">🔗</span> Câbles électriques
-                </h2>
+                <h2 class="category-title">🔗 Câbles électriques</h2>
             </div>
             <table class="products-table">
                 <thead>
@@ -503,8 +391,8 @@
                         <th>Référence</th>
                         <th>Désignation</th>
                         <th>Marque</th>
-                        <th>Prix HT (€)</th>
-                        <th>Unité</th>
+                        <th>Prix HT (€/m)</th>
+                        <th>Temps (h/m)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -512,247 +400,35 @@
                         <td>CAB-XVB-1.5</td>
                         <td>Câble XVB 3G1.5mm² (éclairage)</td>
                         <td>Nexans</td>
-                        <td><input type="number" class="price-input" value="1.20" step="0.01" data-ref="CAB-XVB-1.5"></td>
-                        <td>mètre</td>
+                        <td><input type="number" class="input-small price-input" value="1.20" step="0.01" data-ref="CAB-XVB-1.5"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.05" step="0.01" data-ref="CAB-XVB-1.5"></td>
                     </tr>
                     <tr>
                         <td>CAB-XVB-2.5</td>
                         <td>Câble XVB 3G2.5mm² (prises 16A)</td>
                         <td>Nexans</td>
-                        <td><input type="number" class="price-input" value="1.80" step="0.01" data-ref="CAB-XVB-2.5"></td>
-                        <td>mètre</td>
+                        <td><input type="number" class="input-small price-input" value="1.80" step="0.01" data-ref="CAB-XVB-2.5"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.05" step="0.01" data-ref="CAB-XVB-2.5"></td>
                     </tr>
                     <tr>
                         <td>CAB-XVB-4</td>
                         <td>Câble XVB 3G4mm² (prises 20A)</td>
                         <td>Nexans</td>
-                        <td><input type="number" class="price-input" value="2.50" step="0.01" data-ref="CAB-XVB-4"></td>
-                        <td>mètre</td>
+                        <td><input type="number" class="input-small price-input" value="2.50" step="0.01" data-ref="CAB-XVB-4"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.06" step="0.01" data-ref="CAB-XVB-4"></td>
                     </tr>
                     <tr>
                         <td>CAB-XVB-6</td>
                         <td>Câble XVB 3G6mm² (prises 32A)</td>
                         <td>Nexans</td>
-                        <td><input type="number" class="price-input" value="3.80" step="0.01" data-ref="CAB-XVB-6"></td>
-                        <td>mètre</td>
-                    </tr>
-                    <tr>
-                        <td>CAB-XVB-10</td>
-                        <td>Câble XVB 3G10mm² (chauffe-eau)</td>
-                        <td>Nexans</td>
-                        <td><input type="number" class="price-input" value="6.50" step="0.01" data-ref="CAB-XVB-10"></td>
-                        <td>mètre</td>
-                    </tr>
-                    <tr>
-                        <td>CAB-UTP-001</td>
-                        <td>Câble UTP Cat.6 (réseau)</td>
-                        <td>Nexans</td>
-                        <td><input type="number" class="price-input" value="0.80" step="0.01" data-ref="CAB-UTP-001"></td>
-                        <td>mètre</td>
+                        <td><input type="number" class="input-small price-input" value="3.80" step="0.01" data-ref="CAB-XVB-6"></td>
+                        <td><input type="number" class="input-small temps-input" value="0.07" step="0.01" data-ref="CAB-XVB-6"></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- CATÉGORIE 5: COFFRETS ET PROTECTIONS -->
-        <div class="category-section" data-category="coffrets">
-            <div class="category-header">
-                <h2 class="category-title">
-                    <span class="category-icon">⚡</span> Coffrets et protections
-                </h2>
-            </div>
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Désignation</th>
-                        <th>Marque</th>
-                        <th>Prix HT (€)</th>
-                        <th>Unité</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>COFF-2R-26</td>
-                        <td>Coffret 2 rangées 26 modules</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="45.00" step="0.01" data-ref="COFF-2R-26"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>COFF-3R-39</td>
-                        <td>Coffret 3 rangées 39 modules</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="55.00" step="0.01" data-ref="COFF-3R-39"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>COFF-4R-52</td>
-                        <td>Coffret 4 rangées 52 modules</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="65.00" step="0.01" data-ref="COFF-4R-52"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>DISJ-10A</td>
-                        <td>Disjoncteur 10A courbe C</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="8.50" step="0.01" data-ref="DISJ-10A"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>DISJ-16A</td>
-                        <td>Disjoncteur 16A courbe C</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="8.50" step="0.01" data-ref="DISJ-16A"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>DISJ-20A</td>
-                        <td>Disjoncteur 20A courbe C</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="9.50" step="0.01" data-ref="DISJ-20A"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>DISJ-32A</td>
-                        <td>Disjoncteur 32A courbe C</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="12.00" step="0.01" data-ref="DISJ-32A"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>DIFF-40A-30MA-AC</td>
-                        <td>Différentiel 40A 30mA Type AC</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="35.00" step="0.01" data-ref="DIFF-40A-30MA-AC"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>DIFF-40A-30MA-A</td>
-                        <td>Différentiel 40A 30mA Type A</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="45.00" step="0.01" data-ref="DIFF-40A-30MA-A"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>PARA-T2</td>
-                        <td>Parafoudre Type 2</td>
-                        <td>Hager</td>
-                        <td><input type="number" class="price-input" value="120.00" step="0.01" data-ref="PARA-T2"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>CONT-JN-40A</td>
-                        <td>Contacteur jour/nuit 40A</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="28.00" step="0.01" data-ref="CONT-JN-40A"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>TELE-16A</td>
-                        <td>Télérupteur 16A</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="22.00" step="0.01" data-ref="TELE-16A"></td>
-                        <td>pièce</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <!-- CATÉGORIE 6: GAINES ET ACCESSOIRES -->
-        <div class="category-section" data-category="gaines">
-            <div class="category-header">
-                <h2 class="category-title">
-                    <span class="category-icon">🔧</span> Gaines et accessoires
-                </h2>
-            </div>
-            <table class="products-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Désignation</th>
-                        <th>Marque</th>
-                        <th>Prix HT (€)</th>
-                        <th>Unité</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>GAINE-16</td>
-                        <td>Gaine ICTA Ø16mm</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="0.45" step="0.01" data-ref="GAINE-16"></td>
-                        <td>mètre</td>
-                    </tr>
-                    <tr>
-                        <td>GAINE-20</td>
-                        <td>Gaine ICTA Ø20mm</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="0.60" step="0.01" data-ref="GAINE-20"></td>
-                        <td>mètre</td>
-                    </tr>
-                    <tr>
-                        <td>GAINE-25</td>
-                        <td>Gaine ICTA Ø25mm</td>
-                        <td>Schneider</td>
-                        <td><input type="number" class="price-input" value="0.80" step="0.01" data-ref="GAINE-25"></td>
-                        <td>mètre</td>
-                    </tr>
-                    <tr>
-                        <td>BOITE-SIM</td>
-                        <td>Boîte d'encastrement simple</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="0.80" step="0.01" data-ref="BOITE-SIM"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>BOITE-DOU</td>
-                        <td>Boîte d'encastrement double</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="1.20" step="0.01" data-ref="BOITE-DOU"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>BOITE-DCL</td>
-                        <td>Boîte DCL point de centre</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="2.50" step="0.01" data-ref="BOITE-DCL"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>WAGO-3</td>
-                        <td>Bornes Wago 3 entrées</td>
-                        <td>Wago</td>
-                        <td><input type="number" class="price-input" value="0.35" step="0.01" data-ref="WAGO-3"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>WAGO-5</td>
-                        <td>Bornes Wago 5 entrées</td>
-                        <td>Wago</td>
-                        <td><input type="number" class="price-input" value="0.45" step="0.01" data-ref="WAGO-5"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>COLLIER-ICTA</td>
-                        <td>Colliers de fixation ICTA</td>
-                        <td>Generic</td>
-                        <td><input type="number" class="price-input" value="0.15" step="0.01" data-ref="COLLIER-ICTA"></td>
-                        <td>pièce</td>
-                    </tr>
-                    <tr>
-                        <td>GOULOTTE-40</td>
-                        <td>Goulotte PVC 40x40mm</td>
-                        <td>Legrand</td>
-                        <td><input type="number" class="price-input" value="3.50" step="0.01" data-ref="GOULOTTE-40"></td>
-                        <td>mètre</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-
-        <button class="save-btn" onclick="saveAllPrices()">💾 Enregistrer tous les prix</button>
+        <button class="save-btn" onclick="saveAllPricesAndTemps()">💾 Enregistrer tous les prix et temps</button>
     </div>
 
     <script type="module">
@@ -788,10 +464,10 @@
         async function loadUserPrices() {
             try {
                 const pricesDoc = await getDoc(doc(db, 'user_prices', currentUser.uid));
+                const tempsDoc = await getDoc(doc(db, 'user_temps', currentUser.uid));
                 
                 if (pricesDoc.exists()) {
                     const prices = pricesDoc.data();
-                    
                     document.querySelectorAll('.price-input').forEach(input => {
                         const ref = input.dataset.ref;
                         if (prices[ref]) {
@@ -799,47 +475,40 @@
                         }
                     });
                 }
+
+                if (tempsDoc.exists()) {
+                    const temps = tempsDoc.data();
+                    document.querySelectorAll('.temps-input').forEach(input => {
+                        const ref = input.dataset.ref;
+                        if (temps[ref]) {
+                            input.value = temps[ref];
+                        }
+                    });
+                }
             } catch (error) {
-                console.error('Erreur chargement prix:', error);
+                console.error('Erreur chargement:', error);
             }
         }
 
-        window.filterProducts = function() {
-            const searchValue = document.getElementById('searchInput').value.toLowerCase();
-            const allRows = document.querySelectorAll('.products-table tbody tr');
-            
-            allRows.forEach(row => {
-                const text = row.textContent.toLowerCase();
-                row.style.display = text.includes(searchValue) ? '' : 'none';
-            });
-        }
-
-        window.filterByCategory = function() {
-            const category = document.getElementById('categoryFilter').value;
-            const sections = document.querySelectorAll('.category-section');
-            
-            sections.forEach(section => {
-                if (category === 'all') {
-                    section.style.display = 'block';
-                } else {
-                    section.style.display = section.dataset.category === category ? 'block' : 'none';
-                }
-            });
-        }
-
-        window.saveAllPrices = async function() {
+        window.saveAllPricesAndTemps = async function() {
             if (!currentUser) return;
 
             const allPrices = {};
-            const priceInputs = document.querySelectorAll('.price-input');
+            const allTemps = {};
             
-            priceInputs.forEach(input => {
+            document.querySelectorAll('.price-input').forEach(input => {
                 const ref = input.dataset.ref;
                 allPrices[ref] = parseFloat(input.value) || 0;
             });
 
+            document.querySelectorAll('.temps-input').forEach(input => {
+                const ref = input.dataset.ref;
+                allTemps[ref] = parseFloat(input.value) || 0;
+            });
+
             try {
                 await setDoc(doc(db, 'user_prices', currentUser.uid), allPrices);
+                await setDoc(doc(db, 'user_temps', currentUser.uid), allTemps);
                 
                 const successMsg = document.getElementById('success-message');
                 successMsg.classList.add('show');

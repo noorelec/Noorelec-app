@@ -13,299 +13,278 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f7fa;
-        }
-
-        .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px 40px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            min-height: 100vh;
         }
 
-        .header-content {
-            max-width: 1400px;
+        .app-container {
+            max-width: 1200px;
             margin: 0 auto;
+            padding: 20px;
+        }
+
+        .app-header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
-        .header h1 {
+        .logo {
             font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
         }
 
         .back-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
+            background: #667eea;
             color: white;
             padding: 10px 20px;
+            border: none;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             text-decoration: none;
         }
 
-        .back-btn:hover {
-            background: white;
-            color: #667eea;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-
-        .progress-bar {
-            background: white;
-            border-radius: 15px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-        }
-
-        .progress-steps {
+        .nav-menu {
             display: flex;
-            justify-content: space-between;
-            position: relative;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding: 10px 0;
         }
 
-        .progress-steps::before {
-            content: '';
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: #e0e0e0;
-            z-index: 0;
-        }
-
-        .progress-line {
-            position: absolute;
-            top: 20px;
-            left: 0;
-            height: 3px;
-            background: #667eea;
-            transition: width 0.3s;
-            z-index: 1;
-        }
-
-        .step {
-            text-align: center;
-            flex: 1;
-            position: relative;
-            z-index: 2;
-        }
-
-        .step-circle {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: #e0e0e0;
-            color: #999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 10px;
-            font-weight: bold;
+        .nav-item {
+            background: white;
+            border: none;
+            border-radius: 12px;
+            padding: 15px 20px;
+            min-width: 100px;
+            cursor: pointer;
             transition: all 0.3s;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .step.active .step-circle {
+        .nav-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-item.active {
             background: #667eea;
             color: white;
         }
 
-        .step.completed .step-circle {
-            background: #10b981;
-            color: white;
+        .nav-icon {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 5px;
         }
 
-        .step-label {
-            font-size: 14px;
-            color: #666;
-        }
-
-        .step.active .step-label {
-            color: #667eea;
+        .nav-label {
+            text-align: center;
+            font-size: 13px;
             font-weight: 600;
         }
 
-        .form-section {
+        .page {
+            display: none;
             background: white;
             border-radius: 15px;
-            padding: 40px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-            display: none;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
 
-        .form-section.active {
+        .page.active {
             display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .section-title {
-            font-size: 28px;
+            font-size: 24px;
             color: #333;
-            margin-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .section-description {
-            color: #666;
-            margin-bottom: 30px;
+        .subsection-title {
+            font-size: 18px;
+            color: #667eea;
+            margin: 25px 0 15px;
         }
 
         .form-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-
-        .form-group {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
             margin-bottom: 25px;
         }
 
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
         .form-group label {
-            display: block;
-            margin-bottom: 8px;
             font-weight: 600;
+            margin-bottom: 8px;
             color: #333;
         }
 
-        .required {
-            color: #ef4444;
-        }
-
         .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
+        .form-group select {
             padding: 12px;
             border: 2px solid #e0e0e0;
-            border-radius: 10px;
+            border-radius: 8px;
             font-size: 15px;
         }
 
         .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
+        .form-group select:focus {
             outline: none;
             border-color: #667eea;
         }
 
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
+        .option-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
         }
 
-        .pieces-list {
-            margin-top: 30px;
-        }
-
-        .piece-card {
+        .option-card {
             background: #f8f9fa;
-            border-radius: 10px;
+            border: 3px solid #e0e0e0;
+            border-radius: 12px;
             padding: 20px;
-            margin-bottom: 15px;
-            border-left: 4px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
         }
 
-        .piece-header {
+        .option-card:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+        }
+
+        .option-card.active {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+
+        .option-card input[type="radio"] {
+            display: none;
+        }
+
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .card-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .room-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+
+        .room-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
         }
 
-        .piece-header h4 {
-            font-size: 18px;
+        .room-title {
+            font-size: 20px;
+            font-weight: bold;
             color: #333;
         }
 
-        .delete-piece-btn {
+        .delete-room-btn {
             background: #ef4444;
             color: white;
             border: none;
             padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 13px;
-        }
-
-        .elements-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .element-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .element-item label {
-            flex: 1;
             font-size: 14px;
         }
 
-        .element-item input {
-            width: 80px;
-            padding: 8px;
+        .article-selector {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        .article-selector select {
+            padding: 10px;
             border: 2px solid #e0e0e0;
-            border-radius: 6px;
+            border-radius: 8px;
+        }
+
+        .article-selector input {
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
             text-align: center;
         }
 
-        .add-piece-btn {
+        .add-article-btn {
             background: #10b981;
             color: white;
             border: none;
-            padding: 14px 28px;
-            border-radius: 10px;
+            padding: 10px 20px;
+            border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
             font-weight: 600;
+        }
+
+        .articles-list {
             margin-top: 20px;
         }
 
-        .add-piece-btn:hover {
-            background: #059669;
-        }
-
-        .summary-card {
-            background: #f0f4ff;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 30px;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .summary-row:last-child {
-            border-bottom: none;
-            font-size: 20px;
-            font-weight: bold;
-            color: #667eea;
-            padding-top: 15px;
-        }
-
-        .form-buttons {
-            display: flex;
+        .article-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto;
             gap: 15px;
-            margin-top: 30px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            align-items: center;
         }
 
         .btn {
-            flex: 1;
-            padding: 16px;
+            padding: 14px 28px;
             border: none;
             border-radius: 10px;
             font-size: 16px;
@@ -314,307 +293,321 @@
             transition: all 0.3s;
         }
 
-        .btn-previous {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        .btn-previous:hover {
-            background: #e0e0e0;
-        }
-
-        .btn-next {
+        .btn-primary {
             background: #667eea;
             color: white;
         }
 
-        .btn-next:hover {
+        .btn-primary:hover {
             background: #5568d3;
         }
 
-        .btn-generate {
+        .btn-success {
             background: #10b981;
             color: white;
         }
 
-        .btn-generate:hover {
-            background: #059669;
+        .btn-block {
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .recap-card {
+            background: #f0f4ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .recap-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .recap-row:last-child {
+            border-bottom: none;
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
         }
 
         @media (max-width: 768px) {
-            .container {
-                padding: 20px 15px;
+            .app-container {
+                padding: 10px;
             }
 
-            .form-section {
-                padding: 25px 20px;
+            .nav-menu {
+                gap: 5px;
             }
 
-            .progress-steps {
-                flex-wrap: wrap;
+            .nav-item {
+                min-width: 80px;
+                padding: 10px;
             }
 
-            .step {
-                flex-basis: 33%;
-                margin-bottom: 20px;
-            }
-
-            .form-grid {
+            .article-selector,
+            .article-item {
                 grid-template-columns: 1fr;
-            }
-
-            .form-buttons {
-                flex-direction: column;
             }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="header-content">
-            <h1>📝 Créer un Devis</h1>
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="logo">⚡ DEVTECH</div>
             <a href="app-complet.html" class="back-btn">← Retour</a>
-        </div>
-    </div>
+        </header>
 
-    <div class="container">
-        <!-- Barre de progression -->
-        <div class="progress-bar">
-            <div class="progress-steps">
-                <div class="progress-line" id="progress-line"></div>
-                <div class="step active" data-step="1">
-                    <div class="step-circle">1</div>
-                    <div class="step-label">Client</div>
-                </div>
-                <div class="step" data-step="2">
-                    <div class="step-circle">2</div>
-                    <div class="step-label">Bâtiment</div>
-                </div>
-                <div class="step" data-step="3">
-                    <div class="step-circle">3</div>
-                    <div class="step-label">Pièces</div>
-                </div>
-                <div class="step" data-step="4">
-                    <div class="step-circle">4</div>
-                    <div class="step-label">Coffret</div>
-                </div>
-                <div class="step" data-step="5">
-                    <div class="step-circle">5</div>
-                    <div class="step-label">Récapitulatif</div>
-                </div>
-            </div>
-        </div>
+        <!-- NAVIGATION -->
+        <nav class="nav-menu">
+            <button class="nav-item active" data-page="client" onclick="switchPage('client')">
+                <div class="nav-icon">👤</div>
+                <div class="nav-label">Client</div>
+            </button>
+            <button class="nav-item" data-page="travaux" onclick="switchPage('travaux')">
+                <div class="nav-icon">🔨</div>
+                <div class="nav-label">Travaux</div>
+            </button>
+            <button class="nav-item" data-page="tableau" onclick="switchPage('tableau')">
+                <div class="nav-icon">⚡</div>
+                <div class="nav-label">Tableau</div>
+            </button>
+            <button class="nav-item" data-page="recapitulatif" onclick="switchPage('recapitulatif')">
+                <div class="nav-icon">💰</div>
+                <div class="nav-label">Récap</div>
+            </button>
+        </nav>
 
-        <!-- ÉTAPE 1: INFORMATIONS CLIENT -->
-        <div class="form-section active" id="step-1">
-            <h2 class="section-title">Informations Client</h2>
-            <p class="section-description">Renseignez les coordonnées de votre client</p>
-
+        <!-- PAGE CLIENT -->
+        <div id="page-client" class="page active">
+            <h2 class="section-title">👤 Informations Client</h2>
+            
             <div class="form-grid">
                 <div class="form-group">
-                    <label>Nom du client <span class="required">*</span></label>
-                    <input type="text" id="client-nom" placeholder="Ex: Dupont Jean" required>
+                    <label>Nom complet *</label>
+                    <input type="text" id="clientName" placeholder="Jean Dupont">
                 </div>
-
                 <div class="form-group">
-                    <label>Email <span class="required">*</span></label>
-                    <input type="email" id="client-email" placeholder="client@email.com" required>
+                    <label>Téléphone</label>
+                    <input type="tel" id="clientPhone" placeholder="+32 475 12 34 56">
                 </div>
-
                 <div class="form-group">
-                    <label>Téléphone <span class="required">*</span></label>
-                    <input type="tel" id="client-tel" placeholder="+32 XXX XX XX XX" required>
+                    <label>Email</label>
+                    <input type="email" id="clientEmail" placeholder="jean@email.com">
                 </div>
-
                 <div class="form-group">
-                    <label>Numéro TVA (optionnel)</label>
-                    <input type="text" id="client-tva" placeholder="BE 0XXX.XXX.XXX">
+                    <label>N° TVA (optionnel)</label>
+                    <input type="text" id="clientTVA" placeholder="BE 0123.456.789">
+                </div>
+                <div class="form-group">
+                    <label>Rue et numéro *</label>
+                    <input type="text" id="clientRue" placeholder="Rue de la Paix 123">
+                </div>
+                <div class="form-group">
+                    <label>Code postal</label>
+                    <input type="text" id="clientCP" placeholder="1000">
+                </div>
+                <div class="form-group">
+                    <label>Commune *</label>
+                    <input type="text" id="clientCommune" placeholder="Bruxelles">
                 </div>
             </div>
 
-            <div class="form-group">
-                <label>Adresse complète <span class="required">*</span></label>
-                <textarea id="client-adresse" placeholder="Rue, numéro, code postal, ville" required></textarea>
+            <h3 class="subsection-title">🏠 Type de projet</h3>
+            <div class="option-cards">
+                <label class="option-card active">
+                    <input type="radio" name="projectType" value="residential" checked>
+                    <div class="card-icon">🏡</div>
+                    <div class="card-title">Résidentiel</div>
+                    <div class="card-subtitle">Maison, appartement</div>
+                </label>
+                <label class="option-card">
+                    <input type="radio" name="projectType" value="commercial">
+                    <div class="card-icon">🏢</div>
+                    <div class="card-title">Commercial</div>
+                    <div class="card-subtitle">Bureau, magasin</div>
+                </label>
             </div>
 
-            <div class="form-buttons">
-                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
+            <h3 class="subsection-title">📅 Âge du bâtiment (détermine la TVA)</h3>
+            <div class="option-cards">
+                <label class="option-card active">
+                    <input type="radio" name="buildingAge" value="old" checked>
+                    <div class="card-icon">🏚️</div>
+                    <div class="card-title">> 10 ans</div>
+                    <div class="card-subtitle" style="color: #28a745; font-weight: 700;">TVA 6%</div>
+                </label>
+                <label class="option-card">
+                    <input type="radio" name="buildingAge" value="new">
+                    <div class="card-icon">🏗️</div>
+                    <div class="card-title">< 10 ans</div>
+                    <div class="card-subtitle" style="color: #dc3545; font-weight: 700;">TVA 21%</div>
+                </label>
             </div>
+
+            <button class="btn btn-primary btn-block" onclick="switchPage('travaux')">
+                Suivant : Travaux →
+            </button>
         </div>
 
-        <!-- ÉTAPE 2: INFORMATIONS BÂTIMENT -->
-        <div class="form-section" id="step-2">
-            <h2 class="section-title">Informations Bâtiment</h2>
-            <p class="section-description">Détails sur le chantier et calcul de la TVA</p>
+        <!-- PAGE TRAVAUX -->
+        <div id="page-travaux" class="page">
+            <h2 class="section-title">🔨 Configuration des Travaux</h2>
+            
+            <!-- PARAMÈTRES GLOBAUX -->
+            <div style="background: #f0f4ff; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                <h3>⚙️ Paramètres globaux</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label><strong>Tarif horaire</strong></label>
+                        <select id="globalTarif">
+                            <option value="50" selected>Modéré - 50€/h</option>
+                            <option value="65">Élevé - 65€/h</option>
+                            <option value="75">Urgent - 75€/h</option>
+                            <option value="90">Week-end - 90€/h</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label><strong>Déplacement</strong></label>
+                        <select id="globalDeplacement">
+                            <option value="20">20€</option>
+                            <option value="25" selected>25€</option>
+                            <option value="35">35€</option>
+                            <option value="0">Gratuit</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
 
+            <!-- CRÉATION DE PIÈCE -->
+            <div style="background: linear-gradient(135deg, #e7f3ff 0%, #d1e7ff 100%); border: 3px solid #667eea; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                <h3 style="color: #667eea; margin-bottom: 15px;">🏠 Créer une nouvelle pièce</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label><strong>Nom de la pièce</strong></label>
+                        <input type="text" id="newRoomName" placeholder="Ex: Salon, Cuisine, Chambre 1...">
+                    </div>
+                    <div class="form-group">
+                        <button class="btn btn-success" onclick="createRoom()" style="margin-top: 24px; width: 100%;">
+                            ➕ Créer cette pièce
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LISTE DES PIÈCES -->
+            <div id="roomsContainer">
+                <div class="empty-state">Créez une pièce pour commencer</div>
+            </div>
+
+            <button class="btn btn-primary btn-block" onclick="switchPage('tableau')">
+                Suivant : Tableau électrique →
+            </button>
+        </div>
+
+        <!-- PAGE TABLEAU -->
+        <div id="page-tableau" class="page">
+            <h2 class="section-title">⚡ Tableau Électrique</h2>
+            
             <div class="form-grid">
                 <div class="form-group">
-                    <label>Type de bâtiment <span class="required">*</span></label>
-                    <select id="batiment-type" onchange="updateTVA()" required>
-                        <option value="">-- Sélectionner --</option>
-                        <option value="habitation-neuf" data-tva="21">Habitation &lt; 10 ans (TVA 21%)</option>
-                        <option value="habitation-ancien" data-tva="6">Habitation &gt; 10 ans (TVA 6%)</option>
-                        <option value="appartement-neuf" data-tva="21">Appartement &lt; 10 ans (TVA 21%)</option>
-                        <option value="appartement-ancien" data-tva="6">Appartement &gt; 10 ans (TVA 6%)</option>
-                        <option value="commerce" data-tva="21">Commerce / Bureau (TVA 21%)</option>
-                        <option value="industriel" data-tva="21">Industriel (TVA 21%)</option>
+                    <label>Type de coffret</label>
+                    <select id="coffretType">
+                        <option value="">Sélectionner...</option>
+                        <option value="2R">2 rangées (26 modules) - 45€</option>
+                        <option value="3R">3 rangées (39 modules) - 55€</option>
+                        <option value="4R">4 rangées (52 modules) - 65€</option>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label>Type de travaux <span class="required">*</span></label>
-                    <select id="travaux-type" required>
-                        <option value="">-- Sélectionner --</option>
-                        <option value="neuf">Construction neuve</option>
-                        <option value="renovation">Rénovation</option>
-                        <option value="extension">Extension</option>
-                        <option value="mise-conformite">Mise en conformité</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label>Surface totale (m²)</label>
-                    <input type="number" id="batiment-surface" placeholder="Ex: 120">
-                </div>
-
-                <div class="form-group">
-                    <label>Nombre d'étages</label>
-                    <input type="number" id="batiment-etages" placeholder="Ex: 2">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label>Adresse du chantier (si différente du client)</label>
-                <textarea id="chantier-adresse" placeholder="Rue, numéro, code postal, ville"></textarea>
-            </div>
-
-            <div class="summary-card">
-                <div class="summary-row">
-                    <span>TVA applicable :</span>
-                    <strong id="tva-display">-- %</strong>
-                </div>
-            </div>
-
-            <div class="form-buttons">
-                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
-                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
-            </div>
-        </div>
-
-        <!-- ÉTAPE 3: PIÈCES ET ÉLÉMENTS -->
-        <div class="form-section" id="step-3">
-            <h2 class="section-title">Pièces et Éléments</h2>
-            <p class="section-description">Ajoutez les pièces et leurs installations électriques</p>
-
-            <div id="pieces-container" class="pieces-list">
-                <!-- Les pièces seront ajoutées dynamiquement ici -->
-            </div>
-
-            <button class="add-piece-btn" onclick="addPiece()">+ Ajouter une pièce</button>
-
-            <div class="form-buttons">
-                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
-                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
-            </div>
-        </div>
-
-        <!-- ÉTAPE 4: COFFRET ÉLECTRIQUE -->
-        <div class="form-section" id="step-4">
-            <h2 class="section-title">Coffret Électrique</h2>
-            <p class="section-description">Configuration du tableau électrique</p>
-
-            <div class="form-grid">
                 <div class="form-group">
                     <label>Disjoncteur de branchement</label>
-                    <select id="coffret-disjoncteur">
-                        <option value="40A">40A</option>
-                        <option value="63A">63A</option>
-                        <option value="80A">80A</option>
+                    <select id="disjoncteurBranchement">
+                        <option value="40A">40A - 85€</option>
+                        <option value="63A">63A - 110€</option>
+                        <option value="80A">80A - 135€</option>
                     </select>
                 </div>
-
-                <div class="form-group">
-                    <label>Nombre de rangées</label>
-                    <select id="coffret-rangees">
-                        <option value="2">2 rangées (26 modules)</option>
-                        <option value="3">3 rangées (39 modules)</option>
-                        <option value="4">4 rangées (52 modules)</option>
-                    </select>
-                </div>
-
                 <div class="form-group">
                     <label>Différentiel 40A Type AC</label>
-                    <input type="number" id="coffret-diff-ac" value="1" min="0">
+                    <input type="number" id="diffAC" value="1" min="0">
                 </div>
-
                 <div class="form-group">
                     <label>Différentiel 40A Type A</label>
-                    <input type="number" id="coffret-diff-a" value="1" min="0">
+                    <input type="number" id="diffA" value="1" min="0">
                 </div>
-
                 <div class="form-group">
                     <label>Parafoudre</label>
-                    <select id="coffret-parafoudre">
+                    <select id="parafoudre">
                         <option value="non">Non</option>
-                        <option value="oui">Oui</option>
+                        <option value="oui">Oui - 120€</option>
                     </select>
                 </div>
-
                 <div class="form-group">
                     <label>Contacteur jour/nuit</label>
-                    <input type="number" id="coffret-contacteur" value="0" min="0">
+                    <input type="number" id="contacteur" value="0" min="0">
                 </div>
             </div>
 
-            <div class="form-buttons">
-                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
-                <button class="btn btn-next" onclick="nextStep()">Suivant →</button>
-            </div>
+            <button class="btn btn-primary btn-block" onclick="switchPage('recapitulatif')">
+                Suivant : Récapitulatif →
+            </button>
         </div>
 
-        <!-- ÉTAPE 5: RÉCAPITULATIF -->
-        <div class="form-section" id="step-5">
-            <h2 class="section-title">Récapitulatif du Devis</h2>
-            <p class="section-description">Vérifiez les informations avant génération</p>
-
-            <div id="recap-content">
+        <!-- PAGE RÉCAPITULATIF -->
+        <div id="page-recapitulatif" class="page">
+            <h2 class="section-title">💰 Récapitulatif du Devis</h2>
+            
+            <div id="recapContent">
                 <!-- Le récapitulatif sera généré ici -->
             </div>
 
-            <div class="summary-card">
-                <div class="summary-row">
+            <div class="recap-card">
+                <div class="recap-row">
                     <span>Total matériel HT :</span>
-                    <span id="total-materiel-ht">0.00 €</span>
+                    <span id="totalMaterielHT">0.00 €</span>
                 </div>
-                <div class="summary-row">
+                <div class="recap-row">
                     <span>Total main d'œuvre HT :</span>
-                    <span id="total-mo-ht">0.00 €</span>
+                    <span id="totalMOHT">0.00 €</span>
                 </div>
-                <div class="summary-row">
+                <div class="recap-row">
+                    <span>Déplacement :</span>
+                    <span id="totalDeplacement">25.00 €</span>
+                </div>
+                <div class="recap-row">
                     <span>Sous-total HT :</span>
-                    <span id="sous-total-ht">0.00 €</span>
+                    <span id="sousTotalHT">0.00 €</span>
                 </div>
-                <div class="summary-row">
-                    <span>TVA (<span id="tva-percent">21</span>%) :</span>
-                    <span id="montant-tva">0.00 €</span>
+                <div class="recap-row">
+                    <span>TVA (<span id="tvaPercent">6</span>%) :</span>
+                    <span id="montantTVA">0.00 €</span>
                 </div>
-                <div class="summary-row">
+                <div class="recap-row">
                     <span>TOTAL TTC :</span>
-                    <span id="total-ttc">0.00 €</span>
+                    <span id="totalTTC">0.00 €</span>
                 </div>
             </div>
 
-            <div class="form-buttons">
-                <button class="btn btn-previous" onclick="previousStep()">← Précédent</button>
-                <button class="btn btn-generate" onclick="generateDevis()">📄 Générer le PDF</button>
-            </div>
+            <button class="btn btn-success btn-block" onclick="saveDevis()">
+                💾 Enregistrer le devis
+            </button>
         </div>
     </div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, collection, addDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, setDoc, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
@@ -630,290 +623,295 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let currentStep = 1;
         let currentUser = null;
-        let pieces = [];
+        let devisState = {
+            client: {},
+            global: { tarif: 50, tva: 0.06, deplacement: 25 },
+            rooms: [],
+            tableau: {},
+            nextRoomId: 1
+        };
 
-        onAuthStateChanged(auth, (user) => {
+        let catalogueProduits = [];
+
+        onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = 'login-v2.html';
             } else {
                 currentUser = user;
+                await loadCatalogueProduits();
             }
         });
 
-        window.nextStep = function() {
-            if (!validateCurrentStep()) return;
-            
-            if (currentStep < 5) {
-                currentStep++;
-                updateStepDisplay();
+        async function loadCatalogueProduits() {
+            try {
+                // Charger les prix personnalisés de l'utilisateur
+                const pricesDoc = await getDoc(doc(db, 'user_prices', currentUser.uid));
+                const customPrices = pricesDoc.exists() ? pricesDoc.data() : {};
+
+                // Catalogue par défaut
+                catalogueProduits = [
+                    { ref: 'PR-SIM-001', name: 'Prise simple 16A', price: customPrices['PR-SIM-001'] || 3.50, temps: 0.3, category: 'Prises' },
+                    { ref: 'PR-DOU-001', name: 'Prise double 16A', price: customPrices['PR-DOU-001'] || 5.80, temps: 0.3, category: 'Prises' },
+                    { ref: 'INT-SIM-001', name: 'Interrupteur simple', price: customPrices['INT-SIM-001'] || 2.80, temps: 0.25, category: 'Interrupteurs' },
+                    { ref: 'INT-VAE-001', name: 'Va-et-vient', price: customPrices['INT-VAE-001'] || 3.20, temps: 0.4, category: 'Interrupteurs' },
+                    { ref: 'LED-SP6-001', name: 'Spot LED 6W', price: customPrices['LED-SP6-001'] || 8.50, temps: 0.3, category: 'Éclairage' },
+                    { ref: 'LED-SP10-001', name: 'Spot LED 10W', price: customPrices['LED-SP10-001'] || 12.00, temps: 0.3, category: 'Éclairage' }
+                ];
+
+                console.log('Catalogue chargé:', catalogueProduits.length, 'produits');
+            } catch (error) {
+                console.error('Erreur chargement catalogue:', error);
             }
         }
 
-        window.previousStep = function() {
-            if (currentStep > 1) {
-                currentStep--;
-                updateStepDisplay();
+        window.switchPage = function(pageName) {
+            // Désactiver tous les nav-items et pages
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+
+            // Activer le nav-item et la page sélectionnés
+            document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
+            document.getElementById(`page-${pageName}`).classList.add('active');
+
+            // Si on va sur récap, calculer
+            if (pageName === 'recapitulatif') {
+                calculateRecap();
             }
         }
 
-        function updateStepDisplay() {
-            // Masquer toutes les sections
-            document.querySelectorAll('.form-section').forEach(section => {
-                section.classList.remove('active');
+        // Gestion des cards
+        document.querySelectorAll('.option-card').forEach(card => {
+            card.addEventListener('click', function() {
+                const parent = this.parentElement;
+                parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                this.querySelector('input[type="radio"]').checked = true;
             });
+        });
 
-            // Afficher la section actuelle
-            document.getElementById('step-' + currentStep).classList.add('active');
-
-            // Mettre à jour les étapes
-            document.querySelectorAll('.step').forEach(step => {
-                const stepNum = parseInt(step.dataset.step);
-                step.classList.remove('active', 'completed');
-                
-                if (stepNum === currentStep) {
-                    step.classList.add('active');
-                } else if (stepNum < currentStep) {
-                    step.classList.add('completed');
-                }
-            });
-
-            // Mettre à jour la barre de progression
-            const progress = ((currentStep - 1) / 4) * 100;
-            document.getElementById('progress-line').style.width = progress + '%';
-
-            // Si étape 5, générer le récapitulatif
-            if (currentStep === 5) {
-                generateRecap();
-            }
-        }
-
-        function validateCurrentStep() {
-            if (currentStep === 1) {
-                const nom = document.getElementById('client-nom').value.trim();
-                const email = document.getElementById('client-email').value.trim();
-                const tel = document.getElementById('client-tel').value.trim();
-                const adresse = document.getElementById('client-adresse').value.trim();
-
-                if (!nom || !email || !tel || !adresse) {
-                    alert('Veuillez remplir tous les champs obligatoires');
-                    return false;
-                }
+        window.createRoom = function() {
+            const roomName = document.getElementById('newRoomName').value.trim();
+            if (!roomName) {
+                alert('Veuillez entrer un nom de pièce');
+                return;
             }
 
-            if (currentStep === 2) {
-                const type = document.getElementById('batiment-type').value;
-                const travaux = document.getElementById('travaux-type').value;
-
-                if (!type || !travaux) {
-                    alert('Veuillez remplir tous les champs obligatoires');
-                    return false;
-                }
-            }
-
-            if (currentStep === 3) {
-                if (pieces.length === 0) {
-                    alert('Veuillez ajouter au moins une pièce');
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        window.updateTVA = function() {
-            const select = document.getElementById('batiment-type');
-            const selectedOption = select.options[select.selectedIndex];
-            const tva = selectedOption.dataset.tva;
-            
-            if (tva) {
-                document.getElementById('tva-display').textContent = tva + ' %';
-            }
-        }
-
-        let pieceCounter = 0;
-
-        window.addPiece = function() {
-            pieceCounter++;
-            const pieceId = 'piece-' + pieceCounter;
-            
-            const pieceHTML = `
-                <div class="piece-card" id="${pieceId}">
-                    <div class="piece-header">
-                        <h4>📍 <input type="text" placeholder="Nom de la pièce (ex: Salon)" 
-                            style="border: none; background: transparent; font-size: 18px; font-weight: bold;" 
-                            id="${pieceId}-nom"></h4>
-                        <button class="delete-piece-btn" onclick="deletePiece('${pieceId}')">🗑️ Supprimer</button>
-                    </div>
-                    
-                    <div class="form-grid" style="margin-bottom: 20px;">
-                        <div class="form-group">
-                            <label>Surface (m²)</label>
-                            <input type="number" id="${pieceId}-surface" placeholder="Ex: 20">
-                        </div>
-                        <div class="form-group">
-                            <label>Type de local</label>
-                            <select id="${pieceId}-type">
-                                <option value="sec">Sec</option>
-                                <option value="humide">Humide</option>
-                                <option value="exterieur">Extérieur</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <h5 style="margin-bottom: 15px; color: #667eea;">⚡ Prises et Interrupteurs</h5>
-                    <div class="elements-grid">
-                        <div class="element-item">
-                            <label>Prises simples 16A</label>
-                            <input type="number" id="${pieceId}-prise-simple" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Prises doubles 16A</label>
-                            <input type="number" id="${pieceId}-prise-double" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Prises spécialisées 20A</label>
-                            <input type="number" id="${pieceId}-prise-20a" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Prises spécialisées 32A</label>
-                            <input type="number" id="${pieceId}-prise-32a" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Interrupteurs simples</label>
-                            <input type="number" id="${pieceId}-int-simple" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Va-et-vient</label>
-                            <input type="number" id="${pieceId}-va-vient" value="0" min="0">
-                        </div>
-                    </div>
-
-                    <h5 style="margin: 20px 0 15px; color: #667eea;">💡 Éclairage</h5>
-                    <div class="elements-grid">
-                        <div class="element-item">
-                            <label>Spots LED encastrables</label>
-                            <input type="number" id="${pieceId}-spot-enc" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Spots LED apparents</label>
-                            <input type="number" id="${pieceId}-spot-app" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Réglettes LED</label>
-                            <input type="number" id="${pieceId}-reglette" value="0" min="0">
-                        </div>
-                        <div class="element-item">
-                            <label>Luminaires</label>
-                            <input type="number" id="${pieceId}-luminaire" value="0" min="0">
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            document.getElementById('pieces-container').insertAdjacentHTML('beforeend', pieceHTML);
-            pieces.push(pieceId);
-        }
-
-        window.deletePiece = function(pieceId) {
-            if (confirm('Supprimer cette pièce ?')) {
-                document.getElementById(pieceId).remove();
-                pieces = pieces.filter(id => id !== pieceId);
-            }
-        }
-
-        function generateRecap() {
-            // Calcul basique (à améliorer avec les vrais prix)
-            const tvaSelect = document.getElementById('batiment-type');
-            const tvaOption = tvaSelect.options[tvaSelect.selectedIndex];
-            const tvaPercent = parseInt(tvaOption.dataset.tva) || 21;
-
-            document.getElementById('tva-percent').textContent = tvaPercent;
-
-            // Calculs simplifiés pour l'instant
-            const totalMaterielHT = 2500; // À calculer
-            const totalMOHT = 1800; // À calculer
-            const sousTotalHT = totalMaterielHT + totalMOHT;
-            const montantTVA = sousTotalHT * (tvaPercent / 100);
-            const totalTTC = sousTotalHT + montantTVA;
-
-            document.getElementById('total-materiel-ht').textContent = totalMaterielHT.toFixed(2) + ' €';
-            document.getElementById('total-mo-ht').textContent = totalMOHT.toFixed(2) + ' €';
-            document.getElementById('sous-total-ht').textContent = sousTotalHT.toFixed(2) + ' €';
-            document.getElementById('montant-tva').textContent = montantTVA.toFixed(2) + ' €';
-            document.getElementById('total-ttc').textContent = totalTTC.toFixed(2) + ' €';
-
-            // Génération du récapitulatif client
-            const recapHTML = `
-                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h3>👤 Client</h3>
-                    <p><strong>Nom:</strong> ${document.getElementById('client-nom').value}</p>
-                    <p><strong>Email:</strong> ${document.getElementById('client-email').value}</p>
-                    <p><strong>Téléphone:</strong> ${document.getElementById('client-tel').value}</p>
-                </div>
-
-                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                    <h3>🏗️ Bâtiment</h3>
-                    <p><strong>Type:</strong> ${tvaSelect.options[tvaSelect.selectedIndex].text}</p>
-                    <p><strong>Travaux:</strong> ${document.getElementById('travaux-type').value}</p>
-                </div>
-
-                <div style="background: white; padding: 20px; border-radius: 10px;">
-                    <h3>📍 Pièces (${pieces.length})</h3>
-                    ${pieces.map(pieceId => {
-                        const nom = document.getElementById(pieceId + '-nom').value || 'Pièce sans nom';
-                        return `<p>• ${nom}</p>`;
-                    }).join('')}
-                </div>
-            `;
-
-            document.getElementById('recap-content').innerHTML = recapHTML;
-        }
-
-        window.generateDevis = async function() {
-            if (!currentUser) return;
-
-            const devisData = {
-                userId: currentUser.uid,
-                createdAt: new Date().toISOString(),
-                client: {
-                    nom: document.getElementById('client-nom').value,
-                    email: document.getElementById('client-email').value,
-                    telephone: document.getElementById('client-tel').value,
-                    adresse: document.getElementById('client-adresse').value,
-                    tva: document.getElementById('client-tva').value
-                },
-                batiment: {
-                    type: document.getElementById('batiment-type').value,
-                    travaux: document.getElementById('travaux-type').value,
-                    surface: document.getElementById('batiment-surface').value,
-                    etages: document.getElementById('batiment-etages').value
-                },
-                pieces: pieces.map(pieceId => ({
-                    nom: document.getElementById(pieceId + '-nom').value,
-                    surface: document.getElementById(pieceId + '-surface').value,
-                    // ... tous les éléments
-                })),
-                totaux: {
-                    materielHT: parseFloat(document.getElementById('total-materiel-ht').textContent),
-                    moHT: parseFloat(document.getElementById('total-mo-ht').textContent),
-                    totalTTC: parseFloat(document.getElementById('total-ttc').textContent)
-                }
+            const room = {
+                id: devisState.nextRoomId++,
+                name: roomName,
+                articles: []
             };
 
+            devisState.rooms.push(room);
+            document.getElementById('newRoomName').value = '';
+            renderRooms();
+        }
+
+        function renderRooms() {
+            const container = document.getElementById('roomsContainer');
+            
+            if (devisState.rooms.length === 0) {
+                container.innerHTML = '<div class="empty-state">Créez une pièce pour commencer</div>';
+                return;
+            }
+
+            container.innerHTML = devisState.rooms.map(room => `
+                <div class="room-card">
+                    <div class="room-header">
+                        <div class="room-title">📍 ${room.name}</div>
+                        <button class="delete-room-btn" onclick="deleteRoom(${room.id})">🗑️ Supprimer</button>
+                    </div>
+
+                    <div class="article-selector">
+                        <select id="article-select-${room.id}">
+                            <option value="">Sélectionner un article...</option>
+                            ${catalogueProduits.map(p => `
+                                <option value="${p.ref}">${p.name} - ${p.price.toFixed(2)}€</option>
+                            `).join('')}
+                        </select>
+                        <input type="number" id="qty-${room.id}" placeholder="Qté" value="1" min="1">
+                        <button class="add-article-btn" onclick="addArticleToRoom(${room.id})">➕ Ajouter</button>
+                    </div>
+
+                    <div class="articles-list" id="articles-${room.id}">
+                        ${room.articles.map((article, idx) => `
+                            <div class="article-item">
+                                <div>${article.name}</div>
+                                <div>${article.qty}x</div>
+                                <div>${article.price.toFixed(2)}€</div>
+                                <div>${(article.qty * article.price).toFixed(2)}€</div>
+                                <button onclick="deleteArticle(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
+                            </div>
+                        `).join('') || '<div style="text-align: center; color: #999; padding: 20px;">Aucun article ajouté</div>'}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.addArticleToRoom = function(roomId) {
+            const room = devisState.rooms.find(r => r.id === roomId);
+            if (!room) return;
+
+            const articleRef = document.getElementById(`article-select-${roomId}`).value;
+            const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
+
+            if (!articleRef) {
+                alert('Veuillez sélectionner un article');
+                return;
+            }
+
+            const produit = catalogueProduits.find(p => p.ref === articleRef);
+            if (!produit) return;
+
+            room.articles.push({
+                ref: produit.ref,
+                name: produit.name,
+                price: produit.price,
+                temps: produit.temps,
+                qty: qty
+            });
+
+            renderRooms();
+        }
+
+        window.deleteRoom = function(roomId) {
+            if (confirm('Supprimer cette pièce ?')) {
+                devisState.rooms = devisState.rooms.filter(r => r.id !== roomId);
+                renderRooms();
+            }
+        }
+
+        window.deleteArticle = function(roomId, articleIdx) {
+            const room = devisState.rooms.find(r => r.id === roomId);
+            if (room) {
+                room.articles.splice(articleIdx, 1);
+                renderRooms();
+            }
+        }
+
+        function calculateRecap() {
+            const tarif = parseFloat(document.getElementById('globalTarif').value);
+            const deplacement = parseFloat(document.getElementById('globalDeplacement').value);
+            const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
+            const tva = buildingAge === 'old' ? 0.06 : 0.21;
+
+            let totalMateriel = 0;
+            let totalTemps = 0;
+
+            devisState.rooms.forEach(room => {
+                room.articles.forEach(article => {
+                    totalMateriel += article.price * article.qty;
+                    totalTemps += article.temps * article.qty;
+                });
+            });
+
+            const totalMO = totalTemps * tarif;
+            const sousTotalHT = totalMateriel + totalMO + deplacement;
+            const montantTVA = sousTotalHT * tva;
+            const totalTTC = sousTotalHT + montantTVA;
+
+            document.getElementById('totalMaterielHT').textContent = totalMateriel.toFixed(2) + ' €';
+            document.getElementById('totalMOHT').textContent = totalMO.toFixed(2) + ' €';
+            document.getElementById('totalDeplacement').textContent = deplacement.toFixed(2) + ' €';
+            document.getElementById('sousTotalHT').textContent = sousTotalHT.toFixed(2) + ' €';
+            document.getElementById('tvaPercent').textContent = (tva * 100).toFixed(0);
+            document.getElementById('montantTVA').textContent = montantTVA.toFixed(2) + ' €';
+            document.getElementById('totalTTC').textContent = totalTTC.toFixed(2) + ' €';
+
+            // Récap content
+            document.getElementById('recapContent').innerHTML = `
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>👤 Client</h3>
+                    <p><strong>${document.getElementById('clientName').value || 'Non renseigné'}</strong></p>
+                    <p>${document.getElementById('clientEmail').value || ''}</p>
+                    <p>${document.getElementById('clientPhone').value || ''}</p>
+                </div>
+
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3>📍 Pièces (${devisState.rooms.length})</h3>
+                    ${devisState.rooms.map(room => `
+                        <p><strong>${room.name}</strong> - ${room.articles.length} articles</p>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        window.saveDevis = async function() {
+            if (!currentUser) return;
+
+            const clientData = {
+                nom: document.getElementById('clientName').value,
+                email: document.getElementById('clientEmail').value,
+                telephone: document.getElementById('clientPhone').value,
+                tva: document.getElementById('clientTVA').value,
+                adresse: `${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}`
+            };
+
+            if (!clientData.nom) {
+                alert('Veuillez renseigner au moins le nom du client');
+                return;
+            }
+
             try {
-                const docRef = await addDoc(collection(db, 'devis'), devisData);
-                alert('✅ Devis créé avec succès!\nRéférence: ' + docRef.id);
+                // Sauvegarder le client
+                const clientRef = await addDoc(collection(db, 'clients'), {
+                    userId: currentUser.uid,
+                    ...clientData,
+                    createdAt: new Date().toISOString()
+                });
+
+                // Calculer totaux
+                const tarif = parseFloat(document.getElementById('globalTarif').value);
+                const deplacement = parseFloat(document.getElementById('globalDeplacement').value);
+                const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
+                const tva = buildingAge === 'old' ? 0.06 : 0.21;
+
+                let totalMateriel = 0;
+                let totalTemps = 0;
+                devisState.rooms.forEach(room => {
+                    room.articles.forEach(article => {
+                        totalMateriel += article.price * article.qty;
+                        totalTemps += article.temps * article.qty;
+                    });
+                });
+
+                const totalMO = totalTemps * tarif;
+                const sousTotalHT = totalMateriel + totalMO + deplacement;
+                const totalTTC = sousTotalHT * (1 + tva);
+
+                // Sauvegarder le devis
+                const devisRef = await addDoc(collection(db, 'devis'), {
+                    userId: currentUser.uid,
+                    clientId: clientRef.id,
+                    client: clientData,
+                    batiment: {
+                        type: document.querySelector('input[name="projectType"]:checked').value,
+                        buildingAge: buildingAge
+                    },
+                    pieces: devisState.rooms,
+                    tableau: {
+                        coffret: document.getElementById('coffretType').value,
+                        disjoncteur: document.getElementById('disjoncteurBranchement').value
+                    },
+                    totaux: {
+                        materielHT: totalMateriel,
+                        moHT: totalMO,
+                        deplacement: deplacement,
+                        totalTTC: totalTTC
+                    },
+                    status: 'draft',
+                    createdAt: new Date().toISOString()
+                });
+
+                alert('✅ Devis créé avec succès!\nRéférence: ' + devisRef.id.substring(0, 8).toUpperCase());
                 window.location.href = 'mes-devis.html';
+
             } catch (error) {
                 console.error('Erreur:', error);
                 alert('❌ Erreur lors de la création du devis');
             }
         }
-
-        // Initialiser avec une pièce par défaut
-        addPiece();
     </script>
 </body>
 </html>
