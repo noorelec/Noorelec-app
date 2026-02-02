@@ -1289,27 +1289,348 @@
             `;
         }
 
-        window.generatePDF = function() {
+        // Générer PDF PROFESSIONNEL
+        window.generatePDF = async function() {
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-
-            doc.setFontSize(20);
-            doc.text('DEVIS ÉLECTRIQUE', 105, 20, { align: 'center' });
-
-            doc.setFontSize(12);
-            doc.text('Client: ' + document.getElementById('clientName').value, 20, 40);
-            doc.text('Téléphone: ' + document.getElementById('clientPhone').value, 20, 47);
-
-            let y = 70;
-            doc.text('Total matériel: ' + document.getElementById('totalMaterielHT').textContent, 20, y);
-            doc.text('Total MO: ' + document.getElementById('totalMOHT').textContent, 20, y + 7);
-            doc.text('TOTAL TTC: ' + document.getElementById('totalTTC').textContent, 20, y + 14);
-
-            doc.save('Devis_' + document.getElementById('clientName').value.replace(/\s/g, '_') + '.pdf');
-            alert('✅ PDF généré !');
+            
+            // Charger paramètres entreprise
+            let companyInfo = {
+                nom: 'NOORELEC',
+                slogan: "L'ART DU SAVOIR-FAIRE",
+                iban: 'BE12 3456 7890 1234',
+                ville: 'Bruxelles'
+            };
+            
+            try {
+                const settingsDoc = await getDoc(doc(db, 'settings', currentUser.uid));
+                if (settingsDoc.exists() && settingsDoc.data().company) {
+                    companyInfo = { ...companyInfo, ...settingsDoc.data().company };
+                }
+            } catch (error) {
+                console.log('Paramètres par défaut');
+            }
+            
+            const pdf = new jsPDF();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            
+            // EN-TÊTE
+            pdf.setFontSize(28);
+            pdf.setTextColor(0, 128, 96);
+            pdf.setFont(undefined, 'bold');
+            pdf.text(companyInfo.nom, 20, 25);
+            
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'normal');
+            pdf.text(companyInfo.slogan, 20, 32);
+            
+            pdf.setTextColor(0, 0, 0);
+            const today = new Date().toLocaleDateString('fr-FR');
+            pdf.text('Fait le ' + today, pageWidth - 20, 20, { align: 'right' });
+            pdf.text('à ' + companyInfo.ville, pageWidth - 20, 26, { align: 'right' });
+            
+            // CLIENT
+            let y = 45;
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('CLIENT:', 20, y);
+            
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(10);
+            y += 6;
+            pdf.text(document.getElementById('clientName').value || 'Non renseigné', 20, y);
+            const clientTVA = document.getElementById('clientTVA').value;
+            if (clientTVA) {
+                y += 5;
+                pdf.text('TVA: ' + clientTVA, 20, y);
+            }
+            y += 5;
+            pdf.text(document.getElementById('clientRue').value || '', 20, y);
+            y += 5;
+            pdf.text((document.getElementById('clientCP').value || '') + ' ' + (document.getElementById('clientCommune').value || ''), 20, y);
+            const tel = document.getElementById('clientPhone').value;
+            if (tel) {
+                y += 5;
+                pdf.text('Tél: ' + tel, 20, y);
+            }
+            const email = document.getElementById('clientEmail').value;
+            if (email) {
+                y += 5;
+                pdf.text('Email: ' + email, 20, y);
+            }
+            
+            // TITRE
+            y += 10;
+            pdf.setFontSize(14);
+            pdf.setFont(undefined, 'bold');
+            pdf.setTextColor(25, 55, 109);
+            pdf.text('DEVIS - TRAVAUX ÉLECTRIQUES', pageWidth / 2, y, { align: 'center' });
+            
+            y += 12;
+            
+            // TRAVAUX
+            pdf.setFillColor(25, 55, 109);
+            pdf.rect(20, y, pageWidth - 40, 8, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(11);
+            pdf.text('TRAVAUX', 22, y + 5.5);
+            pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+            
+            y += 10;
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(9);
+            
+            devisState.rooms.forEach(room => {
+                if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                
+                pdf.setTextColor(255, 102, 0);
+                pdf.setFont(undefined, 'bold');
+                pdf.text(room.name, 22, y);
+                y += 5;
+                
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFont(undefined, 'normal');
+                
+                room.articles.forEach(art => {
+                    if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                    pdf.text(`  ${art.qty}x ${art.name}`, 24, y);
+                    pdf.text(art.total.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                });
+                
+                if (room.cabling.internal.cost > 0) {
+                    pdf.text('  Câblage entre points', 24, y);
+                    pdf.text(room.cabling.internal.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (room.cabling.tableau.cost > 0) {
+                    pdf.text('  Câblage au tableau', 24, y);
+                    pdf.text(room.cabling.tableau.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                y += 3;
+            });
+            
+            // TABLEAU
+            y += 5;
+            if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
+            
+            pdf.setFillColor(25, 55, 109);
+            pdf.rect(20, y, pageWidth - 40, 8, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('TABLEAU ÉLECTRIQUE', 22, y + 5.5);
+            pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+            
+            y += 10;
+            pdf.setTextColor(51, 122, 183);
+            pdf.text('Tableau 1', 22, y);
+            y += 5;
+            
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(9);
+            
+            const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
+            if (coffret > 0) {
+                pdf.text('  Coffret', 24, y);
+                pdf.text(coffret.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            
+            const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
+            if (diffAC > 0) {
+                pdf.text(`  ${diffAC}x Différentiel 40A Type AC`, 24, y);
+                pdf.text((diffAC * 35).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            
+            const diffA = parseInt(document.getElementById('diffA').value) || 0;
+            if (diffA > 0) {
+                pdf.text(`  ${diffA}x Différentiel 40A Type A`, 24, y);
+                pdf.text((diffA * 45).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            
+            const parafoudre = document.getElementById('parafoudre').value === 'oui' ? 120 : 0;
+            if (parafoudre > 0) {
+                pdf.text('  1x Parafoudre', 24, y);
+                pdf.text('120.00€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            
+            const contacteur = parseInt(document.getElementById('contacteur').value) || 0;
+            if (contacteur > 0) {
+                pdf.text(`  ${contacteur}x Contacteur jour/nuit`, 24, y);
+                pdf.text((contacteur * 28).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            
+            // SERVICES
+            y += 5;
+            const hasServices = document.getElementById('service-conformite').checked || 
+                               document.getElementById('service-diagnostic').checked ||
+                               document.getElementById('service-certificat').checked ||
+                               document.getElementById('service-schema').checked;
+            
+            if (hasServices) {
+                if (y > pageHeight - 40) { pdf.addPage(); y = 20; }
+                
+                pdf.setFillColor(25, 55, 109);
+                pdf.rect(20, y, pageWidth - 40, 8, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(11);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('SERVICES ADMINISTRATIFS', 22, y + 5.5);
+                pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+                
+                y += 10;
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFont(undefined, 'normal');
+                pdf.setFontSize(9);
+                
+                if (document.getElementById('service-conformite').checked) {
+                    pdf.text('  Mise en conformité', 24, y);
+                    pdf.text('450.00€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (document.getElementById('service-diagnostic').checked) {
+                    pdf.text('  Diagnostic électrique', 24, y);
+                    pdf.text('180.00€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (document.getElementById('service-certificat').checked) {
+                    pdf.text('  Certificat conformité', 24, y);
+                    pdf.text('80.00€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (document.getElementById('service-schema').checked) {
+                    pdf.text('  Schéma électrique', 24, y);
+                    pdf.text('120.00€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+            }
+            
+            // TOTAUX
+            y += 10;
+            if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
+            
+            const totalMateriel = parseFloat(document.getElementById('totalMaterielHT').textContent);
+            const totalMO = parseFloat(document.getElementById('totalMOHT').textContent);
+            const totalServices = parseFloat(document.getElementById('totalServicesHT').textContent);
+            const deplacement = parseFloat(document.getElementById('totalDeplacement').textContent);
+            let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
+            
+            const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
+            const tva = buildingAge === 'old' ? 0.06 : 0.21;
+            const tvaPercent = (tva * 100).toFixed(0);
+            
+            const ristourneEnabled = document.getElementById('ristourneEnabled').checked;
+            let montantRistourne = 0;
+            let pourcent = 0;
+            let delai = 0;
+            
+            if (ristourneEnabled) {
+                pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 10;
+                delai = parseInt(document.getElementById('ristourneDelai').value) || 30;
+                montantRistourne = sousTotalHT * (pourcent / 100);
+            }
+            
+            const totalAvantRistourne = sousTotalHT;
+            const sousTotalApresRistourne = sousTotalHT - montantRistourne;
+            const montantTVA = sousTotalApresRistourne * tva;
+            const totalTTC = sousTotalApresRistourne + montantTVA;
+            
+            // Cadre bleu totaux
+            pdf.setFillColor(25, 55, 109);
+            pdf.rect(20, y, pageWidth - 40, ristourneEnabled ? 42 : 35, 'F');
+            
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(10);
+            pdf.setFont(undefined, 'bold');
+            
+            pdf.text('SOUS-TOTAL HT:', 25, y + 8);
+            pdf.text(totalAvantRistourne.toFixed(2) + '€', pageWidth - 25, y + 8, { align: 'right' });
+            
+            let yOffset = 8;
+            if (ristourneEnabled) {
+                pdf.setTextColor(144, 238, 144);
+                pdf.text(`Ristourne ${pourcent}% (valable ${delai}j):`, 25, y + 15);
+                pdf.text('-' + montantRistourne.toFixed(2) + '€', pageWidth - 25, y + 15, { align: 'right' });
+                pdf.setTextColor(255, 255, 255);
+                pdf.text('TOTAL HT:', 25, y + 22);
+                pdf.text(sousTotalApresRistourne.toFixed(2) + '€', pageWidth - 25, y + 22, { align: 'right' });
+                yOffset = 15;
+            }
+            
+            pdf.text(`TVA (${tvaPercent}%):`, 25, y + yOffset + 15);
+            pdf.text(montantTVA.toFixed(2) + '€', pageWidth - 25, y + yOffset + 15, { align: 'right' });
+            
+            pdf.setFontSize(14);
+            pdf.text('TOTAL TTC:', 25, y + yOffset + 28);
+            pdf.text(totalTTC.toFixed(2) + '€', pageWidth - 25, y + yOffset + 28, { align: 'right' });
+            
+            y += ristourneEnabled ? 47 : 40;
+            
+            // RISTOURNE texte
+            if (ristourneEnabled) {
+                y += 5;
+                pdf.setFillColor(255, 243, 205);
+                pdf.rect(20, y, pageWidth - 40, 20, 'F');
+                
+                pdf.setTextColor(133, 100, 4);
+                pdf.setFontSize(11);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('💰 OFFRE SPÉCIALE', 25, y + 7);
+                
+                pdf.setFont(undefined, 'normal');
+                pdf.setFontSize(9);
+                pdf.text(`Une ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€) est applicable pendant ${delai} jours.`, 25, y + 13);
+                pdf.text(`Montant après ristourne : ${totalTTC.toFixed(2)}€`, 25, y + 18);
+                
+                y += 25;
+            }
+            
+            // PAIEMENT
+            y += 5;
+            if (y > pageHeight - 50) { pdf.addPage(); y = 20; }
+            
+            pdf.setFillColor(240, 240, 240);
+            pdf.rect(20, y, pageWidth - 40, 40, 'F');
+            
+            pdf.setTextColor(25, 55, 109);
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('📋 MODALITÉS DE PAIEMENT', 25, y + 7);
+            
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(9);
+            
+            const acompte30 = totalTTC * 0.30;
+            const debut40 = totalTTC * 0.40;
+            const fin30 = totalTTC * 0.30;
+            
+            pdf.text(`- Acompte de 30% à la signature : ${acompte30.toFixed(2)}€`, 25, y + 14);
+            pdf.text(`- 40% au début des travaux : ${debut40.toFixed(2)}€`, 25, y + 19);
+            pdf.text(`- 30% à la fin des travaux : ${fin30.toFixed(2)}€`, 25, y + 24);
+            
+            pdf.setFont(undefined, 'bold');
+            pdf.text(`IBAN : ${companyInfo.iban}`, 25, y + 31);
+            
+            const devisNum = 'DEVIS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+            pdf.text(`Communication : ${devisNum}`, 25, y + 36);
+            
+            // Télécharger
+            const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
+            pdf.save(fileName);
+            
+            alert('✅ PDF généré avec succès !');
         }
 
-        window.saveDevis = async function() {
+        // Sauvegarder le devis
             if (!currentUser) return;
 
             const clientData = {

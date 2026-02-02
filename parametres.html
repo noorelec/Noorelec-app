@@ -236,6 +236,60 @@
         </div>
 
         <div id="settings-content" style="display: none;">
+            <!-- INFORMATIONS ENTREPRISE -->
+            <div class="settings-section" style="background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border: 3px solid #00897b;">
+                <div class="section-header" style="border-bottom-color: #00897b;">
+                    <div class="section-title" style="color: #00897b;">
+                        <span>🏢</span>
+                        <span>Informations Entreprise</span>
+                    </div>
+                    <button class="btn btn-success" onclick="saveCompany()">💾 Sauvegarder</button>
+                </div>
+
+                <div class="info-box" style="background: white; border-left-color: #00897b;">
+                    <strong style="color: #00897b;">💡 Info :</strong> Ces informations apparaîtront sur vos devis PDF.
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nom de l'entreprise *</label>
+                        <input type="text" id="company-nom" placeholder="NOORELEC">
+                        <span class="help-text">Apparaît en haut du devis</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Slogan</label>
+                        <input type="text" id="company-slogan" placeholder="L'ART DU SAVOIR-FAIRE">
+                        <span class="help-text">Sous le nom de l'entreprise</span>
+                    </div>
+                    <div class="form-group">
+                        <label>IBAN (compte bancaire) *</label>
+                        <input type="text" id="company-iban" placeholder="BE12 3456 7890 1234">
+                        <span class="help-text">Pour les paiements</span>
+                    </div>
+                    <div class="form-group">
+                        <label>N° TVA entreprise</label>
+                        <input type="text" id="company-tva" placeholder="BE 0123.456.789">
+                    </div>
+                    <div class="form-group">
+                        <label>Adresse complète</label>
+                        <input type="text" id="company-adresse" placeholder="Rue Example 123, 1000 Bruxelles">
+                    </div>
+                    <div class="form-group">
+                        <label>Téléphone</label>
+                        <input type="text" id="company-telephone" placeholder="+32 475 12 34 56">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="company-email" placeholder="contact@entreprise.be">
+                    </div>
+                    <div class="form-group">
+                        <label>Ville (pour "Fait à...")</label>
+                        <input type="text" id="company-ville" placeholder="Bruxelles">
+                        <span class="help-text">Apparaît en haut du devis</span>
+                    </div>
+                </div>
+            </div>
+
             <!-- FACTEURS MULTIPLICATEURS -->
             <div class="settings-section">
                 <div class="section-header">
@@ -438,6 +492,16 @@
 
         // Valeurs par défaut
         const DEFAULT_SETTINGS = {
+            company: {
+                nom: 'NOORELEC',
+                slogan: "L'ART DU SAVOIR-FAIRE",
+                iban: 'BE12 3456 7890 1234',
+                tva: 'BE 0123.456.789',
+                adresse: 'Rue Example 123, 1000 Bruxelles',
+                telephone: '+32 475 12 34 56',
+                email: 'contact@noorelec.be',
+                ville: 'Bruxelles'
+            },
             facteurs: {
                 installation: {
                     apparent: 1.0,
@@ -497,6 +561,15 @@
                 }
 
                 // Remplir les champs avec vérification
+                document.getElementById('company-nom').value = settings.company?.nom || 'NOORELEC';
+                document.getElementById('company-slogan').value = settings.company?.slogan || "L'ART DU SAVOIR-FAIRE";
+                document.getElementById('company-iban').value = settings.company?.iban || 'BE12 3456 7890 1234';
+                document.getElementById('company-tva').value = settings.company?.tva || 'BE 0123.456.789';
+                document.getElementById('company-adresse').value = settings.company?.adresse || 'Rue Example 123, 1000 Bruxelles';
+                document.getElementById('company-telephone').value = settings.company?.telephone || '+32 475 12 34 56';
+                document.getElementById('company-email').value = settings.company?.email || 'contact@noorelec.be';
+                document.getElementById('company-ville').value = settings.company?.ville || 'Bruxelles';
+
                 document.getElementById('facteur-apparent').value = settings.facteurs.installation?.apparent || 1.0;
                 document.getElementById('facteur-encastre').value = settings.facteurs.installation?.encastre || 1.5;
                 document.getElementById('facteur-faux-plafond').value = settings.facteurs.installation?.fauxPlafond || 1.3;
@@ -529,6 +602,27 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('settings-content').style.display = 'block';
                 alert('Paramètres chargés avec valeurs par défaut');
+            }
+        }
+
+        window.saveCompany = async function() {
+            try {
+                const company = {
+                    nom: document.getElementById('company-nom').value,
+                    slogan: document.getElementById('company-slogan').value,
+                    iban: document.getElementById('company-iban').value,
+                    tva: document.getElementById('company-tva').value,
+                    adresse: document.getElementById('company-adresse').value,
+                    telephone: document.getElementById('company-telephone').value,
+                    email: document.getElementById('company-email').value,
+                    ville: document.getElementById('company-ville').value
+                };
+
+                await setDoc(doc(db, 'settings', currentUser.uid), { company }, { merge: true });
+                showSuccess();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la sauvegarde');
             }
         }
 
