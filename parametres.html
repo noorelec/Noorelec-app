@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTech - Paramètres</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 40px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .section-title {
+            font-size: 22px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group input {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .btn {
+            padding: 14px 28px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #dc2626;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            border-left: 4px solid #10b981;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideDown 0.3s;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .info-box {
+            background: #e0e7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .info-box strong {
+            color: #667eea;
+        }
+
+        .loader {
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <h1>⚙️ Paramètres de l'application</h1>
+            <a href="app.html" class="back-btn">← Retour</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="success-message" id="success-message">
+            ✅ Paramètres sauvegardés avec succès !
+        </div>
+
+        <div id="loading" class="loader">
+            <div class="spinner"></div>
+            <p>Chargement des paramètres...</p>
+        </div>
+
+        <div id="settings-content" style="display: none;">
+            <!-- FACTEURS MULTIPLICATEURS -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span>🔧</span>
+                        <span>Facteurs Multiplicateurs</span>
+                    </div>
+                    <button class="btn btn-success" onclick="saveFacteurs()">💾 Sauvegarder</button>
+                </div>
+
+                <div class="info-box">
+                    <strong>💡 Info :</strong> Ces facteurs multiplient le temps de main d'œuvre selon le type d'installation.
+                </div>
+
+                <h3 style="margin-bottom: 15px; color: #667eea;">Type d'installation</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>📦 Apparent (multiplicateur)</label>
+                        <input type="number" id="facteur-apparent" step="0.1" min="0.5" max="3">
+                        <span class="help-text">Par défaut : 1.0 (aucun surplus)</span>
+                    </div>
+                    <div class="form-group">
+                        <label>🔨 Encastré (multiplicateur)</label>
+                        <input type="number" id="facteur-encastre" step="0.1" min="0.5" max="3">
+                        <span class="help-text">Par défaut : 1.5 (+50% de temps)</span>
+                    </div>
+                    <div class="form-group">
+                        <label>⬆️ Faux plafond (multiplicateur)</label>
+                        <input type="number" id="facteur-faux-plafond" step="0.1" min="0.5" max="3">
+                        <span class="help-text">Par défaut : 1.3 (+30% de temps)</span>
+                    </div>
+                </div>
+
+                <h3 style="margin: 25px 0 15px; color: #667eea;">Type de circuit</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>🔄 Circuit existant (multiplicateur)</label>
+                        <input type="number" id="facteur-existant" step="0.1" min="0.5" max="3">
+                        <span class="help-text">Par défaut : 1.0 (aucun surplus)</span>
+                    </div>
+                    <div class="form-group">
+                        <label>⚡ Nouvelle ligne (multiplicateur)</label>
+                        <input type="number" id="facteur-nouvelle-ligne" step="0.1" min="0.5" max="3">
+                        <span class="help-text">Par défaut : 1.2 (+20% de temps)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERVICES ADMINISTRATIFS -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span>📋</span>
+                        <span>Services Administratifs</span>
+                    </div>
+                    <button class="btn btn-success" onclick="saveServices()">💾 Sauvegarder</button>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Mise en conformité (€)</label>
+                        <input type="number" id="service-conformite-price" step="10" min="0">
+                        <span class="help-text">Par défaut : 450€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Diagnostic électrique (€)</label>
+                        <input type="number" id="service-diagnostic-price" step="10" min="0">
+                        <span class="help-text">Par défaut : 180€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Certificat de conformité (€)</label>
+                        <input type="number" id="service-certificat-price" step="10" min="0">
+                        <span class="help-text">Par défaut : 80€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Schéma électrique (€)</label>
+                        <input type="number" id="service-schema-price" step="10" min="0">
+                        <span class="help-text">Par défaut : 120€</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLEAU ÉLECTRIQUE -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span>⚡</span>
+                        <span>Tableau Électrique</span>
+                    </div>
+                    <button class="btn btn-success" onclick="saveTableau()">💾 Sauvegarder</button>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Coffret 2R (26 modules) - €</label>
+                        <input type="number" id="coffret-2r-price" step="5" min="0">
+                        <span class="help-text">Par défaut : 45€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Coffret 3R (39 modules) - €</label>
+                        <input type="number" id="coffret-3r-price" step="5" min="0">
+                        <span class="help-text">Par défaut : 55€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Coffret 4R (52 modules) - €</label>
+                        <input type="number" id="coffret-4r-price" step="5" min="0">
+                        <span class="help-text">Par défaut : 65€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Différentiel 40A Type AC - €</label>
+                        <input type="number" id="diff-ac-price" step="5" min="0">
+                        <span class="help-text">Par défaut : 35€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Différentiel 40A Type A - €</label>
+                        <input type="number" id="diff-a-price" step="5" min="0">
+                        <span class="help-text">Par défaut : 45€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Parafoudre - €</label>
+                        <input type="number" id="parafoudre-price" step="10" min="0">
+                        <span class="help-text">Par défaut : 120€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Contacteur jour/nuit - €</label>
+                        <input type="number" id="contacteur-price" step="5" min="0">
+                        <span class="help-text">Par défaut : 28€</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TARIFS PAR DÉFAUT -->
+            <div class="settings-section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span>💰</span>
+                        <span>Tarifs par défaut</span>
+                    </div>
+                    <button class="btn btn-success" onclick="saveTarifs()">💾 Sauvegarder</button>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Tarif horaire standard (€/h)</label>
+                        <input type="number" id="tarif-standard" step="5" min="0">
+                        <span class="help-text">Par défaut : 50€/h</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Déplacement standard (€)</label>
+                        <input type="number" id="deplacement-standard" step="5" min="0">
+                        <span class="help-text">Par défaut : 25€</span>
+                    </div>
+                    <div class="form-group">
+                        <label>Rebouchage par défaut (€)</label>
+                        <input type="number" id="rebouchage-default" step="5" min="0">
+                        <span class="help-text">Par défaut : 20€</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RÉINITIALISER -->
+            <div class="settings-section" style="background: #fff3cd; border: 2px solid #ffc107;">
+                <div class="section-header" style="border-bottom-color: #ffc107;">
+                    <div class="section-title" style="color: #856404;">
+                        <span>⚠️</span>
+                        <span>Zone de réinitialisation</span>
+                    </div>
+                </div>
+
+                <div class="info-box" style="background: #fff; border-left-color: #ffc107;">
+                    <strong style="color: #dc3545;">⚠️ Attention :</strong> Cette action réinitialisera TOUS les paramètres aux valeurs par défaut.
+                </div>
+
+                <button class="btn btn-reset" onclick="resetAllSettings()">
+                    🔄 Réinitialiser tous les paramètres
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
+            authDomain: "devtech-20997.firebaseapp.com",
+            projectId: "devtech-20997",
+            storageBucket: "devtech-20997.firebasestorage.app",
+            messagingSenderId: "95961701207",
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+
+        // Valeurs par défaut
+        const DEFAULT_SETTINGS = {
+            facteurs: {
+                installation: {
+                    apparent: 1.0,
+                    encastre: 1.5,
+                    fauxPlafond: 1.3
+                },
+                circuit: {
+                    existant: 1.0,
+                    nouvelleLigne: 1.2
+                }
+            },
+            services: {
+                conformite: 450,
+                diagnostic: 180,
+                certificat: 80,
+                schema: 120
+            },
+            tableau: {
+                coffret2r: 45,
+                coffret3r: 55,
+                coffret4r: 65,
+                diffAC: 35,
+                diffA: 45,
+                parafoudre: 120,
+                contacteur: 28
+            },
+            tarifs: {
+                standard: 50,
+                deplacement: 25,
+                rebouchage: 20
+            }
+        };
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user || !user.emailVerified) {
+                window.location.href = 'login.html';
+            } else {
+                currentUser = user;
+                await loadSettings();
+            }
+        });
+
+        async function loadSettings() {
+            try {
+                const settingsDoc = await getDoc(doc(db, 'settings', currentUser.uid));
+                
+                let settings = DEFAULT_SETTINGS;
+                if (settingsDoc.exists()) {
+                    settings = { ...DEFAULT_SETTINGS, ...settingsDoc.data() };
+                }
+
+                // Remplir les champs
+                document.getElementById('facteur-apparent').value = settings.facteurs.installation.apparent;
+                document.getElementById('facteur-encastre').value = settings.facteurs.installation.encastre;
+                document.getElementById('facteur-faux-plafond').value = settings.facteurs.installation.fauxPlafond;
+                document.getElementById('facteur-existant').value = settings.facteurs.circuit.existant;
+                document.getElementById('facteur-nouvelle-ligne').value = settings.facteurs.circuit.nouvelleLigne;
+
+                document.getElementById('service-conformite-price').value = settings.services.conformite;
+                document.getElementById('service-diagnostic-price').value = settings.services.diagnostic;
+                document.getElementById('service-certificat-price').value = settings.services.certificat;
+                document.getElementById('service-schema-price').value = settings.services.schema;
+
+                document.getElementById('coffret-2r-price').value = settings.tableau.coffret2r;
+                document.getElementById('coffret-3r-price').value = settings.tableau.coffret3r;
+                document.getElementById('coffret-4r-price').value = settings.tableau.coffret4r;
+                document.getElementById('diff-ac-price').value = settings.tableau.diffAC;
+                document.getElementById('diff-a-price').value = settings.tableau.diffA;
+                document.getElementById('parafoudre-price').value = settings.tableau.parafoudre;
+                document.getElementById('contacteur-price').value = settings.tableau.contacteur;
+
+                document.getElementById('tarif-standard').value = settings.tarifs.standard;
+                document.getElementById('deplacement-standard').value = settings.tarifs.deplacement;
+                document.getElementById('rebouchage-default').value = settings.tarifs.rebouchage;
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('settings-content').style.display = 'block';
+
+            } catch (error) {
+                console.error('Erreur chargement:', error);
+                alert('Erreur lors du chargement des paramètres');
+            }
+        }
+
+        window.saveFacteurs = async function() {
+            try {
+                const facteurs = {
+                    installation: {
+                        apparent: parseFloat(document.getElementById('facteur-apparent').value),
+                        encastre: parseFloat(document.getElementById('facteur-encastre').value),
+                        fauxPlafond: parseFloat(document.getElementById('facteur-faux-plafond').value)
+                    },
+                    circuit: {
+                        existant: parseFloat(document.getElementById('facteur-existant').value),
+                        nouvelleLigne: parseFloat(document.getElementById('facteur-nouvelle-ligne').value)
+                    }
+                };
+
+                await setDoc(doc(db, 'settings', currentUser.uid), { facteurs }, { merge: true });
+                showSuccess();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        window.saveServices = async function() {
+            try {
+                const services = {
+                    conformite: parseFloat(document.getElementById('service-conformite-price').value),
+                    diagnostic: parseFloat(document.getElementById('service-diagnostic-price').value),
+                    certificat: parseFloat(document.getElementById('service-certificat-price').value),
+                    schema: parseFloat(document.getElementById('service-schema-price').value)
+                };
+
+                await setDoc(doc(db, 'settings', currentUser.uid), { services }, { merge: true });
+                showSuccess();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        window.saveTableau = async function() {
+            try {
+                const tableau = {
+                    coffret2r: parseFloat(document.getElementById('coffret-2r-price').value),
+                    coffret3r: parseFloat(document.getElementById('coffret-3r-price').value),
+                    coffret4r: parseFloat(document.getElementById('coffret-4r-price').value),
+                    diffAC: parseFloat(document.getElementById('diff-ac-price').value),
+                    diffA: parseFloat(document.getElementById('diff-a-price').value),
+                    parafoudre: parseFloat(document.getElementById('parafoudre-price').value),
+                    contacteur: parseFloat(document.getElementById('contacteur-price').value)
+                };
+
+                await setDoc(doc(db, 'settings', currentUser.uid), { tableau }, { merge: true });
+                showSuccess();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        window.saveTarifs = async function() {
+            try {
+                const tarifs = {
+                    standard: parseFloat(document.getElementById('tarif-standard').value),
+                    deplacement: parseFloat(document.getElementById('deplacement-standard').value),
+                    rebouchage: parseFloat(document.getElementById('rebouchage-default').value)
+                };
+
+                await setDoc(doc(db, 'settings', currentUser.uid), { tarifs }, { merge: true });
+                showSuccess();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la sauvegarde');
+            }
+        }
+
+        window.resetAllSettings = async function() {
+            if (!confirm('⚠️ Réinitialiser TOUS les paramètres ?\n\nCette action est irréversible !')) return;
+
+            try {
+                await setDoc(doc(db, 'settings', currentUser.uid), DEFAULT_SETTINGS);
+                alert('✅ Paramètres réinitialisés !');
+                location.reload();
+            } catch (error) {
+                console.error('Erreur:', error);
+                alert('Erreur lors de la réinitialisation');
+            }
+        }
+
+        function showSuccess() {
+            const msg = document.getElementById('success-message');
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

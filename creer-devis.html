@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevTech - Créer un Devis</title>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
+    
+    <!-- PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -149,7 +150,7 @@
 
         .option-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
             margin-bottom: 25px;
         }
@@ -158,10 +159,11 @@
             background: #f8f9fa;
             border: 3px solid #e0e0e0;
             border-radius: 12px;
-            padding: 20px;
+            padding: 15px;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
+            position: relative;
         }
 
         .option-card:hover {
@@ -180,18 +182,18 @@
         }
 
         .card-icon {
-            font-size: 40px;
-            margin-bottom: 10px;
+            font-size: 32px;
+            margin-bottom: 8px;
         }
 
         .card-title {
             font-weight: bold;
-            font-size: 18px;
+            font-size: 14px;
             margin-bottom: 5px;
         }
 
         .card-subtitle {
-            font-size: 14px;
+            font-size: 12px;
             color: #666;
         }
 
@@ -384,6 +386,27 @@
             display: block;
         }
 
+        .checkbox-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 12px;
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-toggle:hover {
+            border-color: #667eea;
+        }
+
+        .checkbox-toggle.active {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
         @media (max-width: 768px) {
             .app-container {
                 padding: 10px;
@@ -396,6 +419,10 @@
             .nav-item {
                 min-width: 80px;
                 padding: 10px;
+            }
+
+            .option-cards {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -410,23 +437,23 @@
 
         <!-- NAVIGATION -->
         <nav class="nav-menu">
-            <button class="nav-item active" data-page="client" onclick="switchPage('client')">
+            <button class="nav-item active" data-page="client">
                 <div class="nav-icon">👤</div>
                 <div class="nav-label">Client</div>
             </button>
-            <button class="nav-item" data-page="travaux" onclick="switchPage('travaux')">
+            <button class="nav-item" data-page="travaux">
                 <div class="nav-icon">🔨</div>
                 <div class="nav-label">Travaux</div>
             </button>
-            <button class="nav-item" data-page="tableau" onclick="switchPage('tableau')">
+            <button class="nav-item" data-page="tableau">
                 <div class="nav-icon">⚡</div>
                 <div class="nav-label">Tableau</div>
             </button>
-            <button class="nav-item" data-page="administratif" onclick="switchPage('administratif')">
+            <button class="nav-item" data-page="administratif">
                 <div class="nav-icon">📋</div>
                 <div class="nav-label">Admin</div>
             </button>
-            <button class="nav-item" data-page="recapitulatif" onclick="switchPage('recapitulatif')">
+            <button class="nav-item" data-page="recapitulatif">
                 <div class="nav-icon">💰</div>
                 <div class="nav-label">Récap</div>
             </button>
@@ -468,23 +495,21 @@
             </div>
 
             <h3 style="margin: 25px 0 15px; color: #667eea;">🏠 Type de projet</h3>
-            <div class="option-cards">
+            <div class="option-cards" id="projectTypeCards">
                 <label class="option-card active">
                     <input type="radio" name="projectType" value="residential" checked>
                     <div class="card-icon">🏡</div>
                     <div class="card-title">Résidentiel</div>
-                    <div class="card-subtitle">Maison, appartement</div>
                 </label>
                 <label class="option-card">
                     <input type="radio" name="projectType" value="commercial">
                     <div class="card-icon">🏢</div>
                     <div class="card-title">Commercial</div>
-                    <div class="card-subtitle">Bureau, magasin</div>
                 </label>
             </div>
 
             <h3 style="margin: 25px 0 15px; color: #667eea;">📅 Âge du bâtiment</h3>
-            <div class="option-cards">
+            <div class="option-cards" id="buildingAgeCards">
                 <label class="option-card active">
                     <input type="radio" name="buildingAge" value="old" checked>
                     <div class="card-icon">🏚️</div>
@@ -508,7 +533,6 @@
         <div id="page-travaux" class="page">
             <h2 class="section-title">🔨 Configuration des Travaux</h2>
             
-            <!-- PARAMÈTRES GLOBAUX -->
             <div style="background: #f0f4ff; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
                 <h3>⚙️ Paramètres globaux</h3>
                 <div class="form-grid">
@@ -533,7 +557,6 @@
                 </div>
             </div>
 
-            <!-- CRÉATION DE PIÈCE -->
             <div style="background: linear-gradient(135deg, #e7f3ff 0%, #d1e7ff 100%); border: 3px solid #667eea; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
                 <h3 style="color: #667eea; margin-bottom: 15px;">🏠 Créer une nouvelle pièce</h3>
                 <div class="form-grid">
@@ -549,7 +572,6 @@
                 </div>
             </div>
 
-            <!-- LISTE DES PIÈCES -->
             <div id="roomsContainer">
                 <div class="empty-state">Créez une pièce pour commencer</div>
             </div>
@@ -656,17 +678,14 @@
         <div id="page-recapitulatif" class="page">
             <h2 class="section-title">💰 Récapitulatif du Devis</h2>
             
-            <div id="recapContent">
-                <!-- Le récapitulatif sera généré ici -->
-            </div>
+            <div id="recapContent"></div>
 
-            <!-- RISTOURNE -->
             <div style="background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 3px solid #ffc107; padding: 20px; border-radius: 12px; margin: 20px 0;">
                 <h3 style="color: #856404; margin-bottom: 15px;">💰 Ristourne (optionnel)</h3>
                 
-                <label class="option-card" style="display: flex; align-items: center; padding: 15px;">
-                    <input type="checkbox" id="ristourneEnabled" onchange="toggleRistourne()">
-                    <span style="margin-left: 10px; font-weight: bold;">Appliquer une ristourne</span>
+                <label class="checkbox-toggle" onclick="toggleRistourne()" id="ristourneToggle">
+                    <input type="checkbox" id="ristourneEnabled">
+                    <span style="font-weight: bold;">Appliquer une ristourne</span>
                 </label>
 
                 <div id="ristourneOptions" style="display: none; margin-top: 15px;">
@@ -719,14 +738,15 @@
             </div>
 
             <div style="display: flex; gap: 15px;">
-    <button class="btn btn-primary btn-block" onclick="generatePDF()">
-        📄 Générer PDF
-    </button>
-    <button class="btn btn-success btn-block" onclick="saveDevis()">
-        💾 Enregistrer le devis
-    </button>
-</div>
-
+                <button class="btn btn-primary btn-block" onclick="generatePDF()">
+                    📄 Générer PDF
+                </button>
+                <button class="btn btn-success btn-block" onclick="saveDevis()">
+                    💾 Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
@@ -739,8 +759,7 @@
             projectId: "devtech-20997",
             storageBucket: "devtech-20997.firebasestorage.app",
             messagingSenderId: "95961701207",
-            appId: "1:95961701207:web:25ac1e97f292c58797bc12",
-            measurementId: "G-7S08YYT59J"
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -748,28 +767,20 @@
         const db = getFirestore(app);
 
         let currentUser = null;
+        let catalogueProduits = [];
         
-        // Catalogue par défaut (chargé immédiatement)
-        let catalogueProduits = [];  // Sera chargé depuis Firestore
-        
-        // État du devis
         const devisState = {
             client: {},
             global: { tarif: 50, tva: 0.06, deplacement: 25 },
             rooms: [],
-            tableau: {},
-            services: {},
-            ristourne: { enabled: false, pourcent: 10, delai: 30 },
             nextRoomId: 1
         };
 
-        // Facteurs multiplicateurs
         const FACTEURS = {
             installation: {
                 'apparent': 1.0,
                 'encastre': 1.5,
-                'faux-plafond': 1.3,
-                'sous-plancher': 1.4
+                'faux-plafond': 1.3
             },
             circuit: {
                 'existant': 1.0,
@@ -777,7 +788,6 @@
             }
         };
 
-        // Vérifier authentification
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = 'login.html';
@@ -787,80 +797,63 @@
             }
         });
 
-        // Charger le catalogue
         async function loadCatalogue() {
-    try {
-        const snapshot = await getDocs(collection(db, 'products'));
-        
-        catalogueProduits = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        }));
-
-        console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
-        
-        if (devisState.rooms.length > 0) {
-            renderRooms();
+            try {
+                const snapshot = await getDocs(collection(db, 'products'));
+                catalogueProduits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
+            } catch (error) {
+                console.error('❌ Erreur:', error);
+                alert('Erreur de chargement du catalogue.');
+            }
         }
-    } catch (error) {
-        console.error('❌ Erreur:', error);
-        alert('Erreur de chargement du catalogue.');
-    }
-}
 
-
-        // Navigation entre pages
+        // Navigation
         window.switchPage = function(pageName) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
             document.getElementById('page-' + pageName).classList.add('active');
             document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
-
-            if (pageName === 'recapitulatif') {
-                calculateRecap();
-            }
+            if (pageName === 'recapitulatif') calculateRecap();
         }
 
-        // Gestion des cards
+        // Gestion des cards radio/checkbox
         document.querySelectorAll('.option-card').forEach(card => {
-            card.addEventListener('click', function() {
+            card.addEventListener('click', function(e) {
+                if (e.target.tagName === 'INPUT') return;
                 const parent = this.parentElement;
-                parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
-                this.classList.add('active');
                 const input = this.querySelector('input[type="radio"], input[type="checkbox"]');
-                if (input) input.checked = true;
+                
+                if (input.type === 'radio') {
+                    parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+                    this.classList.add('active');
+                    input.checked = true;
+                } else {
+                    this.classList.toggle('active');
+                    input.checked = !input.checked;
+                }
             });
         });
 
-        // Créer une pièce
+        // Créer pièce
         window.createRoom = function() {
             const roomName = document.getElementById('newRoomName').value.trim();
-            if (!roomName) {
-                alert('Veuillez entrer un nom de pièce');
-                return;
-            }
-
-            const room = {
+            if (!roomName) { alert('Nom de pièce requis'); return; }
+            
+            devisState.rooms.push({
                 id: devisState.nextRoomId++,
                 name: roomName,
                 articles: [],
-                cabling: {
-                    internal: { type: '', length: 0, cost: 0 },
-                    tableau: { type: '', length: 0, cost: 0 }
-                },
+                cabling: { internal: { cost: 0 }, tableau: { cost: 0 } },
                 collapsed: false
-            };
-
-            devisState.rooms.push(room);
+            });
+            
             document.getElementById('newRoomName').value = '';
             renderRooms();
         }
 
-        // Afficher les pièces
         function renderRooms() {
             const container = document.getElementById('roomsContainer');
-            
             if (devisState.rooms.length === 0) {
                 container.innerHTML = '<div class="empty-state">Créez une pièce pour commencer</div>';
                 return;
@@ -879,7 +872,6 @@
                         </div>
 
                         <div class="collapsed-content ${room.collapsed ? '' : 'active'}">
-                            <!-- FORMULAIRE AJOUT ARTICLE -->
                             <div class="article-form">
                                 <h4>➕ Ajouter un article</h4>
                                 
@@ -898,47 +890,49 @@
                                 </div>
 
                                 <h4 style="margin: 15px 0 10px;">🔧 Type d'installation</h4>
-                                <div class="option-cards">
-                                    <label class="option-card active">
+                                <div class="option-cards" id="install-cards-${room.id}">
+                                    <label class="option-card active" onclick="selectInstall(${room.id}, 'apparent', event)">
                                         <input type="radio" name="install-${room.id}" value="apparent" checked>
                                         <div class="card-icon">📦</div>
                                         <div class="card-title">Apparent</div>
+                                        <div class="card-subtitle">×1.0</div>
                                     </label>
-                                    <label class="option-card">
+                                    <label class="option-card" onclick="selectInstall(${room.id}, 'encastre', event)">
                                         <input type="radio" name="install-${room.id}" value="encastre">
                                         <div class="card-icon">🔨</div>
                                         <div class="card-title">Encastré</div>
+                                        <div class="card-subtitle">×1.5</div>
                                     </label>
-                                    <label class="option-card">
+                                    <label class="option-card" onclick="selectInstall(${room.id}, 'faux-plafond', event)">
                                         <input type="radio" name="install-${room.id}" value="faux-plafond">
                                         <div class="card-icon">⬆️</div>
                                         <div class="card-title">Faux plafond</div>
+                                        <div class="card-subtitle">×1.3</div>
                                     </label>
                                 </div>
 
                                 <h4 style="margin: 15px 0 10px;">⚡ Type de circuit</h4>
-                                <div class="option-cards">
-                                    <label class="option-card active">
+                                <div class="option-cards" id="circuit-cards-${room.id}">
+                                    <label class="option-card active" onclick="selectCircuit(${room.id}, 'existant', event)">
                                         <input type="radio" name="circuit-${room.id}" value="existant" checked>
                                         <div class="card-icon">🔄</div>
                                         <div class="card-title">Existant</div>
+                                        <div class="card-subtitle">×1.0</div>
                                     </label>
-                                    <label class="option-card">
+                                    <label class="option-card" onclick="selectCircuit(${room.id}, 'nouvelle-ligne', event)">
                                         <input type="radio" name="circuit-${room.id}" value="nouvelle-ligne">
                                         <div class="card-icon">⚡</div>
                                         <div class="card-title">Nouvelle ligne</div>
+                                        <div class="card-subtitle">×1.2</div>
                                     </label>
                                 </div>
 
-                                <h4 style="margin: 15px 0 10px;">🏗️ Options</h4>
-                                <label class="option-card" style="display: flex; align-items: center; padding: 15px;">
+                                <h4 style="margin: 15px 0 10px;">🏗️ Rebouchage</h4>
+                                <label class="checkbox-toggle" onclick="toggleRebouchage(${room.id}, event)" id="rebouchage-toggle-${room.id}">
                                     <input type="checkbox" id="rebouchage-${room.id}">
-                                    <div style="margin-left: 10px;">
-                                        <strong>Rebouchage et finition</strong>
-                                        <div style="margin-top: 5px;">
-                                            Prix: <input type="number" id="rebouchage-price-${room.id}" value="20" style="width: 80px; padding: 5px; border: 2px solid #e0e0e0; border-radius: 5px;"> €
-                                        </div>
-                                    </div>
+                                    <span>Rebouchage et finition</span>
+                                    <input type="number" id="rebouchage-price-${room.id}" value="20" onclick="event.stopPropagation()" style="width: 80px; padding: 5px; margin-left: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                                    <span>€</span>
                                 </label>
 
                                 <div style="display: flex; gap: 10px; margin-top: 20px;">
@@ -952,7 +946,6 @@
                                 </div>
                             </div>
 
-                            <!-- LISTE ARTICLES -->
                             <div class="articles-list">
                                 ${room.articles.map((art, idx) => `
                                     <div class="article-item">
@@ -968,10 +961,9 @@
                                             <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${art.total.toFixed(2)}€</strong></div>
                                         </div>
                                     </div>
-                                `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article ajouté</div>'}
+                                `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article</div>'}
                             </div>
 
-                            <!-- CÂBLAGE -->
                             <div class="cabling-section">
                                 <h4>🔗 Câblage</h4>
                                 <div class="form-grid">
@@ -1000,14 +992,14 @@
                                         <input type="number" id="cable-tableau-length-${room.id}" value="0" min="0">
                                     </div>
                                 </div>
-                                <button class="btn btn-info" onclick="calculateCabling(${room.id})" style="width: 100%;">Calculer le câblage</button>
+                                <button class="btn btn-info" onclick="calculateCabling(${room.id})" style="width: 100%;">Calculer câblage</button>
                                 
                                 ${(room.cabling.internal.cost > 0 || room.cabling.tableau.cost > 0) ? `
-                                    <div style="background: white; margin-top: 15px; padding: 15px; border-radius: 8px; border: 2px solid #3b82f6;">
-                                        <h4 style="margin-bottom: 10px;">💰 Coûts câblage</h4>
-                                        ${room.cabling.internal.cost > 0 ? `<div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>Câblage interne:</span><strong>${room.cabling.internal.cost.toFixed(2)}€</strong></div>` : ''}
-                                        ${room.cabling.tableau.cost > 0 ? `<div style="display: flex; justify-content: space-between; padding: 5px 0;"><span>Câblage → Tableau:</span><strong>${room.cabling.tableau.cost.toFixed(2)}€</strong></div>` : ''}
-                                        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-top: 2px solid #3b82f6; margin-top: 10px;"><strong>Total câblage:</strong><strong style="color: #3b82f6;">${(room.cabling.internal.cost + room.cabling.tableau.cost).toFixed(2)}€</strong></div>
+                                    <div style="background: white; margin-top: 15px; padding: 15px; border-radius: 8px;">
+                                        <h4>💰 Coûts câblage</h4>
+                                        ${room.cabling.internal.cost > 0 ? `<div style="display: flex; justify-content: space-between;"><span>Interne:</span><strong>${room.cabling.internal.cost.toFixed(2)}€</strong></div>` : ''}
+                                        ${room.cabling.tableau.cost > 0 ? `<div style="display: flex; justify-content: space-between;"><span>Tableau:</span><strong>${room.cabling.tableau.cost.toFixed(2)}€</strong></div>` : ''}
+                                        <div style="display: flex; justify-content: space-between; border-top: 2px solid #3b82f6; padding-top: 10px; margin-top: 10px;"><strong>Total:</strong><strong style="color: #3b82f6;">${(room.cabling.internal.cost + room.cabling.tableau.cost).toFixed(2)}€</strong></div>
                                     </div>
                                 ` : ''}
                             </div>
@@ -1017,7 +1009,6 @@
             }).join('');
         }
 
-        // Générer options du catalogue
         function generateCatalogueOptions() {
             const categories = {};
             catalogueProduits.forEach(p => {
@@ -1036,7 +1027,30 @@
             return html;
         }
 
-        // Plier/déplier pièce
+        window.selectInstall = function(roomId, type, e) {
+            e.stopPropagation();
+            const parent = document.getElementById(`install-cards-${roomId}`);
+            parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            e.currentTarget.querySelector('input').checked = true;
+        }
+
+        window.selectCircuit = function(roomId, type, e) {
+            e.stopPropagation();
+            const parent = document.getElementById(`circuit-cards-${roomId}`);
+            parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+            e.currentTarget.classList.add('active');
+            e.currentTarget.querySelector('input').checked = true;
+        }
+
+        window.toggleRebouchage = function(roomId, e) {
+            e.stopPropagation();
+            const toggle = document.getElementById(`rebouchage-toggle-${roomId}`);
+            const checkbox = document.getElementById(`rebouchage-${roomId}`);
+            checkbox.checked = !checkbox.checked;
+            toggle.classList.toggle('active', checkbox.checked);
+        }
+
         window.toggleRoom = function(roomId) {
             const room = devisState.rooms.find(r => r.id === roomId);
             if (room) {
@@ -1045,24 +1059,18 @@
             }
         }
 
-        // Calculer article
         window.calculateArticle = function(roomId) {
             const ref = document.getElementById(`article-${roomId}`).value;
-            const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
-            
-            if (!ref) {
-                alert('Sélectionnez un article');
-                return;
-            }
+            if (!ref) { alert('Sélectionnez un article'); return; }
 
             const product = catalogueProduits.find(p => p.ref === ref);
             if (!product) return;
 
+            const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
             const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
             const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
             const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
             const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
-
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             
             const materiel = product.price * qty;
@@ -1079,15 +1087,17 @@
             const total = (prixUnitaire * qty) + rebouchageTotal;
 
             let degressif = '';
-            if (qty >= 10) degressif = '<span style="color: #28a745;">(-25% dégressif!)</span>';
-            else if (qty >= 5) degressif = '<span style="color: #28a745;">(-15% dégressif!)</span>';
+            if (qty >= 10) degressif = '<span style="color: #28a745;">(-25%)</span>';
+            else if (qty >= 5) degressif = '<span style="color: #28a745;">(-15%)</span>';
 
             document.getElementById(`preview-${roomId}`).style.display = 'block';
             document.getElementById(`preview-content-${roomId}`).innerHTML = `
                 <div><strong>${qty}x ${product.name}</strong> ${degressif}</div>
-                <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
                     <div>Matériel:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
                     <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${temps.toFixed(2)}h)</div>
+                    <div>Facteur install:</div><div style="text-align: right;">×${FACTEURS.installation[installType]}</div>
+                    <div>Facteur circuit:</div><div style="text-align: right;">×${FACTEURS.circuit[circuitType]}</div>
                     ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
                     <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
                     <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${total.toFixed(2)}€</strong></div>
@@ -1095,27 +1105,21 @@
             `;
         }
 
-        // Ajouter article
         window.addArticle = function(roomId) {
             const room = devisState.rooms.find(r => r.id === roomId);
             if (!room) return;
 
             const ref = document.getElementById(`article-${roomId}`).value;
-            const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
-            
-            if (!ref) {
-                alert('Sélectionnez un article');
-                return;
-            }
+            if (!ref) { alert('Sélectionnez un article'); return; }
 
             const product = catalogueProduits.find(p => p.ref === ref);
             if (!product) return;
 
+            const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
             const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
             const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
             const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
             const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
-
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             
             const materiel = product.price * qty;
@@ -1144,58 +1148,53 @@
             renderRooms();
         }
 
-        // Supprimer article
         window.deleteArticle = function(roomId, idx) {
             const room = devisState.rooms.find(r => r.id === roomId);
-            if (room && confirm('Supprimer cet article ?')) {
+            if (room && confirm('Supprimer ?')) {
                 room.articles.splice(idx, 1);
                 renderRooms();
             }
         }
 
-        // Calculer câblage
         window.calculateCabling = function(roomId) {
             const room = devisState.rooms.find(r => r.id === roomId);
             if (!room) return;
 
             const tarif = parseFloat(document.getElementById('globalTarif').value);
-            let totalCabling = 0;
+            let total = 0;
             let details = '';
 
-            // Câblage interne
             const internalSelect = document.getElementById(`cable-internal-${roomId}`).value;
             const internalLength = parseFloat(document.getElementById(`cable-internal-length-${roomId}`).value) || 0;
             if (internalSelect && internalLength > 0) {
                 const [price, temps] = internalSelect.split(',').map(parseFloat);
                 room.cabling.internal.cost = internalLength * (price + (temps * tarif));
-                totalCabling += room.cabling.internal.cost;
-                details += `Câblage interne: ${internalLength}m = ${room.cabling.internal.cost.toFixed(2)}€\n`;
+                total += room.cabling.internal.cost;
+                details += `Interne: ${internalLength}m = ${room.cabling.internal.cost.toFixed(2)}€\n`;
             } else {
                 room.cabling.internal.cost = 0;
             }
 
-            // Câblage tableau
             const tableauSelect = document.getElementById(`cable-tableau-${roomId}`).value;
             const tableauLength = parseFloat(document.getElementById(`cable-tableau-length-${roomId}`).value) || 0;
             if (tableauSelect && tableauLength > 0) {
                 const [price, temps] = tableauSelect.split(',').map(parseFloat);
                 room.cabling.tableau.cost = tableauLength * (price + (temps * tarif));
-                totalCabling += room.cabling.tableau.cost;
-                details += `Câblage → Tableau: ${tableauLength}m = ${room.cabling.tableau.cost.toFixed(2)}€\n`;
+                total += room.cabling.tableau.cost;
+                details += `Tableau: ${tableauLength}m = ${room.cabling.tableau.cost.toFixed(2)}€\n`;
             } else {
                 room.cabling.tableau.cost = 0;
             }
 
-            if (totalCabling > 0) {
-                alert(`✅ Câblage calculé !\n\n${details}\nTotal câblage: ${totalCabling.toFixed(2)}€`);
+            if (total > 0) {
+                alert(`✅ Câblage calculé!\n\n${details}\nTotal: ${total.toFixed(2)}€`);
             } else {
-                alert('⚠️ Veuillez renseigner le type de câble et la longueur');
+                alert('⚠️ Renseignez type et longueur');
             }
             
             renderRooms();
         }
 
-        // Supprimer pièce
         window.deleteRoom = function(roomId) {
             if (confirm('Supprimer cette pièce ?')) {
                 devisState.rooms = devisState.rooms.filter(r => r.id !== roomId);
@@ -1203,14 +1202,13 @@
             }
         }
 
-        // Toggle ristourne
         window.toggleRistourne = function() {
             const enabled = document.getElementById('ristourneEnabled').checked;
+            const toggle = document.getElementById('ristourneToggle');
+            toggle.classList.toggle('active', enabled);
             document.getElementById('ristourneOptions').style.display = enabled ? 'block' : 'none';
-            devisState.ristourne.enabled = enabled;
         }
 
-        // Calculer récapitulatif
         function calculateRecap() {
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             const deplacement = parseFloat(document.getElementById('globalDeplacement').value);
@@ -1220,7 +1218,6 @@
             let totalMateriel = 0;
             let totalMO = 0;
 
-            // Articles des pièces
             devisState.rooms.forEach(room => {
                 room.articles.forEach(art => {
                     totalMateriel += art.materiel + art.rebouchage;
@@ -1229,7 +1226,6 @@
                 totalMateriel += room.cabling.internal.cost + room.cabling.tableau.cost;
             });
 
-            // Tableau
             const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
             const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
             const diffA = parseInt(document.getElementById('diffA').value) || 0;
@@ -1238,7 +1234,6 @@
 
             totalMateriel += coffret + (diffAC * 35) + (diffA * 45) + parafoudre + contacteur;
 
-            // Services
             let totalServices = 0;
             if (document.getElementById('service-conformite').checked) totalServices += 450;
             if (document.getElementById('service-diagnostic').checked) totalServices += 180;
@@ -1247,9 +1242,8 @@
 
             let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
 
-            // Ristourne
             let montantRistourne = 0;
-            if (devisState.ristourne.enabled) {
+            if (document.getElementById('ristourneEnabled').checked) {
                 const pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 10;
                 montantRistourne = sousTotalHT * (pourcent / 100);
                 sousTotalHT -= montantRistourne;
@@ -1273,7 +1267,6 @@
             document.getElementById('montantTVA').textContent = montantTVA.toFixed(2) + ' €';
             document.getElementById('totalTTC').textContent = totalTTC.toFixed(2) + ' €';
 
-            // Récap détaillé
             document.getElementById('recapContent').innerHTML = `
                 <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
                     <h3>👤 Client</h3>
@@ -1287,28 +1280,25 @@
             `;
         }
 
-        // Sauvegarder le devis
-window.generatePDF = function() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+        window.generatePDF = function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
 
-    doc.setFontSize(20);
-    doc.text('DEVIS ÉLECTRIQUE', 105, 20, { align: 'center' });
+            doc.setFontSize(20);
+            doc.text('DEVIS ÉLECTRIQUE', 105, 20, { align: 'center' });
 
-    doc.setFontSize(12);
-    doc.text('Client: ' + document.getElementById('clientName').value, 20, 40);
-    doc.text('Téléphone: ' + document.getElementById('clientPhone').value, 20, 47);
+            doc.setFontSize(12);
+            doc.text('Client: ' + document.getElementById('clientName').value, 20, 40);
+            doc.text('Téléphone: ' + document.getElementById('clientPhone').value, 20, 47);
 
-    let y = 70;
-    doc.text('Total matériel: ' + document.getElementById('totalMaterielHT').textContent, 20, y);
-    doc.text('Total MO: ' + document.getElementById('totalMOHT').textContent, 20, y + 7);
-    doc.text('TOTAL TTC: ' + document.getElementById('totalTTC').textContent, 20, y + 14);
+            let y = 70;
+            doc.text('Total matériel: ' + document.getElementById('totalMaterielHT').textContent, 20, y);
+            doc.text('Total MO: ' + document.getElementById('totalMOHT').textContent, 20, y + 7);
+            doc.text('TOTAL TTC: ' + document.getElementById('totalTTC').textContent, 20, y + 14);
 
-    const fileName = 'Devis_' + document.getElementById('clientName').value.replace(/\s/g, '_') + '.pdf';
-    doc.save(fileName);
-
-    alert('✅ PDF généré !');
-}
+            doc.save('Devis_' + document.getElementById('clientName').value.replace(/\s/g, '_') + '.pdf');
+            alert('✅ PDF généré !');
+        }
 
         window.saveDevis = async function() {
             if (!currentUser) return;
@@ -1322,19 +1312,17 @@ window.generatePDF = function() {
             };
 
             if (!clientData.nom) {
-                alert('Veuillez renseigner le nom du client');
+                alert('Nom client requis');
                 return;
             }
 
             try {
-                // Sauvegarder le client
                 const clientRef = await addDoc(collection(db, 'clients'), {
                     userId: currentUser.uid,
                     ...clientData,
                     createdAt: new Date().toISOString()
                 });
 
-                // Sauvegarder le devis
                 const devisRef = await addDoc(collection(db, 'devis'), {
                     userId: currentUser.uid,
                     clientId: clientRef.id,
@@ -1359,7 +1347,7 @@ window.generatePDF = function() {
 
             } catch (error) {
                 console.error('Erreur:', error);
-                alert('❌ Erreur lors de la sauvegarde');
+                alert('❌ Erreur sauvegarde');
             }
         }
     </script>
