@@ -553,7 +553,11 @@
                     const data = settingsDoc.data();
                     // Merger intelligemment les données
                     settings = {
-                        facteurs: { ...DEFAULT_SETTINGS.facteurs, ...(data.facteurs || {}) },
+                        company: { ...DEFAULT_SETTINGS.company, ...(data.company || {}) },
+                        facteurs: { 
+                            installation: { ...DEFAULT_SETTINGS.facteurs.installation, ...(data.facteurs?.installation || {}) },
+                            circuit: { ...DEFAULT_SETTINGS.facteurs.circuit, ...(data.facteurs?.circuit || {}) }
+                        },
                         services: { ...DEFAULT_SETTINGS.services, ...(data.services || {}) },
                         tableau: { ...DEFAULT_SETTINGS.tableau, ...(data.tableau || {}) },
                         tarifs: { ...DEFAULT_SETTINGS.tarifs, ...(data.tarifs || {}) }
