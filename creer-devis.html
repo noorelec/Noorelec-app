@@ -437,23 +437,23 @@
 
         <!-- NAVIGATION -->
         <nav class="nav-menu">
-            <button class="nav-item active" data-page="client">
+            <button class="nav-item active" data-page="client" onclick="switchPage('client')">
                 <div class="nav-icon">👤</div>
                 <div class="nav-label">Client</div>
             </button>
-            <button class="nav-item" data-page="travaux">
+            <button class="nav-item" data-page="travaux" onclick="switchPage('travaux')">
                 <div class="nav-icon">🔨</div>
                 <div class="nav-label">Travaux</div>
             </button>
-            <button class="nav-item" data-page="tableau">
+            <button class="nav-item" data-page="tableau" onclick="switchPage('tableau')">
                 <div class="nav-icon">⚡</div>
                 <div class="nav-label">Tableau</div>
             </button>
-            <button class="nav-item" data-page="administratif">
+            <button class="nav-item" data-page="administratif" onclick="switchPage('administratif')">
                 <div class="nav-icon">📋</div>
                 <div class="nav-label">Admin</div>
             </button>
-            <button class="nav-item" data-page="recapitulatif">
+            <button class="nav-item" data-page="recapitulatif" onclick="switchPage('recapitulatif')">
                 <div class="nav-icon">💰</div>
                 <div class="nav-label">Récap</div>
             </button>
@@ -1044,11 +1044,20 @@
         }
 
         window.toggleRebouchage = function(roomId, e) {
-            e.stopPropagation();
+            if (e) e.stopPropagation();
             const toggle = document.getElementById(`rebouchage-toggle-${roomId}`);
             const checkbox = document.getElementById(`rebouchage-${roomId}`);
-            checkbox.checked = !checkbox.checked;
-            toggle.classList.toggle('active', checkbox.checked);
+            
+            // Inverser l'état actuel
+            const newState = !checkbox.checked;
+            checkbox.checked = newState;
+            
+            // Mettre à jour le visuel
+            if (newState) {
+                toggle.classList.add('active');
+            } else {
+                toggle.classList.remove('active');
+            }
         }
 
         window.toggleRoom = function(roomId) {

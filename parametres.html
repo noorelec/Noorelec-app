@@ -486,39 +486,49 @@
                 
                 let settings = DEFAULT_SETTINGS;
                 if (settingsDoc.exists()) {
-                    settings = { ...DEFAULT_SETTINGS, ...settingsDoc.data() };
+                    const data = settingsDoc.data();
+                    // Merger intelligemment les données
+                    settings = {
+                        facteurs: { ...DEFAULT_SETTINGS.facteurs, ...(data.facteurs || {}) },
+                        services: { ...DEFAULT_SETTINGS.services, ...(data.services || {}) },
+                        tableau: { ...DEFAULT_SETTINGS.tableau, ...(data.tableau || {}) },
+                        tarifs: { ...DEFAULT_SETTINGS.tarifs, ...(data.tarifs || {}) }
+                    };
                 }
 
-                // Remplir les champs
-                document.getElementById('facteur-apparent').value = settings.facteurs.installation.apparent;
-                document.getElementById('facteur-encastre').value = settings.facteurs.installation.encastre;
-                document.getElementById('facteur-faux-plafond').value = settings.facteurs.installation.fauxPlafond;
-                document.getElementById('facteur-existant').value = settings.facteurs.circuit.existant;
-                document.getElementById('facteur-nouvelle-ligne').value = settings.facteurs.circuit.nouvelleLigne;
+                // Remplir les champs avec vérification
+                document.getElementById('facteur-apparent').value = settings.facteurs.installation?.apparent || 1.0;
+                document.getElementById('facteur-encastre').value = settings.facteurs.installation?.encastre || 1.5;
+                document.getElementById('facteur-faux-plafond').value = settings.facteurs.installation?.fauxPlafond || 1.3;
+                document.getElementById('facteur-existant').value = settings.facteurs.circuit?.existant || 1.0;
+                document.getElementById('facteur-nouvelle-ligne').value = settings.facteurs.circuit?.nouvelleLigne || 1.2;
 
-                document.getElementById('service-conformite-price').value = settings.services.conformite;
-                document.getElementById('service-diagnostic-price').value = settings.services.diagnostic;
-                document.getElementById('service-certificat-price').value = settings.services.certificat;
-                document.getElementById('service-schema-price').value = settings.services.schema;
+                document.getElementById('service-conformite-price').value = settings.services?.conformite || 450;
+                document.getElementById('service-diagnostic-price').value = settings.services?.diagnostic || 180;
+                document.getElementById('service-certificat-price').value = settings.services?.certificat || 80;
+                document.getElementById('service-schema-price').value = settings.services?.schema || 120;
 
-                document.getElementById('coffret-2r-price').value = settings.tableau.coffret2r;
-                document.getElementById('coffret-3r-price').value = settings.tableau.coffret3r;
-                document.getElementById('coffret-4r-price').value = settings.tableau.coffret4r;
-                document.getElementById('diff-ac-price').value = settings.tableau.diffAC;
-                document.getElementById('diff-a-price').value = settings.tableau.diffA;
-                document.getElementById('parafoudre-price').value = settings.tableau.parafoudre;
-                document.getElementById('contacteur-price').value = settings.tableau.contacteur;
+                document.getElementById('coffret-2r-price').value = settings.tableau?.coffret2r || 45;
+                document.getElementById('coffret-3r-price').value = settings.tableau?.coffret3r || 55;
+                document.getElementById('coffret-4r-price').value = settings.tableau?.coffret4r || 65;
+                document.getElementById('diff-ac-price').value = settings.tableau?.diffAC || 35;
+                document.getElementById('diff-a-price').value = settings.tableau?.diffA || 45;
+                document.getElementById('parafoudre-price').value = settings.tableau?.parafoudre || 120;
+                document.getElementById('contacteur-price').value = settings.tableau?.contacteur || 28;
 
-                document.getElementById('tarif-standard').value = settings.tarifs.standard;
-                document.getElementById('deplacement-standard').value = settings.tarifs.deplacement;
-                document.getElementById('rebouchage-default').value = settings.tarifs.rebouchage;
+                document.getElementById('tarif-standard').value = settings.tarifs?.standard || 50;
+                document.getElementById('deplacement-standard').value = settings.tarifs?.deplacement || 25;
+                document.getElementById('rebouchage-default').value = settings.tarifs?.rebouchage || 20;
 
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('settings-content').style.display = 'block';
 
             } catch (error) {
                 console.error('Erreur chargement:', error);
-                alert('Erreur lors du chargement des paramètres');
+                // Afficher quand même avec valeurs par défaut
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('settings-content').style.display = 'block';
+                alert('Paramètres chargés avec valeurs par défaut');
             }
         }
 
