@@ -1599,11 +1599,11 @@
             
             y += 33;
             
-            // RISTOURNE texte avec date
+            // RISTOURNE texte avec date ET prix final
             if (ristourneEnabled) {
                 y += 5;
                 pdf.setFillColor(255, 243, 205);
-                pdf.rect(20, y, pageWidth - 40, 22, 'F');
+                pdf.rect(20, y, pageWidth - 40, 27, 'F');
                 
                 pdf.setTextColor(133, 100, 4);
                 pdf.setFontSize(11);
@@ -1623,7 +1623,11 @@
                 pdf.text(`Ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€) valable ${delai} jours`, 25, y + 13);
                 pdf.text(`(jusqu'au ${dateLimiteStr} inclus)`, 25, y + 18);
                 
-                y += 27;
+                pdf.setFont(undefined, 'bold');
+                pdf.setFontSize(11);
+                pdf.text(`Prix final apres ristourne : ${totalAvecRistourne.toFixed(2)}€`, 25, y + 24);
+                
+                y += 32;
             }
             
             // PAIEMENT
@@ -1662,7 +1666,10 @@
             const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
             pdf.save(fileName);
             
-            alert('✅ PDF généré avec succès !');
+            // Sauvegarder dans Firestore
+            await saveDevis();
+            
+            alert('✅ PDF généré et devis sauvegardé !');
         }
 
         // Sauvegarder le devis
