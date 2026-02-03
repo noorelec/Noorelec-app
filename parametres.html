@@ -267,6 +267,11 @@
                         <span class="help-text">Pour les paiements</span>
                     </div>
                     <div class="form-group">
+                        <label>Titulaire du compte *</label>
+                        <input type="text" id="company-titulaire" placeholder="Noorelec SA ou Youssef Mehdi">
+                        <span class="help-text">Nom qui apparaît sur le compte bancaire</span>
+                    </div>
+                    <div class="form-group">
                         <label>N° TVA entreprise</label>
                         <input type="text" id="company-tva" placeholder="BE 0123.456.789">
                     </div>
@@ -496,6 +501,7 @@
                 nom: 'NOORELEC',
                 slogan: "L'ART DU SAVOIR-FAIRE",
                 iban: 'BE12 3456 7890 1234',
+                titulaire: 'Noorelec SA',
                 tva: 'BE 0123.456.789',
                 adresse: 'Rue Example 123, 1000 Bruxelles',
                 telephone: '+32 475 12 34 56',
@@ -568,6 +574,7 @@
                 document.getElementById('company-nom').value = settings.company?.nom || 'NOORELEC';
                 document.getElementById('company-slogan').value = settings.company?.slogan || "L'ART DU SAVOIR-FAIRE";
                 document.getElementById('company-iban').value = settings.company?.iban || 'BE12 3456 7890 1234';
+                document.getElementById('company-titulaire').value = settings.company?.titulaire || 'Noorelec SA';
                 document.getElementById('company-tva').value = settings.company?.tva || 'BE 0123.456.789';
                 document.getElementById('company-adresse').value = settings.company?.adresse || 'Rue Example 123, 1000 Bruxelles';
                 document.getElementById('company-telephone').value = settings.company?.telephone || '+32 475 12 34 56';
@@ -615,6 +622,7 @@
                     nom: document.getElementById('company-nom').value,
                     slogan: document.getElementById('company-slogan').value,
                     iban: document.getElementById('company-iban').value,
+                    titulaire: document.getElementById('company-titulaire').value,
                     tva: document.getElementById('company-tva').value,
                     adresse: document.getElementById('company-adresse').value,
                     telephone: document.getElementById('company-telephone').value,

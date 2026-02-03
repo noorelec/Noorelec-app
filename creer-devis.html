@@ -1319,6 +1319,7 @@
                 nom: 'NOORELEC',
                 slogan: "L'ART DU SAVOIR-FAIRE",
                 iban: 'BE12 3456 7890 1234',
+                titulaire: 'Noorelec SA',
                 ville: 'Bruxelles'
             };
             
@@ -1402,35 +1403,44 @@
             pdf.setFont(undefined, 'normal');
             pdf.setFontSize(9);
             
+            // Liste des pièces avec sections claires
             devisState.rooms.forEach(room => {
                 if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
                 
-                pdf.setTextColor(255, 102, 0);
+                // Nom de la pièce avec fond bleu clair
+                pdf.setFillColor(220, 230, 255);
+                pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
+                pdf.setTextColor(25, 55, 109);
                 pdf.setFont(undefined, 'bold');
-                pdf.text(room.name, 22, y);
-                y += 5;
+                pdf.setFontSize(10);
+                pdf.text(room.name, 24, y + 2);
+                y += 8;
                 
                 pdf.setTextColor(0, 0, 0);
                 pdf.setFont(undefined, 'normal');
+                pdf.setFontSize(9);
                 
+                // Articles
                 room.articles.forEach(art => {
                     if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
-                    pdf.text(`  ${art.qty}x ${art.name}`, 24, y);
+                    pdf.text(`  ${art.qty}x ${art.name}`, 26, y);
                     pdf.text(art.total.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 });
                 
+                // Câblage
                 if (room.cabling.internal.cost > 0) {
-                    pdf.text('  Câblage entre points', 24, y);
+                    pdf.text(`  Cablage entre points (${room.cabling.internal.length || 0}m)`, 26, y);
                     pdf.text(room.cabling.internal.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 }
                 if (room.cabling.tableau.cost > 0) {
-                    pdf.text('  Câblage au tableau', 24, y);
+                    pdf.text(`  Cablage au tableau (${room.cabling.tableau.length || 0}m)`, 26, y);
                     pdf.text(room.cabling.tableau.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 }
-                y += 3;
+                
+                y += 4;
             });
             
             // TABLEAU
@@ -1446,9 +1456,14 @@
             pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
             
             y += 10;
-            pdf.setTextColor(51, 122, 183);
-            pdf.text('Tableau 1', 22, y);
-            y += 5;
+            pdf.setTextColor(220, 230, 255);
+            pdf.setFillColor(220, 230, 255);
+            pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
+            pdf.setTextColor(25, 55, 109);
+            pdf.setFont(undefined, 'bold');
+            pdf.setFontSize(10);
+            pdf.text('Tableau 1', 24, y + 2);
+            y += 8;
             
             pdf.setTextColor(0, 0, 0);
             pdf.setFont(undefined, 'normal');
@@ -1564,9 +1579,9 @@
             const montantTVA = sousTotalApresRistourne * tva;
             const totalTTC = sousTotalApresRistourne + montantTVA;
             
-            // Cadre bleu totaux
+            // Cadre bleu totaux SANS ristourne
             pdf.setFillColor(25, 55, 109);
-            pdf.rect(20, y, pageWidth - 40, ristourneEnabled ? 42 : 35, 'F');
+            pdf.rect(20, y, pageWidth - 40, 28, 'F');
             
             pdf.setTextColor(255, 255, 255);
             pdf.setFontSize(10);
@@ -1575,43 +1590,40 @@
             pdf.text('SOUS-TOTAL HT:', 25, y + 8);
             pdf.text(totalAvantRistourne.toFixed(2) + '€', pageWidth - 25, y + 8, { align: 'right' });
             
-            let yOffset = 8;
-            if (ristourneEnabled) {
-                pdf.setTextColor(144, 238, 144);
-                pdf.text(`Ristourne ${pourcent}% (valable ${delai}j):`, 25, y + 15);
-                pdf.text('-' + montantRistourne.toFixed(2) + '€', pageWidth - 25, y + 15, { align: 'right' });
-                pdf.setTextColor(255, 255, 255);
-                pdf.text('TOTAL HT:', 25, y + 22);
-                pdf.text(sousTotalApresRistourne.toFixed(2) + '€', pageWidth - 25, y + 22, { align: 'right' });
-                yOffset = 15;
-            }
-            
-            pdf.text(`TVA (${tvaPercent}%):`, 25, y + yOffset + 15);
-            pdf.text(montantTVA.toFixed(2) + '€', pageWidth - 25, y + yOffset + 15, { align: 'right' });
+            pdf.text(`TVA (${tvaPercent}%):`, 25, y + 15);
+            pdf.text((totalAvantRistourne * tva).toFixed(2) + '€', pageWidth - 25, y + 15, { align: 'right' });
             
             pdf.setFontSize(14);
-            pdf.text('TOTAL TTC:', 25, y + yOffset + 28);
-            pdf.text(totalTTC.toFixed(2) + '€', pageWidth - 25, y + yOffset + 28, { align: 'right' });
+            pdf.text('TOTAL TTC:', 25, y + 24);
+            pdf.text((totalAvantRistourne + (totalAvantRistourne * tva)).toFixed(2) + '€', pageWidth - 25, y + 24, { align: 'right' });
             
-            y += ristourneEnabled ? 47 : 40;
+            y += 33;
             
-            // RISTOURNE texte
+            // RISTOURNE texte avec date
             if (ristourneEnabled) {
                 y += 5;
                 pdf.setFillColor(255, 243, 205);
-                pdf.rect(20, y, pageWidth - 40, 20, 'F');
+                pdf.rect(20, y, pageWidth - 40, 22, 'F');
                 
                 pdf.setTextColor(133, 100, 4);
                 pdf.setFontSize(11);
                 pdf.setFont(undefined, 'bold');
-                pdf.text('💰 OFFRE SPÉCIALE', 25, y + 7);
+                pdf.text('OFFRE SPECIALE', 25, y + 7);
                 
                 pdf.setFont(undefined, 'normal');
                 pdf.setFontSize(9);
-                pdf.text(`Une ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€) est applicable pendant ${delai} jours.`, 25, y + 13);
-                pdf.text(`Montant après ristourne : ${totalTTC.toFixed(2)}€`, 25, y + 18);
                 
-                y += 25;
+                // Calculer date limite
+                const dateLimite = new Date();
+                dateLimite.setDate(dateLimite.getDate() + delai);
+                const dateLimiteStr = dateLimite.toLocaleDateString('fr-FR');
+                
+                const totalAvecRistourne = sousTotalApresRistourne + montantTVA;
+                
+                pdf.text(`Ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€) valable ${delai} jours`, 25, y + 13);
+                pdf.text(`(jusqu'au ${dateLimiteStr} inclus)`, 25, y + 18);
+                
+                y += 27;
             }
             
             // PAIEMENT
@@ -1619,30 +1631,32 @@
             if (y > pageHeight - 50) { pdf.addPage(); y = 20; }
             
             pdf.setFillColor(240, 240, 240);
-            pdf.rect(20, y, pageWidth - 40, 40, 'F');
+            pdf.rect(20, y, pageWidth - 40, 45, 'F');
             
             pdf.setTextColor(25, 55, 109);
             pdf.setFontSize(11);
             pdf.setFont(undefined, 'bold');
-            pdf.text('📋 MODALITÉS DE PAIEMENT', 25, y + 7);
+            pdf.text('MODALITES DE PAIEMENT', 25, y + 7);
             
             pdf.setTextColor(0, 0, 0);
             pdf.setFont(undefined, 'normal');
             pdf.setFontSize(9);
             
-            const acompte30 = totalTTC * 0.30;
-            const debut40 = totalTTC * 0.40;
-            const fin30 = totalTTC * 0.30;
+            const totalFinal = ristourneEnabled ? (sousTotalApresRistourne + montantTVA) : (totalAvantRistourne + (totalAvantRistourne * tva));
+            const acompte30 = totalFinal * 0.30;
+            const debut40 = totalFinal * 0.40;
+            const fin30 = totalFinal * 0.30;
             
-            pdf.text(`- Acompte de 30% à la signature : ${acompte30.toFixed(2)}€`, 25, y + 14);
-            pdf.text(`- 40% au début des travaux : ${debut40.toFixed(2)}€`, 25, y + 19);
-            pdf.text(`- 30% à la fin des travaux : ${fin30.toFixed(2)}€`, 25, y + 24);
+            pdf.text(`- Acompte de 30% a la signature : ${acompte30.toFixed(2)}€`, 25, y + 14);
+            pdf.text(`- 40% au debut des travaux : ${debut40.toFixed(2)}€`, 25, y + 19);
+            pdf.text(`- 30% a la fin des travaux : ${fin30.toFixed(2)}€`, 25, y + 24);
             
             pdf.setFont(undefined, 'bold');
-            pdf.text(`IBAN : ${companyInfo.iban}`, 25, y + 31);
+            pdf.text(`Titulaire : ${companyInfo.titulaire}`, 25, y + 31);
+            pdf.text(`IBAN : ${companyInfo.iban}`, 25, y + 36);
             
             const devisNum = 'DEVIS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-            pdf.text(`Communication : ${devisNum}`, 25, y + 36);
+            pdf.text(`Communication : ${devisNum}`, 25, y + 41);
             
             // Télécharger
             const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
