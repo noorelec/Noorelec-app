@@ -495,13 +495,13 @@
             </div>
 
             <h3 style="margin: 25px 0 15px; color: #667eea;">🏠 Type de projet</h3>
-            <div class="option-cards">
-                <label class="option-card active" onclick="selectCard(this, 'projectType')">
+            <div class="option-cards" id="projectTypeCards">
+                <label class="option-card active" onclick="event.stopPropagation(); selectProjectType(this)">
                     <input type="radio" name="projectType" value="residential" checked>
                     <div class="card-icon">🏡</div>
                     <div class="card-title">Résidentiel</div>
                 </label>
-                <label class="option-card" onclick="selectCard(this, 'projectType')">
+                <label class="option-card" onclick="event.stopPropagation(); selectProjectType(this)">
                     <input type="radio" name="projectType" value="commercial">
                     <div class="card-icon">🏢</div>
                     <div class="card-title">Commercial</div>
@@ -509,14 +509,14 @@
             </div>
 
             <h3 style="margin: 25px 0 15px; color: #667eea;">📅 Âge du bâtiment</h3>
-            <div class="option-cards">
-                <label class="option-card active" onclick="selectCard(this, 'buildingAge')">
+            <div class="option-cards" id="buildingAgeCards">
+                <label class="option-card active" onclick="event.stopPropagation(); selectBuildingAge(this)">
                     <input type="radio" name="buildingAge" value="old" checked>
                     <div class="card-icon">🏚️</div>
                     <div class="card-title">> 10 ans</div>
                     <div class="card-subtitle" style="color: #28a745; font-weight: 700;">TVA 6%</div>
                 </label>
-                <label class="option-card" onclick="selectCard(this, 'buildingAge')">
+                <label class="option-card" onclick="event.stopPropagation(); selectBuildingAge(this)">
                     <input type="radio" name="buildingAge" value="new">
                     <div class="card-icon">🏗️</div>
                     <div class="card-title">< 10 ans</div>
@@ -818,6 +818,20 @@
         }
 
         // Gestion des cards radio/checkbox
+        window.selectProjectType = function(card) {
+            const parent = document.getElementById('projectTypeCards');
+            parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            card.querySelector('input').checked = true;
+        }
+
+        window.selectBuildingAge = function(card) {
+            const parent = document.getElementById('buildingAgeCards');
+            parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            card.querySelector('input').checked = true;
+        }
+
         window.selectCard = function(card, groupName) {
             const parent = card.parentElement;
             parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
@@ -1690,4 +1704,3 @@
     </script>
 </body>
 </html>
-
