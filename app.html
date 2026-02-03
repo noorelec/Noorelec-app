@@ -233,7 +233,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, doc, getDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
@@ -284,7 +284,7 @@
                 const userData = userDoc.exists() ? userDoc.data() : null;
 
                 displayAccountStatus(userData);
-                displayDashboard(userData);
+                await displayDashboard(userData);
 
             } catch (error) {
                 console.error('Erreur:', error);
@@ -326,7 +326,7 @@
             }
         }
 
-        function displayDashboard(userData) {
+        async function displayDashboard(userData) {
             const container = document.getElementById('app-content');
             
             let alertHTML = '';
@@ -362,12 +362,29 @@
                 }
             }
 
+            // Calculer le chiffre d'affaires depuis les devis acceptés
+            let chiffreAffaires = 0;
+            try {
+                const q = query(
+                    collection(db, 'devis'),
+                    where('userId', '==', auth.currentUser.uid),
+                    where('status', '==', 'accepted')
+                );
+                const snapshot = await getDocs(q);
+                snapshot.forEach(doc => {
+                    const devis = doc.data();
+                    chiffreAffaires += devis.totaux?.totalTTC || 0;
+                });
+            } catch (error) {
+                console.error('Erreur calcul CA:', error);
+            }
+
             container.innerHTML = `
                 ${alertHTML}
 
                 <div class="stats-card">
                     <div class="icon">💰</div>
-                    <div class="amount">0 €</div>
+                    <div class="amount">${chiffreAffaires.toFixed(2)} €</div>
                     <div class="label">Chiffre d'affaires</div>
                 </div>
 
