@@ -489,8 +489,13 @@
             }
         }
 
-        window.downloadPDF = function(devisId) {
-            alert('📄 Génération PDF à venir...\n\n(Fonctionnalité en cours de développement)');
+        window.downloadPDF = async function(devisId) {
+            const devis = allDevis.find(d => d.id === devisId);
+            if (!devis) return;
+            
+            // Stocker le devis et rediriger
+            localStorage.setItem('generatePDFFromDevis', JSON.stringify(devis));
+            window.location.href = 'creer-devis.html?action=generatePDF';
         }
 
         window.editDevis = function(devisId) {

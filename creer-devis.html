@@ -794,8 +794,118 @@
             } else {
                 currentUser = user;
                 await loadCatalogue();
+                await loadEditDevis();
             }
         });
+
+        async function loadEditDevis() {
+            // Vérifier si on doit générer un PDF directement
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('action') === 'generatePDF') {
+                const pdfData = localStorage.getItem('generatePDFFromDevis');
+                if (pdfData) {
+                    const devisData = JSON.parse(pdfData);
+                    localStorage.removeItem('generatePDFFromDevis');
+                    
+                    // Charger toutes les données
+                    await loadDevisData(devisData);
+                    
+                    // Générer le PDF après un court délai
+                    setTimeout(() => {
+                        generatePDF();
+                        setTimeout(() => {
+                            window.location.href = 'mes-devis.html';
+                        }, 1000);
+                    }, 500);
+                    return;
+                }
+            }
+            
+            // Sinon, charger pour modification
+            const editDevisId = localStorage.getItem('editDevisId');
+            if (!editDevisId) return;
+            
+            try {
+                const devisDoc = await getDoc(doc(db, 'devis', editDevisId));
+                if (!devisDoc.exists()) {
+                    localStorage.removeItem('editDevisId');
+                    return;
+                }
+                
+                const devisData = devisDoc.data();
+                await loadDevisData(devisData);
+                
+                localStorage.removeItem('editDevisId');
+                alert('✅ Devis chargé ! Vous pouvez le modifier.');
+                
+            } catch (error) {
+                console.error('Erreur chargement devis:', error);
+                localStorage.removeItem('editDevisId');
+            }
+        }
+        
+        async function loadDevisData(devisData) {
+            // Remplir les infos client
+            document.getElementById('clientName').value = devisData.client?.nom || '';
+            document.getElementById('clientPhone').value = devisData.client?.telephone || '';
+            document.getElementById('clientEmail').value = devisData.client?.email || '';
+            document.getElementById('clientTVA').value = devisData.client?.tva || '';
+            
+            const adresseParts = (devisData.client?.adresse || '').split(',');
+            document.getElementById('clientRue').value = adresseParts[0]?.trim() || '';
+            if (adresseParts[1]) {
+                const cpVille = adresseParts[1].trim().split(' ');
+                document.getElementById('clientCP').value = cpVille[0] || '';
+                document.getElementById('clientCommune').value = cpVille.slice(1).join(' ') || '';
+            }
+            
+            // Remplir type de projet et âge
+            const projectType = devisData.batiment?.type || 'residential';
+            const buildingAge = devisData.batiment?.age || 'old';
+            
+            document.querySelectorAll('input[name="projectType"]').forEach(input => {
+                const card = input.closest('.option-card');
+                if (input.value === projectType) {
+                    input.checked = true;
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+            
+            document.querySelectorAll('input[name="buildingAge"]').forEach(input => {
+                const card = input.closest('.option-card');
+                if (input.value === buildingAge) {
+                    input.checked = true;
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+            
+            // Charger les pièces
+            devisState.rooms = devisData.rooms || [];
+            devisState.nextRoomId = Math.max(...devisState.rooms.map(r => r.id), 0) + 1;
+            
+            // Charger le tableau
+            if (devisData.tableau && devisData.tableau.length > 0) {
+                devisState.tableau = devisData.tableau[0].composants || [];
+            }
+            
+            // Charger les services
+            if (devisData.services) {
+                devisState.services = devisData.services;
+            }
+            
+            // Ristourne
+            if (devisData.ristourne) {
+                document.getElementById('ristourneEnabled').checked = devisData.ristourne.enabled;
+                document.getElementById('ristournePourcent').value = devisData.ristourne.pourcent || 0;
+                document.getElementById('ristourneDelai').value = devisData.ristourne.delai || 30;
+            }
+            
+            updateRecap();
+        }
 
         async function loadCatalogue() {
             try {
