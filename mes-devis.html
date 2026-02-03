@@ -60,96 +60,158 @@
             margin-bottom: 25px;
         }
 
-        .devis-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
+        /* LISTE COMPACTE */
+        .devis-table {
+            width: 100%;
+            border-collapse: collapse;
         }
 
-        .devis-card {
+        .devis-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .devis-table td {
+            padding: 15px 12px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+        }
+
+        .devis-table tr:hover {
             background: #f8f9fa;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            transition: all 0.3s;
         }
 
-        .devis-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-            border-color: #667eea;
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
         }
 
-        .devis-header {
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-accepted { background: #d4edda; color: #155724; }
+        .status-refused { background: #f8d7da; color: #721c24; }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .dot-orange { background: #ff9800; }
+        .dot-green { background: #4caf50; }
+        .dot-red { background: #f44336; }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 25px;
             padding-bottom: 15px;
             border-bottom: 2px solid #e0e0e0;
         }
 
-        .devis-ref {
-            font-size: 14px;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .devis-status {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .devis-client {
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 10px;
-        }
-
-        .devis-info {
-            font-size: 14px;
-            color: #666;
-            margin: 5px 0;
-        }
-
-        .devis-total {
+        .modal-title {
             font-size: 24px;
             font-weight: bold;
-            color: #667eea;
-            margin-top: 15px;
+            color: #333;
         }
 
-        .devis-date {
-            font-size: 12px;
-            color: #999;
-            margin-top: 10px;
-        }
-
-        .delete-btn {
-            background: #ef4444;
-            color: white;
+        .close-btn {
+            background: none;
             border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
+            font-size: 30px;
             cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
             color: #999;
         }
 
-        .empty-icon {
-            font-size: 80px;
+        .detail-section {
             margin-bottom: 20px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .detail-value {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 25px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .btn-primary { background: #667eea; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-danger { background: #dc3545; color: white; }
+
+        .status-selector {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .status-option {
+            padding: 8px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .status-option:hover {
+            border-color: #667eea;
+        }
+
+        .status-option.active {
+            border-color: #667eea;
+            background: #f0f4ff;
         }
 
         .loader {
@@ -170,6 +232,17 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -192,10 +265,21 @@
         </div>
     </div>
 
+    <!-- MODAL -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Détails du devis</div>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, collection, query, where, getDocs, orderBy, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, query, where, getDocs, orderBy, deleteDoc, doc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
@@ -211,6 +295,7 @@
         const db = getFirestore(app);
 
         let currentUser = null;
+        let allDevis = [];
 
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
@@ -230,7 +315,7 @@
                 );
 
                 const snapshot = await getDocs(q);
-                const devisList = snapshot.docs.map(doc => ({
+                allDevis = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }));
@@ -238,7 +323,7 @@
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('devis-list').style.display = 'block';
 
-                if (devisList.length === 0) {
+                if (allDevis.length === 0) {
                     document.getElementById('devis-list').innerHTML = `
                         <div class="empty-state">
                             <div class="empty-icon">📋</div>
@@ -249,37 +334,7 @@
                     return;
                 }
 
-                const html = '<div class="devis-grid">' + devisList.map(devis => {
-                    const date = new Date(devis.createdAt).toLocaleDateString('fr-FR');
-                    const ref = devis.id.substring(0, 8).toUpperCase();
-                    const nbPieces = devis.rooms?.length || 0;
-                    const nbArticles = devis.rooms?.reduce((sum, r) => sum + (r.articles?.length || 0), 0) || 0;
-
-                    return `
-                        <div class="devis-card">
-                            <div class="devis-header">
-                                <div class="devis-ref">REF: ${ref}</div>
-                                <div class="devis-status">Brouillon</div>
-                            </div>
-                            
-                            <div class="devis-client">${devis.client?.nom || 'Client'}</div>
-                            
-                            <div class="devis-info">📍 ${devis.client?.adresse || 'Adresse'}</div>
-                            <div class="devis-info">📞 ${devis.client?.telephone || 'N/A'}</div>
-                            <div class="devis-info">🏠 ${nbPieces} pièce(s) - ${nbArticles} article(s)</div>
-                            
-                            <div class="devis-total">${devis.totaux?.totalTTC?.toFixed(2) || '0.00'} €</div>
-                            
-                            <div class="devis-date">Créé le ${date}</div>
-                            
-                            <button class="delete-btn" onclick="deleteDevis('${devis.id}', '${ref}')">
-                                🗑️ Supprimer
-                            </button>
-                        </div>
-                    `;
-                }).join('') + '</div>';
-
-                document.getElementById('devis-list').innerHTML = html;
+                renderDevisList();
 
             } catch (error) {
                 console.error('Erreur:', error);
@@ -295,17 +350,172 @@
             }
         }
 
+        function renderDevisList() {
+            const html = `
+                <table class="devis-table">
+                    <thead>
+                        <tr>
+                            <th>Statut</th>
+                            <th>Client</th>
+                            <th>Montant TTC</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${allDevis.map(devis => {
+                            const date = new Date(devis.createdAt).toLocaleDateString('fr-FR');
+                            const status = devis.status || 'pending';
+                            
+                            let statusClass = 'status-pending';
+                            let statusLabel = 'En attente';
+                            let dotClass = 'dot-orange';
+                            
+                            if (status === 'accepted') {
+                                statusClass = 'status-accepted';
+                                statusLabel = 'Accepté';
+                                dotClass = 'dot-green';
+                            } else if (status === 'refused') {
+                                statusClass = 'status-refused';
+                                statusLabel = 'Refusé';
+                                dotClass = 'dot-red';
+                            }
+
+                            return `
+                                <tr onclick="openModal('${devis.id}')">
+                                    <td>
+                                        <span class="status-badge ${statusClass}">
+                                            <span class="status-dot ${dotClass}"></span>
+                                            ${statusLabel}
+                                        </span>
+                                    </td>
+                                    <td><strong>${devis.client?.nom || 'Client'}</strong></td>
+                                    <td><strong>${devis.totaux?.totalTTC?.toFixed(2) || '0.00'} €</strong></td>
+                                    <td>${date}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('devis-list').innerHTML = html;
+        }
+
+        window.openModal = function(devisId) {
+            const devis = allDevis.find(d => d.id === devisId);
+            if (!devis) return;
+
+            const ref = devis.id.substring(0, 8).toUpperCase();
+            const nbPieces = devis.rooms?.length || 0;
+            const nbArticles = devis.rooms?.reduce((sum, r) => sum + (r.articles?.length || 0), 0) || 0;
+
+            const status = devis.status || 'pending';
+            
+            document.getElementById('modal-body').innerHTML = `
+                <div class="detail-section">
+                    <div class="detail-label">Référence</div>
+                    <div class="detail-value">${ref}</div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-label">Client</div>
+                    <div class="detail-value">
+                        <strong>${devis.client?.nom || 'N/A'}</strong><br>
+                        📍 ${devis.client?.adresse || 'N/A'}<br>
+                        📞 ${devis.client?.telephone || 'N/A'}<br>
+                        ✉️ ${devis.client?.email || 'N/A'}
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-label">Détails</div>
+                    <div class="detail-value">
+                        🏠 ${nbPieces} pièce(s)<br>
+                        📦 ${nbArticles} article(s)<br>
+                        💰 <strong>${devis.totaux?.totalTTC?.toFixed(2) || '0.00'} € TTC</strong>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <div class="detail-label">Changer le statut</div>
+                    <div class="status-selector">
+                        <div class="status-option ${status === 'pending' ? 'active' : ''}" onclick="changeStatus('${devisId}', 'pending')">
+                            <span class="status-dot dot-orange"></span> En attente
+                        </div>
+                        <div class="status-option ${status === 'accepted' ? 'active' : ''}" onclick="changeStatus('${devisId}', 'accepted')">
+                            <span class="status-dot dot-green"></span> Accepté
+                        </div>
+                        <div class="status-option ${status === 'refused' ? 'active' : ''}" onclick="changeStatus('${devisId}', 'refused')">
+                            <span class="status-dot dot-red"></span> Refusé
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="downloadPDF('${devisId}')">
+                        📄 Télécharger PDF
+                    </button>
+                    <button class="btn btn-warning" onclick="editDevis('${devisId}')">
+                        ✏️ Modifier
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteDevis('${devisId}', '${ref}')">
+                        🗑️ Supprimer
+                    </button>
+                </div>
+            `;
+
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        window.closeModal = function() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        window.changeStatus = async function(devisId, newStatus) {
+            try {
+                await updateDoc(doc(db, 'devis', devisId), {
+                    status: newStatus
+                });
+                
+                // Mettre à jour localement
+                const devis = allDevis.find(d => d.id === devisId);
+                if (devis) devis.status = newStatus;
+                
+                renderDevisList();
+                openModal(devisId);
+                
+            } catch (error) {
+                alert('❌ Erreur lors du changement de statut');
+            }
+        }
+
+        window.downloadPDF = function(devisId) {
+            alert('📄 Génération PDF à venir...\n\n(Fonctionnalité en cours de développement)');
+        }
+
+        window.editDevis = function(devisId) {
+            // Stocker l'ID du devis à modifier
+            localStorage.setItem('editDevisId', devisId);
+            window.location.href = 'creer-devis.html';
+        }
+
         window.deleteDevis = async function(devisId, ref) {
-            if (!confirm(`Supprimer ${ref} ?`)) return;
+            if (!confirm(`Supprimer le devis ${ref} ?\n\nCette action est irréversible.`)) return;
 
             try {
                 await deleteDoc(doc(db, 'devis', devisId));
-                alert('✅ Supprimé !');
+                alert('✅ Devis supprimé !');
+                closeModal();
                 await loadDevis();
             } catch (error) {
-                alert('❌ Erreur');
+                alert('❌ Erreur lors de la suppression');
             }
         }
+
+        // Fermer modal en cliquant en dehors
+        document.getElementById('modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
     </script>
 </body>
 </html>
