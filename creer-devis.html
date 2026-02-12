@@ -1446,8 +1446,12 @@
             
             const coeffInstall = FACTEURS.installation[installType];
             const coeffCircuit = FACTEURS.circuit[circuitType];
-            const tempsIntervention = calculateInterventionTime(tempsBase * qty, room?.cabling?.cables || [], coeffInstall, coeffCircuit);
-            const mo = (tempsIntervention / 60) * tarif;
+            
+            // Temps UNIQUEMENT pour cet article (sans câblage)
+            let tempsArticle = tempsBase * qty * coeffInstall * coeffCircuit;
+            tempsArticle = roundTo15Minutes(tempsArticle);
+            
+            const mo = (tempsArticle / 60) * tarif;
             const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
             const total = materiel + mo + rebouchageTotal;
 
@@ -1458,7 +1462,7 @@
                     <div>Prix achat:</div><div style="text-align: right;">${prixAchat.toFixed(2)}€</div>
                     <div>Marge (+${((MARGES_CATEGORIE[category] || 0.25) * 100).toFixed(0)}%):</div><div style="text-align: right;">${prixVente.toFixed(2)}€</div>
                     <div>Matériel total:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
-                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${tempsIntervention}min)</div>
+                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${tempsArticle}min)</div>
                     <div>Facteur install:</div><div style="text-align: right;">×${coeffInstall}</div>
                     <div>Facteur circuit:</div><div style="text-align: right;">×${coeffCircuit}</div>
                     ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
@@ -1640,19 +1644,27 @@
                 const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
                 const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
                 
+                // Calculer le temps de câblage UNE FOIS pour toute la pièce
+                let tempsCablagePiece = 0;
+                if (room.cabling.cables && room.cabling.cables.length > 0) {
+                    tempsCablagePiece += SETUP_TIRAGE;
+                    room.cabling.cables.forEach(cable => {
+                        const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
+                        const lengthFactor = getLengthFactor(cable.length);
+                        tempsCablagePiece += cable.length * minutesPerMeter * lengthFactor;
+                    });
+                    tempsCablagePiece = tempsCablagePiece * coeffInstall * coeffCircuit;
+                }
+                
                 room.articles.forEach(art => {
                     // Temps de base selon type (si disponible dans catalogue)
                     const tempsBase = art.tempsBase || 30; // 30 min par défaut
                     
-                    // Calculer temps avec câblage de cette intervention
-                    const tempsIntervention = calculateInterventionTime(
-                        tempsBase * art.qty,
-                        room.cabling.cables || [],
-                        coeffInstall,
-                        coeffCircuit
-                    );
+                    // Calculer temps SANS câblage (juste l'article × facteurs)
+                    let tempsArticle = tempsBase * art.qty * coeffInstall * coeffCircuit;
+                    tempsArticle = roundTo15Minutes(tempsArticle);
                     
-                    totalMinutes += tempsIntervention;
+                    totalMinutes += tempsArticle;
                     
                     // Prix matériel avec marge automatique
                     const category = art.category || 'appareillage';
@@ -1662,7 +1674,7 @@
                     totalMateriel += materielTotal + (art.rebouchage || 0);
                     
                     // MO calculée sur temps réel
-                    const mo = (tempsIntervention / 60) * tarif;
+                    const mo = (tempsArticle / 60) * tarif;
                     totalMO += mo;
                     
                     // IMPORTANT : Mettre à jour l'article pour l'affichage
@@ -1670,6 +1682,13 @@
                     art.mo = mo;
                     art.total = materielTotal + mo + (art.rebouchage || 0);
                 });
+                
+                // Ajouter le temps de câblage UNE FOIS pour la pièce
+                if (tempsCablagePiece > 0) {
+                    totalMinutes += tempsCablagePiece;
+                    const moCablage = (tempsCablagePiece / 60) * tarif;
+                    totalMO += moCablage;
+                }
                 
                 // Ajouter coût matériel des câbles (avec marge)
                 (room.cabling.cables || []).forEach(cable => {
