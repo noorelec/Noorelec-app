@@ -1238,7 +1238,7 @@
                                     <h4 style="margin: 0 0 10px 0;">🔗 Câblage intervention</h4>
                                     
                                     <!-- Liste des câbles -->
-                                    <div style="margin-bottom: 10px;">
+                                    <div id="cabling-list-${room.id}" style="margin-bottom: 10px;">
                                         ${(room.cabling.cables || []).map((cable, idx) => `
                                             <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
                                                 <div>
@@ -1548,6 +1548,7 @@
                 '3G1.5': 1.20,
                 '3G2.5': 1.80,
                 '5G6': 3.50,
+                '3G4': 2.50,
                 'HDMI': 2.00,
                 'RJ45': 1.50
             };
@@ -1563,8 +1564,27 @@
             document.getElementById(`cable-type-${roomId}`).value = '';
             document.getElementById(`cable-length-${roomId}`).value = '10';
 
-            renderRooms();
-            calculateRecap();
+            // Mettre à jour UNIQUEMENT la liste des câbles (pas tout renderRooms)
+            updateCablesList(roomId, room);
+        }
+
+        // Fonction pour mettre à jour la liste des câbles sans tout re-render
+        function updateCablesList(roomId, room) {
+            const container = document.querySelector(`#cabling-list-${roomId}`);
+            if (!container) return;
+            
+            if (!room.cabling.cables || room.cabling.cables.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>';
+            } else {
+                container.innerHTML = room.cabling.cables.map((cable, idx) => `
+                    <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                        <div>
+                            <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
+                        </div>
+                        <button onclick="deleteCable(${roomId}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                    </div>
+                `).join('');
+            }
         }
 
         window.deleteCable = function(roomId, idx) {
@@ -2132,10 +2152,7 @@
             const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
             pdf.save(fileName);
             
-            // Sauvegarder dans Firestore
-            await saveDevis();
-            
-            alert('✅ PDF généré et devis sauvegardé !');
+            alert('✅ PDF généré ! Cliquez sur "Enregistrer" pour sauvegarder le devis.');
         }
 
         // Sauvegarder le devis
