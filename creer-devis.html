@@ -294,6 +294,14 @@
         margin-bottom: 10px;
     }
 
+    .cabling-section {
+        background: #e7f3ff;
+        border: 2px solid #3b82f6;
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+
     .service-item {
         background: white;
         border: 2px solid #e0e0e0;
@@ -429,12 +437,14 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- HEADER -->
         <header class="app-header">
             <div class="logo">⚡ DEVTECH</div>
             <a href="app.html" class="back-btn">← Retour</a>
         </header>
 
 ```
+    <!-- NAVIGATION -->
     <nav class="nav-menu">
         <button class="nav-item active" data-page="client" onclick="switchPage('client')">
             <div class="nav-icon">👤</div>
@@ -458,6 +468,7 @@
         </button>
     </nav>
 
+    <!-- PAGE CLIENT -->
     <div id="page-client" class="page active">
         <h2 class="section-title">👤 Informations Client</h2>
         
@@ -527,6 +538,7 @@
         </button>
     </div>
 
+    <!-- PAGE TRAVAUX -->
     <div id="page-travaux" class="page">
         <h2 class="section-title">🔨 Configuration des Travaux</h2>
         
@@ -536,8 +548,7 @@
                 <div class="form-group">
                     <label><strong>Tarif horaire</strong></label>
                     <select id="globalTarif">
-                        <option value="45" selected>Standard - 45€/h</option>
-                        <option value="50">Modéré - 50€/h</option>
+                        <option value="50" selected>Modéré - 50€/h</option>
                         <option value="65">Élevé - 65€/h</option>
                         <option value="75">Urgent - 75€/h</option>
                         <option value="90">Week-end - 90€/h</option>
@@ -579,6 +590,7 @@
         </button>
     </div>
 
+    <!-- PAGE TABLEAU -->
     <div id="page-tableau" class="page">
         <h2 class="section-title">⚡ Tableau Électrique</h2>
         
@@ -618,6 +630,7 @@
         </button>
     </div>
 
+    <!-- PAGE ADMINISTRATIVE -->
     <div id="page-administratif" class="page">
         <h2 class="section-title">📋 Services Administratifs</h2>
         
@@ -670,6 +683,7 @@
         </button>
     </div>
 
+    <!-- PAGE RÉCAPITULATIF -->
     <div id="page-recapitulatif" class="page">
         <h2 class="section-title">💰 Récapitulatif du Devis</h2>
         
@@ -687,15 +701,12 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label>Pourcentage (%)</label>
-                        <input type="number" id="ristournePourcent" value="15" min="0" max="100" onchange="calculateRecap()">
+                        <input type="number" id="ristournePourcent" value="10" min="0" max="100">
                     </div>
                     <div class="form-group">
                         <label>Validité (jours)</label>
                         <input type="number" id="ristourneDelai" value="30" min="1">
                     </div>
-                </div>
-                <div style="background: #d1ecf1; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #0c5460;">
-                    ℹ️ La ristourne sera calculée sur le <strong>montant HT</strong> du devis (avant TVA). Le client verra l'économie totale TTC.
                 </div>
             </div>
         </div>
@@ -717,19 +728,19 @@
                 <span>Déplacement :</span>
                 <span id="totalDeplacement">25.00 €</span>
             </div>
-            <div class="recap-row" style="border-top: 2px solid #667eea; padding-top: 10px; margin-top: 5px;">
-                <span><strong>Sous-total HT :</strong></span>
-                <span id="sousTotalHT"><strong>0.00 €</strong></span>
+            <div class="recap-row">
+                <span>Sous-total HT :</span>
+                <span id="sousTotalHT">0.00 €</span>
             </div>
             <div class="recap-row" id="ristourneRow" style="display: none; color: #28a745;">
-                <span>Ristourne (-<span id="ristournePercentDisplay">15</span>%) :</span>
-                <span id="montantRistourne">-0.00 €</span>
+                <span>Ristourne (-<span id="ristournePercentDisplay">10</span>%) :</span>
+                <span id="montantRistourne">0.00 €</span>
             </div>
             <div class="recap-row">
                 <span>TVA (<span id="tvaPercent">6</span>%) :</span>
                 <span id="montantTVA">0.00 €</span>
             </div>
-            <div class="recap-row" style="font-size: 22px;">
+            <div class="recap-row">
                 <span>TOTAL TTC :</span>
                 <span id="totalTTC">0.00 €</span>
             </div>
@@ -745,978 +756,1414 @@
         </div>
     </div>
 </div>
-```
 
 <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+    import { getFirestore, collection, addDoc, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
-    ```
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-import { getFirestore, collection, addDoc, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+    const firebaseConfig = {
+        apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
+        authDomain: "devtech-20997.firebaseapp.com",
+        projectId: "devtech-20997",
+        storageBucket: "devtech-20997.firebasestorage.app",
+        messagingSenderId: "95961701207",
+        appId: "1:95961701207:web:25ac1e97f292c58797bc12"
+    };
 
-const firebaseConfig = {
-    apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
-    authDomain: "devtech-20997.firebaseapp.com",
-    projectId: "devtech-20997",
-    storageBucket: "devtech-20997.firebasestorage.app",
-    messagingSenderId: "95961701207",
-    appId: "1:95961701207:web:25ac1e97f292c58797bc12"
-};
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-let currentUser = null;
-let catalogueProduits = [];
-
-const devisState = {
-    client: {},
-    global: { tarif: 45, tva: 0.06, deplacement: 25 },
-    rooms: [],
-    nextRoomId: 1
-};
-
-const FACTEURS = {
-    installation: {
-        'apparent': 1.0,
-        'faux-plafond': 1.2,
-        'encastre': 1.3,
-        'encastre-lourd': 1.45
-    },
-    circuit: {
-        'existant': 1.0,
-        'nouvelle-ligne': 1.2
-    },
-    longueur: {
-        ranges: [
-            { max: 5, factor: 1.0 },
-            { max: 10, factor: 1.1 },
-            { max: 20, factor: 1.2 },
-            { max: 30, factor: 1.3 },
-            { max: 50, factor: 1.45 },
-            { max: Infinity, factor: 1.6 }
-        ]
-    }
-};
-
-const MARGES_CATEGORIE = {
-    'appareillage': 0.35,
-    'consommables': 0.40,
-    'cables': 0.25,
-    'protections': 0.25,
-    'goulottes': 0.25,
-    'gros-materiel': 0.18
-};
-
-const CABLE_TEMPS = {
-    '3G1.5': 1.0,
-    '3G2.5': 1.0,
-    '5G6': 1.5,
-    'HDMI': 1.3,
-    'RJ45': 1.3,
-    'default': 1.2
-};
-
-const CABLE_PRIX = {
-    '3G1.5': 1.20,
-    '3G2.5': 1.80,
-    '5G6': 3.50,
-    '3G4': 2.50,
-    'HDMI': 2.00,
-    'RJ45': 1.50
-};
-
-const SETUP_TIRAGE = 15;
-
-function getLengthFactor(meters) {
-    for (const range of FACTEURS.longueur.ranges) {
-        if (meters <= range.max) return range.factor;
-    }
-    return 1.6;
-}
-
-function roundTo15Minutes(minutes) {
-    return Math.ceil(minutes / 15) * 15;
-}
-
-function applyMinimumBillable(minutes) {
-    return Math.max(minutes, 60);
-}
-
-function calculateSalePrice(purchasePrice, category) {
-    const margin = MARGES_CATEGORIE[category] || 0.25;
-    return purchasePrice * (1 + margin);
-}
-
-function calculateInterventionTime(tempsBase, cables, coeffInstallation, coeffCircuit) {
-    let tempsTotal = tempsBase;
-    let tempsCablage = 0;
+    let currentUser = null;
+    let catalogueProduits = [];
     
-    if (cables && cables.length > 0) {
-        tempsCablage += SETUP_TIRAGE;
-        cables.forEach(cable => {
-            const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
-            const lengthFactor = getLengthFactor(cable.length);
-            tempsCablage += cable.length * minutesPerMeter * lengthFactor;
-        });
-    }
-    
-    tempsTotal = (tempsBase + tempsCablage) * coeffInstallation * coeffCircuit;
-    tempsTotal = roundTo15Minutes(tempsTotal);
-    
-    return tempsTotal;
-}
+    const devisState = {
+        client: {},
+        global: { tarif: 50, tva: 0.06, deplacement: 25 },
+        rooms: [],
+        nextRoomId: 1
+    };
 
-onAuthStateChanged(auth, async (user) => {
-    if (!user || !user.emailVerified) {
-        window.location.href = 'login.html';
-    } else {
-        currentUser = user;
-        await loadCatalogue();
-        await loadEditDevis();
-    }
-});
+    const FACTEURS = {
+        installation: {
+            'apparent': 1.0,
+            'faux-plafond': 1.2,
+            'encastre': 1.3,
+            'encastre-lourd': 1.45
+        },
+        circuit: {
+            'existant': 1.0,
+            'nouvelle-ligne': 1.2
+        },
+        longueur: {
+            ranges: [
+                { max: 5, factor: 1.0 },
+                { max: 10, factor: 1.1 },
+                { max: 20, factor: 1.2 },
+                { max: 30, factor: 1.3 },
+                { max: 50, factor: 1.45 },
+                { max: Infinity, factor: 1.6 }
+            ]
+        }
+    };
 
-async function loadEditDevis() {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('action') === 'generatePDF') {
-        const pdfData = localStorage.getItem('generatePDFFromDevis');
-        if (pdfData) {
-            const devisData = JSON.parse(pdfData);
-            localStorage.removeItem('generatePDFFromDevis');
-            await loadDevisData(devisData);
-            setTimeout(() => {
-                generatePDF();
+    const TEMPS_BASE = {
+        appareillage: {
+            'prise-apparente': 25,
+            'prise-encastree': 35,
+            'interrupteur-simple': 20,
+            'va-et-vient': 75,
+            'point-lumineux': 40,
+            'spot-led': 30
+        },
+        tableau: {
+            'disjoncteur': 40,
+            'differentiel': 60,
+            'tableau-complet': 480
+        }
+    };
+
+    const MARGES_CATEGORIE = {
+        'appareillage': 0.35,
+        'consommables': 0.40,
+        'cables': 0.25,
+        'protections': 0.25,
+        'goulottes': 0.25,
+        'gros-materiel': 0.18
+    };
+
+    const CABLE_TEMPS = {
+        '3G1.5': 1.0,
+        '3G2.5': 1.0,
+        '5G6': 1.5,
+        'HDMI': 1.3,
+        'RJ45': 1.3,
+        'default': 1.2
+    };
+
+    const SETUP_TIRAGE = 15; // minutes par intervention
+
+    // ========================================
+    // FONCTIONS UTILITAIRES DE CALCUL
+    // ========================================
+
+    function getLengthFactor(meters) {
+        for (const range of FACTEURS.longueur.ranges) {
+            if (meters <= range.max) {
+                return range.factor;
+            }
+        }
+        return 1.6;
+    }
+
+    function calculateCableTime(cableType, meters, coeffInstallation, coeffCircuit) {
+        const minutesPerMeter = CABLE_TEMPS[cableType] || CABLE_TEMPS['default'];
+        const lengthFactor = getLengthFactor(meters);
+        const tirage = SETUP_TIRAGE + (meters * minutesPerMeter * lengthFactor);
+        const tirageFinal = tirage * coeffInstallation * coeffCircuit;
+        return tirageFinal;
+    }
+
+    function roundTo15Minutes(minutes) {
+        return Math.ceil(minutes / 15) * 15;
+    }
+
+    function applyMinimumBillable(minutes) {
+        return Math.max(minutes, 60);
+    }
+
+    function calculateSalePrice(purchasePrice, category) {
+        const margin = MARGES_CATEGORIE[category] || 0.25;
+        return purchasePrice * (1 + margin);
+    }
+
+    function calculateInterventionTime(tempsBase, cables, coeffInstallation, coeffCircuit) {
+        let tempsTotal = tempsBase;
+        let tempsCablage = 0;
+        
+        if (cables && cables.length > 0) {
+            tempsCablage += SETUP_TIRAGE;
+            cables.forEach(cable => {
+                const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
+                const lengthFactor = getLengthFactor(cable.length);
+                tempsCablage += cable.length * minutesPerMeter * lengthFactor;
+            });
+        }
+        
+        tempsTotal = (tempsBase + tempsCablage) * coeffInstallation * coeffCircuit;
+        tempsTotal = roundTo15Minutes(tempsTotal);
+        
+        return tempsTotal;
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+        if (!user || !user.emailVerified) {
+            window.location.href = 'login.html';
+        } else {
+            currentUser = user;
+            await loadCatalogue();
+            await loadEditDevis();
+        }
+    });
+
+    async function loadEditDevis() {
+        // Vérifier si on doit générer un PDF directement
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('action') === 'generatePDF') {
+            const pdfData = localStorage.getItem('generatePDFFromDevis');
+            if (pdfData) {
+                const devisData = JSON.parse(pdfData);
+                localStorage.removeItem('generatePDFFromDevis');
+                
+                // Charger toutes les données
+                await loadDevisData(devisData);
+                
+                // Générer le PDF après un court délai
                 setTimeout(() => {
-                    window.location.href = 'mes-devis.html';
-                }, 1000);
-            }, 500);
-            return;
+                    generatePDF();
+                    setTimeout(() => {
+                        window.location.href = 'mes-devis.html';
+                    }, 1000);
+                }, 500);
+                return;
+            }
         }
-    }
-    
-    const editDevisId = localStorage.getItem('editDevisId');
-    if (!editDevisId) return;
-    
-    try {
-        const devisDoc = await getDoc(doc(db, 'devis', editDevisId));
-        if (!devisDoc.exists()) {
+        
+        // Sinon, charger pour modification
+        const editDevisId = localStorage.getItem('editDevisId');
+        if (!editDevisId) return;
+        
+        try {
+            const devisDoc = await getDoc(doc(db, 'devis', editDevisId));
+            if (!devisDoc.exists()) {
+                localStorage.removeItem('editDevisId');
+                return;
+            }
+            
+            const devisData = devisDoc.data();
+            await loadDevisData(devisData);
+            
             localStorage.removeItem('editDevisId');
+            alert('✅ Devis chargé ! Vous pouvez le modifier.');
+            
+        } catch (error) {
+            console.error('Erreur chargement devis:', error);
+            localStorage.removeItem('editDevisId');
+        }
+    }
+    
+    async function loadDevisData(devisData) {
+        // Remplir les infos client
+        document.getElementById('clientName').value = devisData.client?.nom || '';
+        document.getElementById('clientPhone').value = devisData.client?.telephone || '';
+        document.getElementById('clientEmail').value = devisData.client?.email || '';
+        document.getElementById('clientTVA').value = devisData.client?.tva || '';
+        
+        const adresseParts = (devisData.client?.adresse || '').split(',');
+        document.getElementById('clientRue').value = adresseParts[0]?.trim() || '';
+        if (adresseParts[1]) {
+            const cpVille = adresseParts[1].trim().split(' ');
+            document.getElementById('clientCP').value = cpVille[0] || '';
+            document.getElementById('clientCommune').value = cpVille.slice(1).join(' ') || '';
+        }
+        
+        // Remplir type de projet et âge
+        const projectType = devisData.batiment?.type || 'residential';
+        const buildingAge = devisData.batiment?.age || 'old';
+        
+        document.querySelectorAll('input[name="projectType"]').forEach(input => {
+            const card = input.closest('.option-card');
+            if (input.value === projectType) {
+                input.checked = true;
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+        
+        document.querySelectorAll('input[name="buildingAge"]').forEach(input => {
+            const card = input.closest('.option-card');
+            if (input.value === buildingAge) {
+                input.checked = true;
+                card.classList.add('active');
+            } else {
+                card.classList.remove('active');
+            }
+        });
+        
+        // Charger les pièces
+        devisState.rooms = devisData.rooms || [];
+        devisState.nextRoomId = Math.max(...devisState.rooms.map(r => r.id), 0) + 1;
+        
+        // Charger le tableau
+        if (devisData.tableau && devisData.tableau.length > 0) {
+            devisState.tableau = devisData.tableau[0].composants || [];
+        }
+        
+        // Charger les services
+        if (devisData.services) {
+            devisState.services = devisData.services;
+        }
+        
+        // Ristourne
+        if (devisData.ristourne) {
+            document.getElementById('ristourneEnabled').checked = devisData.ristourne.enabled;
+            document.getElementById('ristournePourcent').value = devisData.ristourne.pourcent || 0;
+            document.getElementById('ristourneDelai').value = devisData.ristourne.delai || 30;
+        }
+        
+        updateRecap();
+    }
+
+    async function loadCatalogue() {
+        try {
+            const snapshot = await getDocs(collection(db, 'products'));
+            catalogueProduits = snapshot.docs.map(doc => {
+                const data = doc.data();
+                
+                // Ajouter category et tempsBase par défaut si manquants
+                if (!data.category) {
+                    // Deviner la catégorie selon le nom
+                    const name = (data.name || '').toLowerCase();
+                    if (name.includes('prise') || name.includes('interrupteur') || name.includes('va-et-vient')) {
+                        data.category = 'appareillage';
+                    } else if (name.includes('cable') || name.includes('fil')) {
+                        data.category = 'cables';
+                    } else if (name.includes('disjoncteur') || name.includes('differentiel')) {
+                        data.category = 'protections';
+                    } else if (name.includes('goulotte')) {
+                        data.category = 'goulottes';
+                    } else {
+                        data.category = 'appareillage'; // Par défaut
+                    }
+                }
+                
+                if (!data.tempsBase) {
+                    // Deviner le temps selon le nom
+                    const name = (data.name || '').toLowerCase();
+                    if (name.includes('va-et-vient')) {
+                        data.tempsBase = 75;
+                    } else if (name.includes('prise') && name.includes('encastr')) {
+                        data.tempsBase = 35;
+                    } else if (name.includes('prise')) {
+                        data.tempsBase = 25;
+                    } else if (name.includes('interrupteur')) {
+                        data.tempsBase = 20;
+                    } else if (name.includes('spot') || name.includes('led')) {
+                        data.tempsBase = 30;
+                    } else if (name.includes('luminaire') || name.includes('plafonnier')) {
+                        data.tempsBase = 40;
+                    } else if (name.includes('disjoncteur')) {
+                        data.tempsBase = 40;
+                    } else if (name.includes('differentiel')) {
+                        data.tempsBase = 60;
+                    } else {
+                        data.tempsBase = 30; // Par défaut
+                    }
+                }
+                
+                return { id: doc.id, ...data };
+            });
+            console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
+        } catch (error) {
+            console.error('❌ Erreur:', error);
+            alert('Erreur de chargement du catalogue.');
+        }
+    }
+
+    // Navigation
+    window.switchPage = function(pageName) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('page-' + pageName).classList.add('active');
+        document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
+        if (pageName === 'recapitulatif') calculateRecap();
+    }
+
+    // Gestion des cards radio/checkbox
+    window.selectProjectType = function(card) {
+        const parent = document.getElementById('projectTypeCards');
+        parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        card.querySelector('input').checked = true;
+    }
+
+    window.selectBuildingAge = function(card) {
+        const parent = document.getElementById('buildingAgeCards');
+        parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        card.querySelector('input').checked = true;
+    }
+
+    window.selectCard = function(card, groupName) {
+        const parent = card.parentElement;
+        parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        card.querySelector('input').checked = true;
+    }
+
+    document.querySelectorAll('.option-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+            if (e.target.tagName === 'INPUT') return;
+            const parent = this.parentElement;
+            const input = this.querySelector('input[type="radio"], input[type="checkbox"]');
+            
+            if (input.type === 'radio') {
+                parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+                this.classList.add('active');
+                input.checked = true;
+            } else {
+                this.classList.toggle('active');
+                input.checked = !input.checked;
+            }
+        });
+    });
+
+    // Créer pièce
+    window.createRoom = function() {
+        const roomName = document.getElementById('newRoomName').value.trim();
+        if (!roomName) { alert('Nom de pièce requis'); return; }
+        
+        devisState.rooms.push({
+            id: devisState.nextRoomId++,
+            name: roomName,
+            articles: [],
+            cabling: {
+                cables: [], // NOUVEAU: liste des câbles pour cette intervention
+                internal: { cost: 0 }, // Ancien système (conservé pour compatibilité)
+                tableau: { cost: 0 }
+            },
+            coefficients: { // NOUVEAU: coefficients par pièce
+                installation: 'encastre', // apparent / faux-plafond / encastre / encastre-lourd
+                circuit: 'nouvelle-ligne' // existant / nouvelle-ligne
+            },
+            collapsed: false
+        });
+        
+        document.getElementById('newRoomName').value = '';
+        renderRooms();
+    }
+
+    function renderRooms() {
+        const container = document.getElementById('roomsContainer');
+        if (devisState.rooms.length === 0) {
+            container.innerHTML = '<div class="empty-state">Créez une pièce pour commencer</div>';
             return;
         }
-        const devisData = devisDoc.data();
-        await loadDevisData(devisData);
-        localStorage.removeItem('editDevisId');
-        alert('✅ Devis chargé ! Vous pouvez le modifier.');
-    } catch (error) {
-        console.error('Erreur chargement devis:', error);
-        localStorage.removeItem('editDevisId');
-    }
-}
 
-async function loadDevisData(devisData) {
-    document.getElementById('clientName').value = devisData.client?.nom || '';
-    document.getElementById('clientPhone').value = devisData.client?.telephone || '';
-    document.getElementById('clientEmail').value = devisData.client?.email || '';
-    document.getElementById('clientTVA').value = devisData.client?.tva || '';
-    
-    const adresseParts = (devisData.client?.adresse || '').split(',');
-    document.getElementById('clientRue').value = adresseParts[0]?.trim() || '';
-    if (adresseParts[1]) {
-        const cpVille = adresseParts[1].trim().split(' ');
-        document.getElementById('clientCP').value = cpVille[0] || '';
-        document.getElementById('clientCommune').value = cpVille.slice(1).join(' ') || '';
-    }
-    
-    const projectType = devisData.batiment?.type || 'residential';
-    const buildingAge = devisData.batiment?.age || 'old';
-    
-    document.querySelectorAll('input[name="projectType"]').forEach(input => {
-        const card = input.closest('.option-card');
-        if (input.value === projectType) {
-            input.checked = true;
-            card.classList.add('active');
-        } else {
-            card.classList.remove('active');
-        }
-    });
-    
-    document.querySelectorAll('input[name="buildingAge"]').forEach(input => {
-        const card = input.closest('.option-card');
-        if (input.value === buildingAge) {
-            input.checked = true;
-            card.classList.add('active');
-        } else {
-            card.classList.remove('active');
-        }
-    });
-    
-    devisState.rooms = devisData.rooms || [];
-    devisState.nextRoomId = Math.max(...devisState.rooms.map(r => r.id), 0) + 1;
-    
-    if (devisData.ristourne) {
-        document.getElementById('ristourneEnabled').checked = devisData.ristourne.enabled;
-        document.getElementById('ristournePourcent').value = devisData.ristourne.pourcent || 15;
-        document.getElementById('ristourneDelai').value = devisData.ristourne.delai || 30;
-        if (devisData.ristourne.enabled) toggleRistourne();
-    }
-    
-    renderRooms();
-    updateRecap();
-}
-
-async function loadCatalogue() {
-    try {
-        const snapshot = await getDocs(collection(db, 'products'));
-        catalogueProduits = snapshot.docs.map(doc => {
-            const data = doc.data();
-            if (!data.category) {
-                const name = (data.name || '').toLowerCase();
-                if (name.includes('prise') || name.includes('interrupteur')) data.category = 'appareillage';
-                else if (name.includes('cable')) data.category = 'cables';
-                else if (name.includes('disjoncteur') || name.includes('differentiel')) data.category = 'protections';
-                else data.category = 'appareillage';
-            }
-            if (!data.tempsBase) {
-                const name = (data.name || '').toLowerCase();
-                if (name.includes('va-et-vient')) data.tempsBase = 75;
-                else if (name.includes('prise') && name.includes('encastr')) data.tempsBase = 35;
-                else if (name.includes('prise')) data.tempsBase = 25;
-                else if (name.includes('interrupteur')) data.tempsBase = 20;
-                else data.tempsBase = 30;
-            }
-            return { id: doc.id, ...data };
-        });
-        console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
-    } catch (error) {
-        console.error('❌ Erreur:', error);
-    }
-}
-
-window.switchPage = function(pageName) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    document.getElementById('page-' + pageName).classList.add('active');
-    document.querySelector(`[data-page="${pageName}"]`).classList.add('active');
-    if (pageName === 'recapitulatif') calculateRecap();
-}
-
-window.selectProjectType = function(card) {
-    const parent = document.getElementById('projectTypeCards');
-    parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
-    card.classList.add('active');
-    card.querySelector('input').checked = true;
-}
-
-window.selectBuildingAge = function(card) {
-    const parent = document.getElementById('buildingAgeCards');
-    parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
-    card.classList.add('active');
-    card.querySelector('input').checked = true;
-}
-
-window.createRoom = function() {
-    const roomName = document.getElementById('newRoomName').value.trim();
-    if (!roomName) { alert('Nom de pièce requis'); return; }
-    
-    devisState.rooms.push({
-        id: devisState.nextRoomId++,
-        name: roomName,
-        articles: [],
-        cabling: { cables: [] },
-        coefficients: { installation: 'encastre', circuit: 'nouvelle-ligne' },
-        collapsed: false
-    });
-    
-    document.getElementById('newRoomName').value = '';
-    renderRooms();
-}
-
-function renderRooms() {
-    const container = document.getElementById('roomsContainer');
-    if (devisState.rooms.length === 0) {
-        container.innerHTML = '<div class="empty-state">Créez une pièce pour commencer</div>';
-        return;
-    }
-
-    container.innerHTML = devisState.rooms.map(room => {
-        const arrow = room.collapsed ? '▶' : '▼';
-        return `
-            <div class="room-card">
-                <div class="room-header" onclick="toggleRoom(${room.id})">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span>${arrow}</span>
-                        <div class="room-title">📍 ${room.name}</div>
+        container.innerHTML = devisState.rooms.map(room => {
+            const arrow = room.collapsed ? '▶' : '▼';
+            return `
+                <div class="room-card">
+                    <div class="room-header" onclick="toggleRoom(${room.id})">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span>${arrow}</span>
+                            <div class="room-title">📍 ${room.name}</div>
+                        </div>
+                        <button class="delete-room-btn" onclick="event.stopPropagation(); deleteRoom(${room.id})">🗑️</button>
                     </div>
-                    <button class="delete-room-btn" onclick="event.stopPropagation(); deleteRoom(${room.id})">🗑️</button>
-                </div>
 
-                <div class="collapsed-content ${room.collapsed ? '' : 'active'}">
-                    <div class="article-form">
-                        <h4>➕ Ajouter un article</h4>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label>Catégorie</label>
-                                <select id="category-${room.id}" onchange="filterProducts(${room.id})">
-                                    <option value="">-- Sélectionner --</option>
-                                    <option value="eclairage">💡 Éclairage</option>
-                                    <option value="prises">🔌 Prises</option>
-                                    <option value="interrupteurs">🎛️ Interrupteurs</option>
-                                    <option value="protections">🛡️ Protections</option>
-                                    <option value="cables">🔗 Câbles</option>
-                                    <option value="consommables">🔩 Consommables</option>
-                                    <option value="autres">📦 Autres</option>
-                                </select>
+                    <div class="collapsed-content ${room.collapsed ? '' : 'active'}">
+                        <div class="article-form">
+                            <h4>➕ Ajouter un article</h4>
+                            
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Catégorie</label>
+                                    <select id="category-${room.id}" onchange="filterProducts(${room.id})">
+                                        <option value="">-- Sélectionner --</option>
+                                        <option value="eclairage">💡 Éclairage</option>
+                                        <option value="prises">🔌 Prises</option>
+                                        <option value="interrupteurs">🎛️ Interrupteurs</option>
+                                        <option value="protections">🛡️ Protections</option>
+                                        <option value="cables">🔗 Câbles</option>
+                                        <option value="consommables">🔩 Consommables (Chevilles, Wago, Vis...)</option>
+                                        <option value="autres">📦 Autres</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Article</label>
+                                    <select id="article-${room.id}" disabled>
+                                        <option value="">-- Choisir catégorie d'abord --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Quantité</label>
+                                    <input type="number" id="qty-${room.id}" value="1" min="1">
+                                </div>
                             </div>
-                            <div class="form-group">
-                                <label>Article</label>
-                                <select id="article-${room.id}" disabled>
-                                    <option value="">-- Choisir catégorie d'abord --</option>
-                                </select>
+
+                            <h4 style="margin: 15px 0 10px;">🔧 Type d'installation</h4>
+                            <div class="option-cards" id="install-cards-${room.id}">
+                                <label class="option-card active" onclick="selectInstall(${room.id}, 'apparent', event)">
+                                    <input type="radio" name="install-${room.id}" value="apparent" checked>
+                                    <div class="card-icon">📦</div>
+                                    <div class="card-title">Apparent</div>
+                                    <div class="card-subtitle">×1.0</div>
+                                </label>
+                                <label class="option-card" onclick="selectInstall(${room.id}, 'encastre', event)">
+                                    <input type="radio" name="install-${room.id}" value="encastre">
+                                    <div class="card-icon">🔨</div>
+                                    <div class="card-title">Encastré</div>
+                                    <div class="card-subtitle">×1.5</div>
+                                </label>
+                                <label class="option-card" onclick="selectInstall(${room.id}, 'faux-plafond', event)">
+                                    <input type="radio" name="install-${room.id}" value="faux-plafond">
+                                    <div class="card-icon">⬆️</div>
+                                    <div class="card-title">Faux plafond</div>
+                                    <div class="card-subtitle">×1.3</div>
+                                </label>
                             </div>
-                            <div class="form-group">
-                                <label>Quantité</label>
-                                <input type="number" id="qty-${room.id}" value="1" min="1">
+
+                            <h4 style="margin: 15px 0 10px;">⚡ Type de circuit</h4>
+                            <div class="option-cards" id="circuit-cards-${room.id}">
+                                <label class="option-card active" onclick="selectCircuit(${room.id}, 'existant', event)">
+                                    <input type="radio" name="circuit-${room.id}" value="existant" checked>
+                                    <div class="card-icon">🔄</div>
+                                    <div class="card-title">Existant</div>
+                                    <div class="card-subtitle">×1.0</div>
+                                </label>
+                                <label class="option-card" onclick="selectCircuit(${room.id}, 'nouvelle-ligne', event)">
+                                    <input type="radio" name="circuit-${room.id}" value="nouvelle-ligne">
+                                    <div class="card-icon">⚡</div>
+                                    <div class="card-title">Nouvelle ligne</div>
+                                    <div class="card-subtitle">×1.2</div>
+                                </label>
+                            </div>
+
+                            <h4 style="margin: 15px 0 10px;">🏗️ Rebouchage</h4>
+                            <label class="checkbox-toggle" onclick="toggleRebouchage(${room.id}, event)" id="rebouchage-toggle-${room.id}">
+                                <input type="checkbox" id="rebouchage-${room.id}">
+                                <span>Rebouchage et finition</span>
+                                <input type="number" id="rebouchage-price-${room.id}" value="20" onclick="event.stopPropagation()" style="width: 80px; padding: 5px; margin-left: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
+                                <span>€</span>
+                            </label>
+
+                            <!-- CÂBLAGE DE CETTE INTERVENTION -->
+                            <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #0ea5e9;">
+                                <h4 style="margin: 0 0 10px 0;">🔗 Câblage intervention</h4>
+                                
+                                <!-- Liste des câbles -->
+                                <div style="margin-bottom: 10px;">
+                                    ${(room.cabling.cables || []).map((cable, idx) => `
+                                        <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                                            <div>
+                                                <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
+                                            </div>
+                                            <button onclick="deleteCable(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                                        </div>
+                                    `).join('') || '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>'}
+                                </div>
+                                
+                                <!-- Formulaire rapide -->
+                                <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; align-items: end;">
+                                    <select id="cable-type-${room.id}" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
+                                        <option value="">Type câble</option>
+                                        <option value="3G1.5">3G1.5 (1.20€/m)</option>
+                                        <option value="3G2.5">3G2.5 (1.80€/m)</option>
+                                        <option value="5G6">5G6 (3.50€/m)</option>
+                                        <option value="HDMI">HDMI (2.00€/m)</option>
+                                        <option value="RJ45">RJ45 (1.50€/m)</option>
+                                    </select>
+                                    <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
+                                    <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; white-space: nowrap;">+ Câble</button>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                                <button class="btn btn-info" onclick="calculateArticle(${room.id})" style="flex: 1;">🧮 Calculer</button>
+                                <button class="btn btn-success" onclick="addArticle(${room.id})" style="flex: 1;">➕ Ajouter</button>
+                            </div>
+
+                            <div id="preview-${room.id}" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 10px; margin-top: 15px;">
+                                <h4>📊 Aperçu</h4>
+                                <div id="preview-content-${room.id}"></div>
                             </div>
                         </div>
 
-                        <h4 style="margin: 15px 0 10px;">🔧 Type d'installation</h4>
-                        <div class="option-cards" id="install-cards-${room.id}">
-                            <label class="option-card" onclick="selectInstall(${room.id}, 'apparent', event)">
-                                <input type="radio" name="install-${room.id}" value="apparent">
-                                <div class="card-icon">📦</div>
-                                <div class="card-title">Apparent</div>
-                                <div class="card-subtitle">×1.0</div>
-                            </label>
-                            <label class="option-card active" onclick="selectInstall(${room.id}, 'encastre', event)">
-                                <input type="radio" name="install-${room.id}" value="encastre" checked>
-                                <div class="card-icon">🔨</div>
-                                <div class="card-title">Encastré</div>
-                                <div class="card-subtitle">×1.3</div>
-                            </label>
-                            <label class="option-card" onclick="selectInstall(${room.id}, 'faux-plafond', event)">
-                                <input type="radio" name="install-${room.id}" value="faux-plafond">
-                                <div class="card-icon">⬆️</div>
-                                <div class="card-title">Faux plafond</div>
-                                <div class="card-subtitle">×1.2</div>
-                            </label>
-                            <label class="option-card" onclick="selectInstall(${room.id}, 'encastre-lourd', event)">
-                                <input type="radio" name="install-${room.id}" value="encastre-lourd">
-                                <div class="card-icon">⚒️</div>
-                                <div class="card-title">Encastré lourd</div>
-                                <div class="card-subtitle">×1.45</div>
-                            </label>
-                        </div>
-
-                        <h4 style="margin: 15px 0 10px;">⚡ Type de circuit</h4>
-                        <div class="option-cards" id="circuit-cards-${room.id}">
-                            <label class="option-card" onclick="selectCircuit(${room.id}, 'existant', event)">
-                                <input type="radio" name="circuit-${room.id}" value="existant">
-                                <div class="card-icon">🔄</div>
-                                <div class="card-title">Existant</div>
-                                <div class="card-subtitle">×1.0</div>
-                            </label>
-                            <label class="option-card active" onclick="selectCircuit(${room.id}, 'nouvelle-ligne', event)">
-                                <input type="radio" name="circuit-${room.id}" value="nouvelle-ligne" checked>
-                                <div class="card-icon">⚡</div>
-                                <div class="card-title">Nouvelle ligne</div>
-                                <div class="card-subtitle">×1.2</div>
-                            </label>
-                        </div>
-
-                        <h4 style="margin: 15px 0 10px;">🏗️ Rebouchage</h4>
-                        <label class="checkbox-toggle" onclick="toggleRebouchage(${room.id}, event)" id="rebouchage-toggle-${room.id}">
-                            <input type="checkbox" id="rebouchage-${room.id}">
-                            <span>Rebouchage et finition</span>
-                            <input type="number" id="rebouchage-price-${room.id}" value="20" onclick="event.stopPropagation()" style="width: 80px; padding: 5px; margin-left: 10px; border: 2px solid #e0e0e0; border-radius: 5px;">
-                            <span>€</span>
-                        </label>
-
-                        <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #0ea5e9;">
-                            <h4 style="margin: 0 0 10px 0;">🔗 Câblage intervention</h4>
-                            <div style="margin-bottom: 10px;">
-                                ${(room.cabling.cables || []).map((cable, idx) => `
-                                    <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                                        <div><strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m</div>
-                                        <button onclick="deleteCable(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                        <div class="articles-list">
+                            ${room.articles.map((art, idx) => `
+                                <div class="article-item">
+                                    <div class="article-header">
+                                        <strong>${art.qty}x ${art.name}</strong>
+                                        <button onclick="deleteArticle(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
                                     </div>
-                                `).join('') || '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>'}
-                            </div>
-                            <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; align-items: end;">
-                                <select id="cable-type-${room.id}" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                    <option value="">Type câble</option>
-                                    <option value="3G1.5">3G1.5 (1.20€/m)</option>
-                                    <option value="3G2.5">3G2.5 (1.80€/m)</option>
-                                    <option value="5G6">5G6 (3.50€/m)</option>
-                                    <option value="3G4">3G4 (2.50€/m)</option>
-                                    <option value="HDMI">HDMI (2.00€/m)</option>
-                                    <option value="RJ45">RJ45 (1.50€/m)</option>
-                                </select>
-                                <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; white-space: nowrap;">+ Câble</button>
-                            </div>
-                        </div>
-
-                        <div style="display: flex; gap: 10px; margin-top: 20px;">
-                            <button class="btn btn-info" onclick="calculateArticle(${room.id})" style="flex: 1;">🧮 Calculer</button>
-                            <button class="btn btn-success" onclick="addArticle(${room.id})" style="flex: 1;">➕ Ajouter</button>
-                        </div>
-
-                        <div id="preview-${room.id}" style="display: none; background: #e7f3ff; padding: 15px; border-radius: 10px; margin-top: 15px;">
-                            <h4>📊 Aperçu</h4>
-                            <div id="preview-content-${room.id}"></div>
-                        </div>
-                    </div>
-
-                    <div class="articles-list">
-                        ${room.articles.map((art, idx) => `
-                            <div class="article-item">
-                                <div class="article-header">
-                                    <strong>${art.qty}x ${art.name}</strong>
-                                    <button onclick="deleteArticle(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
+                                        <div>Matériel:</div><div style="text-align: right;">${art.materiel.toFixed(2)}€</div>
+                                        <div>Main d'œuvre:</div><div style="text-align: right;">${art.mo.toFixed(2)}€</div>
+                                        ${art.rebouchage > 0 ? `<div>Rebouchage:</div><div style="text-align: right;">${art.rebouchage.toFixed(2)}€</div>` : ''}
+                                        <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
+                                        <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${art.total.toFixed(2)}€</strong></div>
+                                    </div>
                                 </div>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px;">
-                                    <div>Matériel:</div><div style="text-align: right;">${art.materiel.toFixed(2)}€</div>
-                                    <div>Main d'œuvre:</div><div style="text-align: right;">${art.mo.toFixed(2)}€</div>
-                                    ${art.rebouchage > 0 ? `<div>Rebouchage:</div><div style="text-align: right;">${art.rebouchage.toFixed(2)}€</div>` : ''}
-                                    <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
-                                    <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${art.total.toFixed(2)}€</strong></div>
-                                </div>
-                            </div>
-                        `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article</div>'}
+                            `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article</div>'}
+                        </div>
+
                     </div>
                 </div>
+            `;
+        }).join('');
+    }
+
+    function generateCatalogueOptions() {
+        const categories = {};
+        catalogueProduits.forEach(p => {
+            if (!categories[p.category]) categories[p.category] = [];
+            categories[p.category].push(p);
+        });
+
+        let html = '';
+        Object.keys(categories).forEach(cat => {
+            html += `<optgroup label="${cat}">`;
+            categories[cat].forEach(p => {
+                html += `<option value="${p.ref}">${p.name} (${p.price.toFixed(2)}€)</option>`;
+            });
+            html += `</optgroup>`;
+        });
+        return html;
+    }
+
+    // NOUVEAU : Filtrer produits par catégorie
+    window.filterProducts = function(roomId) {
+        const categorySelect = document.getElementById(`category-${roomId}`);
+        const articleSelect = document.getElementById(`article-${roomId}`);
+        const category = categorySelect.value;
+
+        if (!category) {
+            articleSelect.disabled = true;
+            articleSelect.innerHTML = '<option value="">-- Choisir catégorie d\'abord --</option>';
+            return;
+        }
+
+        // Mapper les catégories UI vers les catégories techniques
+        const categoryMap = {
+            'eclairage': ['appareillage'],
+            'prises': ['appareillage'],
+            'interrupteurs': ['appareillage'],
+            'protections': ['protections'],
+            'cables': ['cables'],
+            'consommables': ['consommables'],
+            'autres': ['appareillage', 'goulottes', 'gros-materiel']
+        };
+
+        const targetCategories = categoryMap[category] || [category];
+
+        // Filtrer par nom ET catégorie
+        let filtered = catalogueProduits.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            const cat = p.category || 'appareillage';
+
+            if (category === 'eclairage') {
+                return name.includes('led') || name.includes('spot') || name.includes('luminaire') || 
+                       name.includes('plafonnier') || name.includes('lampe');
+            } else if (category === 'prises') {
+                return name.includes('prise') && !name.includes('interrupteur');
+            } else if (category === 'interrupteurs') {
+                return name.includes('interrupteur') || name.includes('va-et-vient') || 
+                       name.includes('bouton') || name.includes('variateur');
+            } else if (category === 'consommables') {
+                return name.includes('cheville') || name.includes('wago') || name.includes('vis') || 
+                       name.includes('domino') || name.includes('scotch') || cat === 'consommables';
+            } else {
+                return targetCategories.includes(cat);
+            }
+        });
+
+        // Générer options
+        if (filtered.length === 0) {
+            articleSelect.innerHTML = '<option value="">Aucun produit dans cette catégorie</option>';
+            articleSelect.disabled = true;
+        } else {
+            articleSelect.disabled = false;
+            let html = '<option value="">-- Sélectionner --</option>';
+            filtered.forEach(p => {
+                const prixAchat = p.price.toFixed(2);
+                const marge = MARGES_CATEGORIE[p.category] || 0.25;
+                const prixVente = (p.price * (1 + marge)).toFixed(2);
+                html += `<option value="${p.ref}">${p.name} - Achat: ${prixAchat}€ → Vente: ${prixVente}€ (+${(marge*100).toFixed(0)}%)</option>`;
+            });
+            articleSelect.innerHTML = html;
+        }
+    }
+
+    window.selectInstall = function(roomId, type, e) {
+        e.stopPropagation();
+        const parent = document.getElementById(`install-cards-${roomId}`);
+        parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        e.currentTarget.querySelector('input').checked = true;
+    }
+
+    window.selectCircuit = function(roomId, type, e) {
+        e.stopPropagation();
+        const parent = document.getElementById(`circuit-cards-${roomId}`);
+        parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        e.currentTarget.querySelector('input').checked = true;
+    }
+
+    window.toggleRebouchage = function(roomId, e) {
+        if (e) e.stopPropagation();
+        const toggle = document.getElementById(`rebouchage-toggle-${roomId}`);
+        const checkbox = document.getElementById(`rebouchage-${roomId}`);
+        
+        // Inverser l'état actuel
+        const newState = !checkbox.checked;
+        checkbox.checked = newState;
+        
+        // Mettre à jour le visuel
+        if (newState) {
+            toggle.classList.add('active');
+        } else {
+            toggle.classList.remove('active');
+        }
+    }
+
+    window.toggleRoom = function(roomId) {
+        const room = devisState.rooms.find(r => r.id === roomId);
+        if (room) {
+            room.collapsed = !room.collapsed;
+            renderRooms();
+        }
+    }
+
+    window.calculateArticle = function(roomId) {
+        const ref = document.getElementById(`article-${roomId}`).value;
+        if (!ref) { alert('Sélectionnez un article'); return; }
+
+        const product = catalogueProduits.find(p => p.ref === ref);
+        if (!product) return;
+
+        const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
+        const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
+        const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
+        const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
+        const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
+        const tarif = parseFloat(document.getElementById('globalTarif').value);
+        
+        const materiel = product.price * qty;
+        let temps = product.temps * qty;
+        temps *= FACTEURS.installation[installType];
+        temps *= FACTEURS.circuit[circuitType];
+        const mo = temps * tarif;
+        const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
+
+        let prixUnitaire = product.price + (mo / qty);
+        if (qty >= 10) prixUnitaire *= 0.75;
+        else if (qty >= 5) prixUnitaire *= 0.85;
+
+        const total = (prixUnitaire * qty) + rebouchageTotal;
+
+        let degressif = '';
+        if (qty >= 10) degressif = '<span style="color: #28a745;">(-25%)</span>';
+        else if (qty >= 5) degressif = '<span style="color: #28a745;">(-15%)</span>';
+
+        document.getElementById(`preview-${roomId}`).style.display = 'block';
+        document.getElementById(`preview-content-${roomId}`).innerHTML = `
+            <div><strong>${qty}x ${product.name}</strong> ${degressif}</div>
+            <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
+                <div>Matériel:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
+                <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${temps.toFixed(2)}h)</div>
+                <div>Facteur install:</div><div style="text-align: right;">×${FACTEURS.installation[installType]}</div>
+                <div>Facteur circuit:</div><div style="text-align: right;">×${FACTEURS.circuit[circuitType]}</div>
+                ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
+                <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
+                <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${total.toFixed(2)}€</strong></div>
             </div>
         `;
-    }).join('');
-}
-
-window.filterProducts = function(roomId) {
-    const categorySelect = document.getElementById(`category-${roomId}`);
-    const articleSelect = document.getElementById(`article-${roomId}`);
-    const category = categorySelect.value;
-
-    if (!category) {
-        articleSelect.disabled = true;
-        articleSelect.innerHTML = '<option value="">-- Choisir catégorie d\'abord --</option>';
-        return;
     }
 
-    let filtered = catalogueProduits.filter(p => {
-        const name = (p.name || '').toLowerCase();
-        const cat = p.category || 'appareillage';
-        if (category === 'eclairage') return name.includes('led') || name.includes('spot') || name.includes('luminaire');
-        else if (category === 'prises') return name.includes('prise') && !name.includes('interrupteur');
-        else if (category === 'interrupteurs') return name.includes('interrupteur') || name.includes('va-et-vient');
-        else if (category === 'consommables') return name.includes('cheville') || name.includes('wago') || cat === 'consommables';
-        else return cat === category;
-    });
+    window.addArticle = function(roomId) {
+        const room = devisState.rooms.find(r => r.id === roomId);
+        if (!room) return;
 
-    if (filtered.length === 0) {
-        articleSelect.innerHTML = '<option value="">Aucun produit</option>';
-        articleSelect.disabled = true;
-    } else {
-        articleSelect.disabled = false;
-        let html = '<option value="">-- Sélectionner --</option>';
-        filtered.forEach(p => {
-            const marge = MARGES_CATEGORIE[p.category] || 0.25;
-            const prixVente = (p.price * (1 + marge)).toFixed(2);
-            html += `<option value="${p.ref}">${p.name} - ${p.price.toFixed(2)}€ → ${prixVente}€</option>`;
-        });
-        articleSelect.innerHTML = html;
-    }
-}
+        const ref = document.getElementById(`article-${roomId}`).value;
+        if (!ref) { alert('Sélectionnez un article'); return; }
 
-window.selectInstall = function(roomId, type, e) {
-    e.stopPropagation();
-    const parent = document.getElementById(`install-cards-${roomId}`);
-    parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
-    e.currentTarget.classList.add('active');
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (room) room.coefficients.installation = type;
-}
+        const product = catalogueProduits.find(p => p.ref === ref);
+        if (!product) return;
 
-window.selectCircuit = function(roomId, type, e) {
-    e.stopPropagation();
-    const parent = document.getElementById(`circuit-cards-${roomId}`);
-    parent.querySelectorAll('.option-card').forEach(c => c.classList.remove('active'));
-    e.currentTarget.classList.add('active');
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (room) room.coefficients.circuit = type;
-}
-
-window.toggleRebouchage = function(roomId, e) {
-    if (e) e.stopPropagation();
-    const toggle = document.getElementById(`rebouchage-toggle-${roomId}`);
-    const checkbox = document.getElementById(`rebouchage-${roomId}`);
-    checkbox.checked = !checkbox.checked;
-    toggle.classList.toggle('active', checkbox.checked);
-}
-
-window.toggleRoom = function(roomId) {
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (room) {
-        room.collapsed = !room.collapsed;
-        renderRooms();
-    }
-}
-
-window.calculateArticle = function(roomId) {
-    const ref = document.getElementById(`article-${roomId}`).value;
-    if (!ref) { alert('Sélectionnez un article'); return; }
-    const product = catalogueProduits.find(p => p.ref === ref);
-    if (!product) return;
-
-    const room = devisState.rooms.find(r => r.id === roomId);
-    const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
-    const installType = document.querySelector(`input[name="install-${room.id}"]:checked`).value;
-    const circuitType = document.querySelector(`input[name="circuit-${room.id}"]:checked`).value;
-    const rebouchage = document.getElementById(`rebouchage-${room.id}`).checked;
-    const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${room.id}`).value) || 20;
-    const tarif = parseFloat(document.getElementById('globalTarif').value);
-    
-    const category = product.category || 'appareillage';
-    const tempsBase = product.tempsBase || 30;
-    const prixVente = calculateSalePrice(product.price, category);
-    const materielTotal = prixVente * qty;
-    
-    const coeffInstall = FACTEURS.installation[installType];
-    const coeffCircuit = FACTEURS.circuit[circuitType];
-    const tempsIntervention = calculateInterventionTime(tempsBase, room.cabling.cables || [], coeffInstall, coeffCircuit);
-    const mo = (tempsIntervention / 60) * tarif;
-    const total = materielTotal + mo + (rebouchage ? rebouchagePrice : 0);
-
-    document.getElementById(`preview-${room.id}`).style.display = 'block';
-    document.getElementById(`preview-content-${room.id}`).innerHTML = `
-        <div><strong>${qty}x ${product.name}</strong></div>
-        <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
-            <div>Matériel:</div><div style="text-align: right;">${materielTotal.toFixed(2)}€</div>
-            <div>MO:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${tempsIntervention}min)</div>
-            ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
-            <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
-            <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${total.toFixed(2)}€</strong></div>
-        </div>
-    `;
-}
-
-window.addArticle = function(roomId) {
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (!room) return;
-    const ref = document.getElementById(`article-${roomId}`).value;
-    if (!ref) { alert('Sélectionnez un article'); return; }
-    const product = catalogueProduits.find(p => p.ref === ref);
-    if (!product) return;
-
-    const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
-    const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
-    const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
-    const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
-    const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
-    
-    room.coefficients.installation = installType;
-    room.coefficients.circuit = circuitType;
-    
-    const category = product.category || 'appareillage';
-    const tempsBase = product.tempsBase || 30;
-    const prixVente = calculateSalePrice(product.price, category);
-    const materielTotal = prixVente * qty;
-    const tarif = parseFloat(document.getElementById('globalTarif').value);
-    const coeffInstall = FACTEURS.installation[installType];
-    const coeffCircuit = FACTEURS.circuit[circuitType];
-    const tempsIntervention = calculateInterventionTime(tempsBase, room.cabling.cables || [], coeffInstall, coeffCircuit);
-    const mo = (tempsIntervention / 60) * tarif;
-    const total = materielTotal + mo + (rebouchage ? rebouchagePrice : 0);
-    
-    room.articles.push({
-        ref: product.ref,
-        name: product.name,
-        qty: qty,
-        prixAchat: product.price,
-        category: category,
-        tempsBase: tempsBase,
-        materiel: materielTotal,
-        mo: mo,
-        rebouchage: rebouchage ? rebouchagePrice : 0,
-        total: total
-    });
-
-    renderRooms();
-    calculateRecap();
-}
-
-window.deleteArticle = function(roomId, idx) {
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (room && confirm('Supprimer ?')) {
-        room.articles.splice(idx, 1);
-        renderRooms();
-        calculateRecap();
-    }
-}
-
-window.addCable = function(roomId) {
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (!room) return;
-    const type = document.getElementById(`cable-type-${roomId}`).value;
-    const length = parseFloat(document.getElementById(`cable-length-${roomId}`).value);
-    if (!type || !length || length <= 0) { alert('Données invalides'); return; }
-
-    room.cabling.cables.push({
-        type: type,
-        length: length,
-        pricePerMeter: CABLE_PRIX[type] || 1.50,
-        category: 'cables'
-    });
-
-    document.getElementById(`cable-type-${roomId}`).value = '';
-    document.getElementById(`cable-length-${roomId}`).value = '10';
-    renderRooms();
-    calculateRecap();
-}
-
-window.deleteCable = function(roomId, idx) {
-    const room = devisState.rooms.find(r => r.id === roomId);
-    if (room && confirm('Supprimer ce câble ?')) {
-        room.cabling.cables.splice(idx, 1);
-        renderRooms();
-        calculateRecap();
-    }
-}
-
-window.deleteRoom = function(roomId) {
-    if (confirm('Supprimer cette pièce ?')) {
-        devisState.rooms = devisState.rooms.filter(r => r.id !== roomId);
-        renderRooms();
-        calculateRecap();
-    }
-}
-
-window.toggleRistourne = function() {
-    const enabled = document.getElementById('ristourneEnabled').checked;
-    const toggle = document.getElementById('ristourneToggle');
-    toggle.classList.toggle('active', enabled);
-    document.getElementById('ristourneOptions').style.display = enabled ? 'block' : 'none';
-    calculateRecap();
-}
-
-function calculateRecap() {
-    const tarif = parseFloat(document.getElementById('globalTarif').value) || 45;
-    const deplacement = parseFloat(document.getElementById('globalDeplacement').value) || 25;
-    const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
-    const tva = buildingAge === 'old' ? 0.06 : 0.21;
-
-    let totalMateriel = 0;
-    let totalMO = 0;
-    let totalMinutes = 0;
-
-    devisState.rooms.forEach(room => {
+        const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
+        const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
+        const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
+        
+        // NOUVEAU : Utiliser category et tempsBase du produit
+        const category = product.category || 'appareillage';
+        const tempsBase = product.tempsBase || 30; // 30 min par défaut
+        const prixAchat = product.price;
+        
+        // NOUVEAU : Appliquer marge automatique
+        const prixVente = calculateSalePrice(prixAchat, category);
+        const materielTotal = prixVente * qty;
+        
+        // NOUVEAU : Calculer temps avec nouveau système (sera recalculé dans calculateRecap avec câbles)
         const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
         const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
         
-        room.articles.forEach(art => {
-            const tempsBase = art.tempsBase || 30;
-            const tempsIntervention = calculateInterventionTime(tempsBase, room.cabling.cables || [], coeffInstall, coeffCircuit);
-            totalMinutes += tempsIntervention;
-            const category = art.category || 'appareillage';
-            const prixVente = calculateSalePrice(art.prixAchat, category);
-            totalMateriel += prixVente * art.qty + (art.rebouchage || 0);
-            const mo = (tempsIntervention / 60) * tarif;
-            totalMO += mo;
+        room.articles.push({
+            ref: product.ref,
+            name: product.name,
+            qty: qty,
+            prixAchat: prixAchat,
+            category: category,
+            tempsBase: tempsBase,
+            materiel: materielTotal,
+            mo: 0, // Sera calculé dans calculateRecap
+            rebouchage: rebouchage ? rebouchagePrice : 0,
+            total: 0 // Sera calculé dans calculateRecap
         });
-        
-        (room.cabling.cables || []).forEach(cable => {
-            const coutCable = cable.length * cable.pricePerMeter;
-            const coutAvecMarge = calculateSalePrice(coutCable, 'cables');
-            totalMateriel += coutAvecMarge;
-        });
-    });
 
-    totalMinutes = applyMinimumBillable(totalMinutes);
-    if (totalMinutes === 60 && totalMO < tarif) totalMO = tarif;
-
-    const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
-    const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
-    const diffA = parseInt(document.getElementById('diffA').value) || 0;
-    const parafoudre = document.getElementById('parafoudre').value === 'oui' ? 120 : 0;
-    const contacteur = (parseInt(document.getElementById('contacteur').value) || 0) * 28;
-    totalMateriel += coffret + (diffAC * 35) + (diffA * 45) + parafoudre + contacteur;
-
-    let totalServices = 0;
-    if (document.getElementById('service-conformite').checked) totalServices += 450;
-    if (document.getElementById('service-diagnostic').checked) totalServices += 180;
-    if (document.getElementById('service-certificat').checked) totalServices += 80;
-    if (document.getElementById('service-schema').checked) totalServices += 120;
-
-    let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
-    let montantRistourne = 0;
-    let pourcent = 0;
-    
-    if (document.getElementById('ristourneEnabled').checked) {
-        pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 15;
-        montantRistourne = sousTotalHT * (pourcent / 100);
-        document.getElementById('ristourneRow').style.display = 'flex';
-        document.getElementById('ristournePercentDisplay').textContent = pourcent;
-        document.getElementById('montantRistourne').textContent = '-' + montantRistourne.toFixed(2) + ' €';
-    } else {
-        document.getElementById('ristourneRow').style.display = 'none';
+        renderRooms();
+        calculateRecap();
     }
 
-    const sousTotalApresRistourne = sousTotalHT - montantRistourne;
-    const montantTVA = sousTotalApresRistourne * tva;
-    const totalTTC = sousTotalApresRistourne + montantTVA;
+    window.deleteArticle = function(roomId, idx) {
+        const room = devisState.rooms.find(r => r.id === roomId);
+        if (room && confirm('Supprimer ?')) {
+            room.articles.splice(idx, 1);
+            renderRooms();
+            calculateRecap();
+        }
+    }
 
-    document.getElementById('totalMaterielHT').textContent = totalMateriel.toFixed(2) + ' €';
-    document.getElementById('totalMOHT').textContent = totalMO.toFixed(2) + ' €';
-    document.getElementById('totalServicesHT').textContent = totalServices.toFixed(2) + ' €';
-    document.getElementById('totalDeplacement').textContent = deplacement.toFixed(2) + ' €';
-    document.getElementById('sousTotalHT').textContent = sousTotalHT.toFixed(2) + ' €';
-    document.getElementById('tvaPercent').textContent = (tva * 100).toFixed(0);
-    document.getElementById('montantTVA').textContent = montantTVA.toFixed(2) + ' €';
-    document.getElementById('totalTTC').textContent = totalTTC.toFixed(2) + ' €';
+    // NOUVEAU : Gestion des câbles
+    window.addCable = function(roomId) {
+        const room = devisState.rooms.find(r => r.id === roomId);
+        if (!room) return;
 
-    document.getElementById('recapContent').innerHTML = `
-        <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <h3>👤 Client</h3>
-            <p><strong>${document.getElementById('clientName').value || 'Non renseigné'}</strong></p>
-            <p>${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}</p>
-            <p><em>Temps total: ${Math.round(totalMinutes)} minutes (${(totalMinutes/60).toFixed(1)}h)</em></p>
-        </div>
-        <div style="background: white; padding: 20px; border-radius: 10px;">
-            <h3>📍 Pièces (${devisState.rooms.length})</h3>
-            ${devisState.rooms.map(room => `<p><strong>${room.name}</strong> - ${room.articles.length} articles</p>`).join('')}
-        </div>
-    `;
-}
+        const type = document.getElementById(`cable-type-${roomId}`).value;
+        const length = parseFloat(document.getElementById(`cable-length-${roomId}`).value);
 
-window.updateRecap = calculateRecap;
+        if (!type) {
+            alert('Sélectionnez un type de câble');
+            return;
+        }
 
-window.generatePDF = async function() {
-    const { jsPDF } = window.jspdf;
-    let companyInfo = { nom: 'NOORELEC', slogan: "L'ART DU SAVOIR-FAIRE", iban: 'BE12 3456 7890 1234', titulaire: 'Noorelec SA', ville: 'Bruxelles' };
-    try {
-        const settingsDoc = await getDoc(doc(db, 'settings', currentUser.uid));
-        if (settingsDoc.exists() && settingsDoc.data().company) companyInfo = { ...companyInfo, ...settingsDoc.data().company };
-    } catch (e) {}
-    
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    
-    pdf.setFontSize(28);
-    pdf.setTextColor(0, 128, 96);
-    pdf.setFont(undefined, 'bold');
-    pdf.text(companyInfo.nom, 20, 25);
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'normal');
-    pdf.text(companyInfo.slogan, 20, 32);
-    pdf.setTextColor(0, 0, 0);
-    const today = new Date().toLocaleDateString('fr-FR');
-    pdf.text('Fait le ' + today, pageWidth - 20, 20, { align: 'right' });
-    pdf.text('à ' + companyInfo.ville, pageWidth - 20, 26, { align: 'right' });
-    
-    let y = 45;
-    pdf.setFontSize(11);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('CLIENT:', 20, y);
-    pdf.setFont(undefined, 'normal');
-    pdf.setFontSize(10);
-    y += 6;
-    pdf.text(document.getElementById('clientName').value || 'Non renseigné', 20, y);
-    const clientTVA = document.getElementById('clientTVA').value;
-    if (clientTVA) { y += 5; pdf.text('TVA: ' + clientTVA, 20, y); }
-    y += 5;
-    pdf.text(document.getElementById('clientRue').value || '', 20, y);
-    y += 5;
-    pdf.text((document.getElementById('clientCP').value || '') + ' ' + (document.getElementById('clientCommune').value || ''), 20, y);
-    
-    y += 10;
-    pdf.setFontSize(14);
-    pdf.setFont(undefined, 'bold');
-    pdf.setTextColor(25, 55, 109);
-    pdf.text('DEVIS - TRAVAUX ÉLECTRIQUES', pageWidth / 2, y, { align: 'center' });
-    y += 12;
-    
-    pdf.setFillColor(25, 55, 109);
-    pdf.rect(20, y, pageWidth - 40, 8, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(11);
-    pdf.text('TRAVAUX', 22, y + 5.5);
-    y += 10;
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(9);
-    
-    devisState.rooms.forEach(room => {
-        if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
-        pdf.setFillColor(220, 230, 255);
-        pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
+        if (!length || length <= 0) {
+            alert('Longueur invalide');
+            return;
+        }
+
+        // Prix selon type
+        const prices = {
+            '3G1.5': 1.20,
+            '3G2.5': 1.80,
+            '5G6': 3.50,
+            'HDMI': 2.00,
+            'RJ45': 1.50
+        };
+
+        room.cabling.cables.push({
+            type: type,
+            length: length,
+            pricePerMeter: prices[type] || 1.50,
+            category: 'cables'
+        });
+
+        // Reset formulaire
+        document.getElementById(`cable-type-${roomId}`).value = '';
+        document.getElementById(`cable-length-${roomId}`).value = '10';
+
+        renderRooms();
+        calculateRecap();
+    }
+
+    window.deleteCable = function(roomId, idx) {
+        const room = devisState.rooms.find(r => r.id === roomId);
+        if (room && confirm('Supprimer ce câble ?')) {
+            room.cabling.cables.splice(idx, 1);
+            renderRooms();
+            calculateRecap();
+        }
+    }
+
+    window.calculateCabling = function(roomId) {
+        const room = devisState.rooms.find(r => r.id === roomId);
+        if (!room) return;
+
+        const tarif = parseFloat(document.getElementById('globalTarif').value);
+        let total = 0;
+        let details = '';
+
+        const internalSelect = document.getElementById(`cable-internal-${roomId}`).value;
+        const internalLength = parseFloat(document.getElementById(`cable-internal-length-${roomId}`).value) || 0;
+        if (internalSelect && internalLength > 0) {
+            const [price, temps] = internalSelect.split(',').map(parseFloat);
+            room.cabling.internal.cost = internalLength * (price + (temps * tarif));
+            total += room.cabling.internal.cost;
+            details += `Interne: ${internalLength}m = ${room.cabling.internal.cost.toFixed(2)}€\n`;
+        } else {
+            room.cabling.internal.cost = 0;
+        }
+
+        const tableauSelect = document.getElementById(`cable-tableau-${roomId}`).value;
+        const tableauLength = parseFloat(document.getElementById(`cable-tableau-length-${roomId}`).value) || 0;
+        if (tableauSelect && tableauLength > 0) {
+            const [price, temps] = tableauSelect.split(',').map(parseFloat);
+            room.cabling.tableau.cost = tableauLength * (price + (temps * tarif));
+            total += room.cabling.tableau.cost;
+            details += `Tableau: ${tableauLength}m = ${room.cabling.tableau.cost.toFixed(2)}€\n`;
+        } else {
+            room.cabling.tableau.cost = 0;
+        }
+
+        if (total > 0) {
+            alert(`✅ Câblage calculé!\n\n${details}\nTotal: ${total.toFixed(2)}€`);
+        } else {
+            alert('⚠️ Renseignez type et longueur');
+        }
+        
+        renderRooms();
+    }
+
+    window.deleteRoom = function(roomId) {
+        if (confirm('Supprimer cette pièce ?')) {
+            devisState.rooms = devisState.rooms.filter(r => r.id !== roomId);
+            renderRooms();
+        }
+    }
+
+    window.toggleRistourne = function() {
+        const enabled = document.getElementById('ristourneEnabled').checked;
+        const toggle = document.getElementById('ristourneToggle');
+        toggle.classList.toggle('active', enabled);
+        document.getElementById('ristourneOptions').style.display = enabled ? 'block' : 'none';
+    }
+
+    function calculateRecap() {
+        const tarif = parseFloat(document.getElementById('globalTarif').value) || 45;
+        const deplacement = parseFloat(document.getElementById('globalDeplacement').value) || 25;
+        const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
+        const tva = buildingAge === 'old' ? 0.06 : 0.21;
+
+        let totalMateriel = 0;
+        let totalMO = 0;
+        let totalMinutes = 0;
+
+        // NOUVEAU CALCUL : Par intervention (room)
+        devisState.rooms.forEach(room => {
+            const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
+            const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
+            
+            room.articles.forEach(art => {
+                // Temps de base selon type (si disponible dans catalogue)
+                const tempsBase = art.tempsBase || 30; // 30 min par défaut
+                
+                // Calculer temps avec câblage de cette intervention
+                const tempsIntervention = calculateInterventionTime(
+                    tempsBase,
+                    room.cabling.cables || [],
+                    coeffInstall,
+                    coeffCircuit
+                );
+                
+                totalMinutes += tempsIntervention;
+                
+                // Prix matériel avec marge automatique
+                const category = art.category || 'appareillage';
+                const prixVente = calculateSalePrice(art.prixAchat || art.materiel, category);
+                
+                totalMateriel += prixVente + (art.rebouchage || 0);
+                
+                // MO calculée sur temps réel
+                const mo = (tempsIntervention / 60) * tarif;
+                totalMO += mo;
+            });
+            
+            // Ajouter coût matériel des câbles (avec marge)
+            (room.cabling.cables || []).forEach(cable => {
+                const coutCable = cable.length * cable.pricePerMeter;
+                const coutAvecMarge = calculateSalePrice(coutCable, 'cables');
+                totalMateriel += coutAvecMarge;
+            });
+            
+            // Ancien système câblage (conservé pour compatibilité)
+            totalMateriel += (room.cabling.internal?.cost || 0) + (room.cabling.tableau?.cost || 0);
+        });
+
+        // Appliquer minimum facturable 60 min
+        totalMinutes = applyMinimumBillable(totalMinutes);
+        
+        // Recalculer MO si minimum appliqué
+        if (totalMinutes === 60 && totalMO < tarif) {
+            totalMO = tarif; // 1 heure minimum
+        }
+
+        // Tableau électrique
+        const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
+        const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
+        const diffA = parseInt(document.getElementById('diffA').value) || 0;
+        const parafoudre = document.getElementById('parafoudre').value === 'oui' ? 120 : 0;
+        const contacteur = (parseInt(document.getElementById('contacteur').value) || 0) * 28;
+
+        totalMateriel += coffret + (diffAC * 35) + (diffA * 45) + parafoudre + contacteur;
+
+        // Services
+        let totalServices = 0;
+        if (document.getElementById('service-conformite').checked) totalServices += 450;
+        if (document.getElementById('service-diagnostic').checked) totalServices += 180;
+        if (document.getElementById('service-certificat').checked) totalServices += 80;
+        if (document.getElementById('service-schema').checked) totalServices += 120;
+
+        let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
+
+        // Ristourne
+        let montantRistourne = 0;
+        if (document.getElementById('ristourneEnabled').checked) {
+            const pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 10;
+            montantRistourne = sousTotalHT * (pourcent / 100);
+            sousTotalHT -= montantRistourne;
+            
+            document.getElementById('ristourneRow').style.display = 'flex';
+            document.getElementById('ristournePercentDisplay').textContent = pourcent;
+            document.getElementById('montantRistourne').textContent = '-' + montantRistourne.toFixed(2) + ' €';
+        } else {
+            document.getElementById('ristourneRow').style.display = 'none';
+        }
+
+        const montantTVA = sousTotalHT * tva;
+        const totalTTC = sousTotalHT + montantTVA;
+
+        // Affichage
+        document.getElementById('totalMaterielHT').textContent = totalMateriel.toFixed(2) + ' €';
+        document.getElementById('totalMOHT').textContent = totalMO.toFixed(2) + ' €';
+        document.getElementById('totalServicesHT').textContent = totalServices.toFixed(2) + ' €';
+        document.getElementById('totalDeplacement').textContent = deplacement.toFixed(2) + ' €';
+        document.getElementById('sousTotalHT').textContent = (sousTotalHT + montantRistourne).toFixed(2) + ' €';
+        document.getElementById('tvaPercent').textContent = (tva * 100).toFixed(0);
+        document.getElementById('montantTVA').textContent = montantTVA.toFixed(2) + ' €';
+        document.getElementById('totalTTC').textContent = totalTTC.toFixed(2) + ' €';
+
+        document.getElementById('recapContent').innerHTML = `
+            <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <h3>👤 Client</h3>
+                <p><strong>${document.getElementById('clientName').value || 'Non renseigné'}</strong></p>
+                <p>${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}</p>
+                <p><em>Temps total: ${Math.round(totalMinutes)} minutes (${(totalMinutes/60).toFixed(1)}h)</em></p>
+            </div>
+            <div style="background: white; padding: 20px; border-radius: 10px;">
+                <h3>📍 Pièces (${devisState.rooms.length})</h3>
+                ${devisState.rooms.map(room => `<p><strong>${room.name}</strong> - ${room.articles.length} articles</p>`).join('')}
+            </div>
+        `;
+    }
+
+    // Générer PDF PROFESSIONNEL
+    window.generatePDF = async function() {
+        const { jsPDF } = window.jspdf;
+        
+        // Charger paramètres entreprise
+        let companyInfo = {
+            nom: 'NOORELEC',
+            slogan: "L'ART DU SAVOIR-FAIRE",
+            iban: 'BE12 3456 7890 1234',
+            titulaire: 'Noorelec SA',
+            ville: 'Bruxelles'
+        };
+        
+        try {
+            const settingsDoc = await getDoc(doc(db, 'settings', currentUser.uid));
+            if (settingsDoc.exists() && settingsDoc.data().company) {
+                companyInfo = { ...companyInfo, ...settingsDoc.data().company };
+            }
+        } catch (error) {
+            console.log('Paramètres par défaut');
+        }
+        
+        const pdf = new jsPDF();
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        
+        // EN-TÊTE
+        pdf.setFontSize(28);
+        pdf.setTextColor(0, 128, 96);
         pdf.setFont(undefined, 'bold');
-        pdf.text(room.name, 24, y + 2);
-        y += 8;
+        pdf.text(companyInfo.nom, 20, 25);
+        
+        pdf.setFontSize(10);
         pdf.setFont(undefined, 'normal');
+        pdf.text(companyInfo.slogan, 20, 32);
         
-        room.articles.forEach(art => {
-            if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
-            pdf.text(`  ${art.qty}x ${art.name}`, 26, y);
-            pdf.text(art.total.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
-            y += 5;
-        });
+        pdf.setTextColor(0, 0, 0);
+        const today = new Date().toLocaleDateString('fr-FR');
+        pdf.text('Fait le ' + today, pageWidth - 20, 20, { align: 'right' });
+        pdf.text('à ' + companyInfo.ville, pageWidth - 20, 26, { align: 'right' });
         
-        (room.cabling.cables || []).forEach(cable => {
-            if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
-            pdf.text(`  Câble ${cable.type} (${cable.length}m)`, 26, y);
-            const cout = calculateSalePrice(cable.length * cable.pricePerMeter, 'cables');
-            pdf.text(cout.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
-            y += 5;
-        });
-        y += 4;
-    });
-    
-    y += 5;
-    if (y > pageHeight - 80) { pdf.addPage(); y = 20; }
-    
-    const totalMateriel = parseFloat(document.getElementById('totalMaterielHT').textContent);
-    const totalMO = parseFloat(document.getElementById('totalMOHT').textContent);
-    const totalServices = parseFloat(document.getElementById('totalServicesHT').textContent);
-    const deplacement = parseFloat(document.getElementById('totalDeplacement').textContent);
-    const sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
-    const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
-    const tva = buildingAge === 'old' ? 0.06 : 0.21;
-    const tvaPercent = (tva * 100).toFixed(0);
-    const ristourneEnabled = document.getElementById('ristourneEnabled').checked;
-    let montantRistourne = 0;
-    let pourcent = 0;
-    let delai = 0;
-    
-    if (ristourneEnabled) {
-        pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 15;
-        delai = parseInt(document.getElementById('ristourneDelai').value) || 30;
-        montantRistourne = sousTotalHT * (pourcent / 100);
-    }
-    
-    const sousTotalApresRistourne = sousTotalHT - montantRistourne;
-    const montantTVA = sousTotalApresRistourne * tva;
-    const totalTTC = sousTotalApresRistourne + montantTVA;
-    
-    pdf.setFillColor(25, 55, 109);
-    pdf.rect(20, y, pageWidth - 40, 28, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('SOUS-TOTAL HT:', 25, y + 8);
-    pdf.text(sousTotalHT.toFixed(2) + '€', pageWidth - 25, y + 8, { align: 'right' });
-    pdf.text(`TVA (${tvaPercent}%):`, 25, y + 15);
-    pdf.text((sousTotalHT * tva).toFixed(2) + '€', pageWidth - 25, y + 15, { align: 'right' });
-    pdf.setFontSize(14);
-    pdf.text('TOTAL TTC:', 25, y + 24);
-    pdf.text((sousTotalHT * (1 + tva)).toFixed(2) + '€', pageWidth - 25, y + 24, { align: 'right' });
-    y += 33;
-    
-    if (ristourneEnabled) {
-        y += 5;
-        pdf.setFillColor(255, 243, 205);
-        pdf.rect(20, y, pageWidth - 40, 32, 'F');
-        pdf.setTextColor(133, 100, 4);
+        // CLIENT
+        let y = 45;
         pdf.setFontSize(11);
         pdf.setFont(undefined, 'bold');
-        pdf.text('🎁 OFFRE SPECIALE', 25, y + 7);
+        pdf.text('CLIENT:', 20, y);
+        
+        pdf.setFont(undefined, 'normal');
+        pdf.setFontSize(10);
+        y += 6;
+        pdf.text(document.getElementById('clientName').value || 'Non renseigné', 20, y);
+        const clientTVA = document.getElementById('clientTVA').value;
+        if (clientTVA) {
+            y += 5;
+            pdf.text('TVA: ' + clientTVA, 20, y);
+        }
+        y += 5;
+        pdf.text(document.getElementById('clientRue').value || '', 20, y);
+        y += 5;
+        pdf.text((document.getElementById('clientCP').value || '') + ' ' + (document.getElementById('clientCommune').value || ''), 20, y);
+        const tel = document.getElementById('clientPhone').value;
+        if (tel) {
+            y += 5;
+            pdf.text('Tél: ' + tel, 20, y);
+        }
+        const email = document.getElementById('clientEmail').value;
+        if (email) {
+            y += 5;
+            pdf.text('Email: ' + email, 20, y);
+        }
+        
+        // TITRE
+        y += 10;
+        pdf.setFontSize(14);
+        pdf.setFont(undefined, 'bold');
+        pdf.setTextColor(25, 55, 109);
+        pdf.text('DEVIS - TRAVAUX ÉLECTRIQUES', pageWidth / 2, y, { align: 'center' });
+        
+        y += 12;
+        
+        // TRAVAUX
+        pdf.setFillColor(25, 55, 109);
+        pdf.rect(20, y, pageWidth - 40, 8, 'F');
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(11);
+        pdf.text('TRAVAUX', 22, y + 5.5);
+        pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+        
+        y += 10;
+        pdf.setTextColor(0, 0, 0);
         pdf.setFont(undefined, 'normal');
         pdf.setFontSize(9);
-        const dateLimite = new Date();
-        dateLimite.setDate(dateLimite.getDate() + delai);
-        const dateLimiteStr = dateLimite.toLocaleDateString('fr-FR');
-        const economieClientTTC = (sousTotalHT * (1 + tva)) - totalTTC;
-        pdf.text(`Ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€ HT) valable ${delai} jours`, 25, y + 13);
-        pdf.text(`(jusqu'au ${dateLimiteStr} inclus)`, 25, y + 18);
-        pdf.setFont(undefined, 'bold');
+        
+        // Liste des pièces avec sections claires
+        devisState.rooms.forEach(room => {
+            if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+            
+            // Nom de la pièce avec fond bleu clair
+            pdf.setFillColor(220, 230, 255);
+            pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
+            pdf.setTextColor(25, 55, 109);
+            pdf.setFont(undefined, 'bold');
+            pdf.setFontSize(10);
+            pdf.text(room.name, 24, y + 2);
+            y += 8;
+            
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(9);
+            
+            // Articles
+            room.articles.forEach(art => {
+                if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                pdf.text(`  ${art.qty}x ${art.name}`, 26, y);
+                pdf.text(art.total.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            });
+            
+            // Câblage
+            if (room.cabling.internal.cost > 0) {
+                pdf.text(`  Cablage entre points (${room.cabling.internal.length || 0}m)`, 26, y);
+                pdf.text(room.cabling.internal.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            if (room.cabling.tableau.cost > 0) {
+                pdf.text(`  Cablage au tableau (${room.cabling.tableau.length || 0}m)`, 26, y);
+                pdf.text(room.cabling.tableau.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            
+            y += 4;
+        });
+        
+        // TABLEAU
+        y += 5;
+        if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
+        
+        pdf.setFillColor(25, 55, 109);
+        pdf.rect(20, y, pageWidth - 40, 8, 'F');
+        pdf.setTextColor(255, 255, 255);
         pdf.setFontSize(11);
-        pdf.text(`Prix final après ristourne : ${totalTTC.toFixed(2)}€ TTC`, 25, y + 24);
-        pdf.setFontSize(8);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('TABLEAU ÉLECTRIQUE', 22, y + 5.5);
+        pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+        
+        y += 10;
+        pdf.setTextColor(220, 230, 255);
+        pdf.setFillColor(220, 230, 255);
+        pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
+        pdf.setTextColor(25, 55, 109);
+        pdf.setFont(undefined, 'bold');
+        pdf.setFontSize(10);
+        pdf.text('Tableau 1', 24, y + 2);
+        y += 8;
+        
+        pdf.setTextColor(0, 0, 0);
         pdf.setFont(undefined, 'normal');
-        pdf.text(`Soit une économie totale de ${economieClientTTC.toFixed(2)}€ TTC`, 25, y + 29);
-        y += 37;
+        pdf.setFontSize(9);
+        
+        const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
+        if (coffret > 0) {
+            pdf.text('  Coffret', 24, y);
+            pdf.text(coffret.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+            y += 5;
+        }
+        
+        const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
+        if (diffAC > 0) {
+            pdf.text(`  ${diffAC}x Différentiel 40A Type AC`, 24, y);
+            pdf.text((diffAC * 35).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+            y += 5;
+        }
+        
+        const diffA = parseInt(document.getElementById('diffA').value) || 0;
+        if (diffA > 0) {
+            pdf.text(`  ${diffA}x Différentiel 40A Type A`, 24, y);
+            pdf.text((diffA * 45).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+            y += 5;
+        }
+        
+        const parafoudre = document.getElementById('parafoudre').value === 'oui' ? 120 : 0;
+        if (parafoudre > 0) {
+            pdf.text('  1x Parafoudre', 24, y);
+            pdf.text('120.00€', pageWidth - 22, y, { align: 'right' });
+            y += 5;
+        }
+        
+        const contacteur = parseInt(document.getElementById('contacteur').value) || 0;
+        if (contacteur > 0) {
+            pdf.text(`  ${contacteur}x Contacteur jour/nuit`, 24, y);
+            pdf.text((contacteur * 28).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+            y += 5;
+        }
+        
+        // SERVICES
+        y += 5;
+        const hasServices = document.getElementById('service-conformite').checked || 
+                           document.getElementById('service-diagnostic').checked ||
+                           document.getElementById('service-certificat').checked ||
+                           document.getElementById('service-schema').checked;
+        
+        if (hasServices) {
+            if (y > pageHeight - 40) { pdf.addPage(); y = 20; }
+            
+            pdf.setFillColor(25, 55, 109);
+            pdf.rect(20, y, pageWidth - 40, 8, 'F');
+            pdf.setTextColor(255, 255, 255);
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('SERVICES ADMINISTRATIFS', 22, y + 5.5);
+            pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+            
+            y += 10;
+            pdf.setTextColor(0, 0, 0);
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(9);
+            
+            if (document.getElementById('service-conformite').checked) {
+                pdf.text('  Mise en conformité', 24, y);
+                pdf.text('450.00€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            if (document.getElementById('service-diagnostic').checked) {
+                pdf.text('  Diagnostic électrique', 24, y);
+                pdf.text('180.00€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            if (document.getElementById('service-certificat').checked) {
+                pdf.text('  Certificat conformité', 24, y);
+                pdf.text('80.00€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+            if (document.getElementById('service-schema').checked) {
+                pdf.text('  Schéma électrique', 24, y);
+                pdf.text('120.00€', pageWidth - 22, y, { align: 'right' });
+                y += 5;
+            }
+        }
+        
+        // TOTAUX
+        y += 10;
+        if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
+        
+        const totalMateriel = parseFloat(document.getElementById('totalMaterielHT').textContent);
+        const totalMO = parseFloat(document.getElementById('totalMOHT').textContent);
+        const totalServices = parseFloat(document.getElementById('totalServicesHT').textContent);
+        const deplacement = parseFloat(document.getElementById('totalDeplacement').textContent);
+        let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
+        
+        const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
+        const tva = buildingAge === 'old' ? 0.06 : 0.21;
+        const tvaPercent = (tva * 100).toFixed(0);
+        
+        const ristourneEnabled = document.getElementById('ristourneEnabled').checked;
+        let montantRistourne = 0;
+        let pourcent = 0;
+        let delai = 0;
+        
+        if (ristourneEnabled) {
+            pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 10;
+            delai = parseInt(document.getElementById('ristourneDelai').value) || 30;
+            montantRistourne = sousTotalHT * (pourcent / 100);
+        }
+        
+        const totalAvantRistourne = sousTotalHT;
+        const sousTotalApresRistourne = sousTotalHT - montantRistourne;
+        const montantTVA = sousTotalApresRistourne * tva;
+        const totalTTC = sousTotalApresRistourne + montantTVA;
+        
+        // Cadre bleu totaux SANS ristourne
+        pdf.setFillColor(25, 55, 109);
+        pdf.rect(20, y, pageWidth - 40, 28, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFontSize(10);
+        pdf.setFont(undefined, 'bold');
+        
+        pdf.text('SOUS-TOTAL HT:', 25, y + 8);
+        pdf.text(totalAvantRistourne.toFixed(2) + '€', pageWidth - 25, y + 8, { align: 'right' });
+        
+        pdf.text(`TVA (${tvaPercent}%):`, 25, y + 15);
+        pdf.text((totalAvantRistourne * tva).toFixed(2) + '€', pageWidth - 25, y + 15, { align: 'right' });
+        
+        pdf.setFontSize(14);
+        pdf.text('TOTAL TTC:', 25, y + 24);
+        pdf.text((totalAvantRistourne + (totalAvantRistourne * tva)).toFixed(2) + '€', pageWidth - 25, y + 24, { align: 'right' });
+        
+        y += 33;
+        
+        // RISTOURNE texte avec date ET prix final
+        if (ristourneEnabled) {
+            y += 5;
+            pdf.setFillColor(255, 243, 205);
+            pdf.rect(20, y, pageWidth - 40, 27, 'F');
+            
+            pdf.setTextColor(133, 100, 4);
+            pdf.setFontSize(11);
+            pdf.setFont(undefined, 'bold');
+            pdf.text('OFFRE SPECIALE', 25, y + 7);
+            
+            pdf.setFont(undefined, 'normal');
+            pdf.setFontSize(9);
+            
+            // Calculer date limite
+            const dateLimite = new Date();
+            dateLimite.setDate(dateLimite.getDate() + delai);
+            const dateLimiteStr = dateLimite.toLocaleDateString('fr-FR');
+            
+            const totalAvecRistourne = sousTotalApresRistourne + montantTVA;
+            
+            pdf.text(`Ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€) valable ${delai} jours`, 25, y + 13);
+            pdf.text(`(jusqu'au ${dateLimiteStr} inclus)`, 25, y + 18);
+            
+            pdf.setFont(undefined, 'bold');
+            pdf.setFontSize(11);
+            pdf.text(`Prix final apres ristourne : ${totalAvecRistourne.toFixed(2)}€`, 25, y + 24);
+            
+            y += 32;
+        }
+        
+        // PAIEMENT
+        y += 5;
+        if (y > pageHeight - 50) { pdf.addPage(); y = 20; }
+        
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(20, y, pageWidth - 40, 45, 'F');
+        
+        pdf.setTextColor(25, 55, 109);
+        pdf.setFontSize(11);
+        pdf.setFont(undefined, 'bold');
+        pdf.text('MODALITES DE PAIEMENT', 25, y + 7);
+        
+        pdf.setTextColor(0, 0, 0);
+        pdf.setFont(undefined, 'normal');
+        pdf.setFontSize(9);
+        
+        const totalFinal = ristourneEnabled ? (sousTotalApresRistourne + montantTVA) : (totalAvantRistourne + (totalAvantRistourne * tva));
+        const acompte30 = totalFinal * 0.30;
+        const debut40 = totalFinal * 0.40;
+        const fin30 = totalFinal * 0.30;
+        
+        pdf.text(`- Acompte de 30% a la signature : ${acompte30.toFixed(2)}€`, 25, y + 14);
+        pdf.text(`- 40% au debut des travaux : ${debut40.toFixed(2)}€`, 25, y + 19);
+        pdf.text(`- 30% a la fin des travaux : ${fin30.toFixed(2)}€`, 25, y + 24);
+        
+        pdf.setFont(undefined, 'bold');
+        pdf.text(`Titulaire : ${companyInfo.titulaire}`, 25, y + 31);
+        pdf.text(`IBAN : ${companyInfo.iban}`, 25, y + 36);
+        
+        const devisNum = 'DEVIS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        pdf.text(`Communication : ${devisNum}`, 25, y + 41);
+        
+        // Télécharger
+        const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
+        pdf.save(fileName);
+        
+        // Sauvegarder dans Firestore
+        await saveDevis();
+        
+        alert('✅ PDF généré et devis sauvegardé !');
     }
-    
-    y += 5;
-    if (y > pageHeight - 50) { pdf.addPage(); y = 20; }
-    pdf.setFillColor(240, 240, 240);
-    pdf.rect(20, y, pageWidth - 40, 45, 'F');
-    pdf.setTextColor(25, 55, 109);
-    pdf.setFontSize(11);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('MODALITES DE PAIEMENT', 25, y + 7);
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFont(undefined, 'normal');
-    pdf.setFontSize(9);
-    const totalFinal = totalTTC;
-    const acompte30 = totalFinal * 0.30;
-    const debut40 = totalFinal * 0.40;
-    const fin30 = totalFinal * 0.30;
-    pdf.text(`- Acompte de 30% : ${acompte30.toFixed(2)}€`, 25, y + 14);
-    pdf.text(`- 40% au début des travaux : ${debut40.toFixed(2)}€`, 25, y + 19);
-    pdf.text(`- 30% à la fin : ${fin30.toFixed(2)}€`, 25, y + 24);
-    pdf.setFont(undefined, 'bold');
-    pdf.text(`Titulaire : ${companyInfo.titulaire}`, 25, y + 31);
-    pdf.text(`IBAN : ${companyInfo.iban}`, 25, y + 36);
-    const devisNum = 'DEVIS-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-    pdf.text(`Communication : ${devisNum}`, 25, y + 41);
-    
-    const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
-    pdf.save(fileName);
-    await saveDevis();
-    alert('✅ PDF généré et devis sauvegardé !');
-}
 
-window.saveDevis = async function() {
-    if (!currentUser) return;
-    const clientData = {
-        nom: document.getElementById('clientName').value,
-        email: document.getElementById('clientEmail').value,
-        telephone: document.getElementById('clientPhone').value,
-        tva: document.getElementById('clientTVA').value,
-        adresse: `${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}`
-    };
-    if (!clientData.nom) { alert('Nom client requis'); return; }
+    // Sauvegarder le devis
+    window.saveDevis = async function() {
+        if (!currentUser) return;
 
-    try {
-        const clientRef = await addDoc(collection(db, 'clients'), {
-            userId: currentUser.uid,
-            ...clientData,
-            createdAt: new Date().toISOString()
-        });
+        const clientData = {
+            nom: document.getElementById('clientName').value,
+            email: document.getElementById('clientEmail').value,
+            telephone: document.getElementById('clientPhone').value,
+            tva: document.getElementById('clientTVA').value,
+            adresse: `${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}`
+        };
 
-        await addDoc(collection(db, 'devis'), {
-            userId: currentUser.uid,
-            clientId: clientRef.id,
-            client: clientData,
-            batiment: {
-                type: document.querySelector('input[name="projectType"]:checked').value,
-                age: document.querySelector('input[name="buildingAge"]:checked').value
-            },
-            rooms: devisState.rooms,
-            ristourne: {
-                enabled: document.getElementById('ristourneEnabled').checked,
-                pourcent: parseFloat(document.getElementById('ristournePourcent').value) || 0,
-                delai: parseInt(document.getElementById('ristourneDelai').value) || 30
-            },
-            totaux: {
-                materielHT: parseFloat(document.getElementById('totalMaterielHT').textContent),
-                moHT: parseFloat(document.getElementById('totalMOHT').textContent),
-                servicesHT: parseFloat(document.getElementById('totalServicesHT').textContent),
-                totalTTC: parseFloat(document.getElementById('totalTTC').textContent)
-            },
-            status: 'pending',
-            createdAt: new Date().toISOString()
-        });
+        if (!clientData.nom) {
+            alert('Nom client requis');
+            return;
+        }
 
-        alert('✅ Devis sauvegardé !');
-        window.location.href = 'mes-devis.html';
-    } catch (error) {
-        console.error('Erreur:', error);
-        alert('❌ Erreur sauvegarde');
+        try {
+            const clientRef = await addDoc(collection(db, 'clients'), {
+                userId: currentUser.uid,
+                ...clientData,
+                createdAt: new Date().toISOString()
+            });
+
+            const devisRef = await addDoc(collection(db, 'devis'), {
+                userId: currentUser.uid,
+                clientId: clientRef.id,
+                client: clientData,
+                batiment: {
+                    type: document.querySelector('input[name="projectType"]:checked').value,
+                    age: document.querySelector('input[name="buildingAge"]:checked').value
+                },
+                rooms: devisState.rooms,
+                totaux: {
+                    materielHT: parseFloat(document.getElementById('totalMaterielHT').textContent),
+                    moHT: parseFloat(document.getElementById('totalMOHT').textContent),
+                    servicesHT: parseFloat(document.getElementById('totalServicesHT').textContent),
+                    totalTTC: parseFloat(document.getElementById('totalTTC').textContent)
+                },
+                status: 'draft',
+                createdAt: new Date().toISOString()
+            });
+
+            alert('✅ Devis créé!\nRéf: ' + devisRef.id.substring(0, 8).toUpperCase());
+            window.location.href = 'mes-devis.html';
+
+        } catch (error) {
+            console.error('Erreur:', error);
+            alert('❌ Erreur sauvegarde');
+        }
     }
-}
+</script>
 ```
 
-</script>
 </body>
 </html>
