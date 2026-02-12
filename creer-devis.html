@@ -914,13 +914,16 @@
                     // Charger toutes les données
                     await loadDevisData(devisData);
                     
+                    // IMPORTANT : Aller sur la page récapitulatif pour calculer les totaux
+                    switchPage('recapitulatif');
+                    
                     // Générer le PDF après un court délai
                     setTimeout(() => {
                         generatePDF();
                         setTimeout(() => {
                             window.location.href = 'mes-devis.html';
-                        }, 1000);
-                    }, 500);
+                        }, 1500);
+                    }, 1000);
                     return;
                 }
             }
@@ -991,14 +994,24 @@
             devisState.rooms = devisData.rooms || [];
             devisState.nextRoomId = Math.max(...devisState.rooms.map(r => r.id), 0) + 1;
             
-            // Charger le tableau
-            if (devisData.tableau && devisData.tableau.length > 0) {
-                devisState.tableau = devisData.tableau[0].composants || [];
+            // Charger le tableau électrique (si présent)
+            if (devisData.tableau) {
+                const tableau = Array.isArray(devisData.tableau) ? devisData.tableau[0] : devisData.tableau;
+                if (tableau) {
+                    document.getElementById('coffretType').value = tableau.coffret || '';
+                    document.getElementById('diffAC').value = tableau.diffAC || 0;
+                    document.getElementById('diffA').value = tableau.diffA || 0;
+                    document.getElementById('parafoudre').value = tableau.parafoudre ? 'oui' : 'non';
+                    document.getElementById('contacteur').value = tableau.contacteur || 0;
+                }
             }
             
-            // Charger les services
+            // Charger les services administratifs (si présent)
             if (devisData.services) {
-                devisState.services = devisData.services;
+                document.getElementById('service-conformite').checked = devisData.services.conformite || false;
+                document.getElementById('service-diagnostic').checked = devisData.services.diagnostic || false;
+                document.getElementById('service-certificat').checked = devisData.services.certificat || false;
+                document.getElementById('service-schema').checked = devisData.services.schema || false;
             }
             
             // Ristourne
@@ -1006,9 +1019,13 @@
                 document.getElementById('ristourneEnabled').checked = devisData.ristourne.enabled;
                 document.getElementById('ristournePourcent').value = devisData.ristourne.pourcent || 0;
                 document.getElementById('ristourneDelai').value = devisData.ristourne.delai || 30;
+                if (devisData.ristourne.enabled) {
+                    document.getElementById('ristourneToggle').classList.add('active');
+                    document.getElementById('ristourneOptions').style.display = 'block';
+                }
             }
             
-            updateRecap();
+            renderRooms();
         }
 
         async function loadCatalogue() {
@@ -2188,6 +2205,24 @@
                         age: document.querySelector('input[name="buildingAge"]:checked').value
                     },
                     rooms: devisState.rooms,
+                    tableau: {
+                        coffret: document.getElementById('coffretType').value,
+                        diffAC: parseInt(document.getElementById('diffAC').value) || 0,
+                        diffA: parseInt(document.getElementById('diffA').value) || 0,
+                        parafoudre: document.getElementById('parafoudre').value === 'oui',
+                        contacteur: parseInt(document.getElementById('contacteur').value) || 0
+                    },
+                    services: {
+                        conformite: document.getElementById('service-conformite').checked,
+                        diagnostic: document.getElementById('service-diagnostic').checked,
+                        certificat: document.getElementById('service-certificat').checked,
+                        schema: document.getElementById('service-schema').checked
+                    },
+                    ristourne: {
+                        enabled: document.getElementById('ristourneEnabled').checked,
+                        pourcent: parseFloat(document.getElementById('ristournePourcent').value) || 0,
+                        delai: parseInt(document.getElementById('ristourneDelai').value) || 30
+                    },
                     totaux: {
                         materielHT: parseFloat(document.getElementById('totalMaterielHT').textContent),
                         moHT: parseFloat(document.getElementById('totalMOHT').textContent),
