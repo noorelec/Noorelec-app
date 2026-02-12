@@ -5,10 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevTech - Créer un Devis</title>
     
-    <!-- CONSOLE MOBILE (POUR DEBUG iPHONE) -->
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
-    
     <!-- PDF Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     
@@ -783,114 +779,14 @@
         const FACTEURS = {
             installation: {
                 'apparent': 1.0,
-                'faux-plafond': 1.2,
-                'encastre': 1.3,
-                'encastre-lourd': 1.45
+                'encastre': 1.5,
+                'faux-plafond': 1.3
             },
             circuit: {
                 'existant': 1.0,
                 'nouvelle-ligne': 1.2
-            },
-            longueur: {
-                ranges: [
-                    { max: 5, factor: 1.0 },
-                    { max: 10, factor: 1.1 },
-                    { max: 20, factor: 1.2 },
-                    { max: 30, factor: 1.3 },
-                    { max: 50, factor: 1.45 },
-                    { max: Infinity, factor: 1.6 }
-                ]
             }
         };
-
-        const TEMPS_BASE = {
-            appareillage: {
-                'prise-apparente': 25,
-                'prise-encastree': 35,
-                'interrupteur-simple': 20,
-                'va-et-vient': 75,
-                'point-lumineux': 40,
-                'spot-led': 30
-            },
-            tableau: {
-                'disjoncteur': 40,
-                'differentiel': 60,
-                'tableau-complet': 480
-            }
-        };
-
-        const MARGES_CATEGORIE = {
-            'appareillage': 0.35,
-            'consommables': 0.40,
-            'cables': 0.25,
-            'protections': 0.25,
-            'goulottes': 0.25,
-            'gros-materiel': 0.18
-        };
-
-        const CABLE_TEMPS = {
-            '3G1.5': 1.0,
-            '3G2.5': 1.0,
-            '5G6': 1.5,
-            'HDMI': 1.3,
-            'RJ45': 1.3,
-            'default': 1.2
-        };
-
-        const SETUP_TIRAGE = 15; // minutes par intervention
-
-        // ========================================
-        // FONCTIONS UTILITAIRES DE CALCUL
-        // ========================================
-
-        function getLengthFactor(meters) {
-            for (const range of FACTEURS.longueur.ranges) {
-                if (meters <= range.max) {
-                    return range.factor;
-                }
-            }
-            return 1.6;
-        }
-
-        function calculateCableTime(cableType, meters, coeffInstallation, coeffCircuit) {
-            const minutesPerMeter = CABLE_TEMPS[cableType] || CABLE_TEMPS['default'];
-            const lengthFactor = getLengthFactor(meters);
-            const tirage = SETUP_TIRAGE + (meters * minutesPerMeter * lengthFactor);
-            const tirageFinal = tirage * coeffInstallation * coeffCircuit;
-            return tirageFinal;
-        }
-
-        function roundTo15Minutes(minutes) {
-            return Math.ceil(minutes / 15) * 15;
-        }
-
-        function applyMinimumBillable(minutes) {
-            return Math.max(minutes, 60);
-        }
-
-        function calculateSalePrice(purchasePrice, category) {
-            const margin = MARGES_CATEGORIE[category] || 0.25;
-            return purchasePrice * (1 + margin);
-        }
-
-        function calculateInterventionTime(tempsBase, cables, coeffInstallation, coeffCircuit) {
-            let tempsTotal = tempsBase;
-            let tempsCablage = 0;
-            
-            if (cables && cables.length > 0) {
-                tempsCablage += SETUP_TIRAGE;
-                cables.forEach(cable => {
-                    const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
-                    const lengthFactor = getLengthFactor(cable.length);
-                    tempsCablage += cable.length * minutesPerMeter * lengthFactor;
-                });
-            }
-            
-            tempsTotal = (tempsBase + tempsCablage) * coeffInstallation * coeffCircuit;
-            tempsTotal = roundTo15Minutes(tempsTotal);
-            
-            return tempsTotal;
-        }
 
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
@@ -914,16 +810,13 @@
                     // Charger toutes les données
                     await loadDevisData(devisData);
                     
-                    // IMPORTANT : Aller sur la page récapitulatif pour calculer les totaux
-                    switchPage('recapitulatif');
-                    
                     // Générer le PDF après un court délai
                     setTimeout(() => {
                         generatePDF();
                         setTimeout(() => {
                             window.location.href = 'mes-devis.html';
-                        }, 1500);
-                    }, 1000);
+                        }, 1000);
+                    }, 500);
                     return;
                 }
             }
@@ -994,24 +887,14 @@
             devisState.rooms = devisData.rooms || [];
             devisState.nextRoomId = Math.max(...devisState.rooms.map(r => r.id), 0) + 1;
             
-            // Charger le tableau électrique (si présent)
-            if (devisData.tableau) {
-                const tableau = Array.isArray(devisData.tableau) ? devisData.tableau[0] : devisData.tableau;
-                if (tableau) {
-                    document.getElementById('coffretType').value = tableau.coffret || '';
-                    document.getElementById('diffAC').value = tableau.diffAC || 0;
-                    document.getElementById('diffA').value = tableau.diffA || 0;
-                    document.getElementById('parafoudre').value = tableau.parafoudre ? 'oui' : 'non';
-                    document.getElementById('contacteur').value = tableau.contacteur || 0;
-                }
+            // Charger le tableau
+            if (devisData.tableau && devisData.tableau.length > 0) {
+                devisState.tableau = devisData.tableau[0].composants || [];
             }
             
-            // Charger les services administratifs (si présent)
+            // Charger les services
             if (devisData.services) {
-                document.getElementById('service-conformite').checked = devisData.services.conformite || false;
-                document.getElementById('service-diagnostic').checked = devisData.services.diagnostic || false;
-                document.getElementById('service-certificat').checked = devisData.services.certificat || false;
-                document.getElementById('service-schema').checked = devisData.services.schema || false;
+                devisState.services = devisData.services;
             }
             
             // Ristourne
@@ -1019,64 +902,15 @@
                 document.getElementById('ristourneEnabled').checked = devisData.ristourne.enabled;
                 document.getElementById('ristournePourcent').value = devisData.ristourne.pourcent || 0;
                 document.getElementById('ristourneDelai').value = devisData.ristourne.delai || 30;
-                if (devisData.ristourne.enabled) {
-                    document.getElementById('ristourneToggle').classList.add('active');
-                    document.getElementById('ristourneOptions').style.display = 'block';
-                }
             }
             
-            renderRooms();
+            updateRecap();
         }
 
         async function loadCatalogue() {
             try {
                 const snapshot = await getDocs(collection(db, 'products'));
-                catalogueProduits = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    
-                    // Ajouter category et tempsBase par défaut si manquants
-                    if (!data.category) {
-                        // Deviner la catégorie selon le nom
-                        const name = (data.name || '').toLowerCase();
-                        if (name.includes('prise') || name.includes('interrupteur') || name.includes('va-et-vient')) {
-                            data.category = 'appareillage';
-                        } else if (name.includes('cable') || name.includes('fil')) {
-                            data.category = 'cables';
-                        } else if (name.includes('disjoncteur') || name.includes('differentiel')) {
-                            data.category = 'protections';
-                        } else if (name.includes('goulotte')) {
-                            data.category = 'goulottes';
-                        } else {
-                            data.category = 'appareillage'; // Par défaut
-                        }
-                    }
-                    
-                    if (!data.tempsBase) {
-                        // Deviner le temps selon le nom
-                        const name = (data.name || '').toLowerCase();
-                        if (name.includes('va-et-vient')) {
-                            data.tempsBase = 75;
-                        } else if (name.includes('prise') && name.includes('encastr')) {
-                            data.tempsBase = 35;
-                        } else if (name.includes('prise')) {
-                            data.tempsBase = 25;
-                        } else if (name.includes('interrupteur')) {
-                            data.tempsBase = 20;
-                        } else if (name.includes('spot') || name.includes('led')) {
-                            data.tempsBase = 30;
-                        } else if (name.includes('luminaire') || name.includes('plafonnier')) {
-                            data.tempsBase = 40;
-                        } else if (name.includes('disjoncteur')) {
-                            data.tempsBase = 40;
-                        } else if (name.includes('differentiel')) {
-                            data.tempsBase = 60;
-                        } else {
-                            data.tempsBase = 30; // Par défaut
-                        }
-                    }
-                    
-                    return { id: doc.id, ...data };
-                });
+                catalogueProduits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
             } catch (error) {
                 console.error('❌ Erreur:', error);
@@ -1141,13 +975,7 @@
                 id: devisState.nextRoomId++,
                 name: roomName,
                 articles: [],
-                cabling: {
-                    cables: []
-                },
-                coefficients: {
-                    installation: 'encastre',
-                    circuit: 'nouvelle-ligne'
-                },
+                cabling: { internal: { cost: 0 }, tableau: { cost: 0 } },
                 collapsed: false
             });
             
@@ -1180,22 +1008,10 @@
                                 
                                 <div class="form-grid">
                                     <div class="form-group">
-                                        <label>Catégorie</label>
-                                        <select id="category-${room.id}" onchange="filterProducts(${room.id})">
-                                            <option value="">-- Sélectionner --</option>
-                                            <option value="eclairage">💡 Éclairage</option>
-                                            <option value="prises">🔌 Prises</option>
-                                            <option value="interrupteurs">🎛️ Interrupteurs</option>
-                                            <option value="protections">🛡️ Protections</option>
-                                            <option value="cables">🔗 Câbles</option>
-                                            <option value="consommables">🔩 Consommables (Chevilles, Wago, Vis...)</option>
-                                            <option value="autres">📦 Autres</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
                                         <label>Article</label>
-                                        <select id="article-${room.id}" disabled>
-                                            <option value="">-- Choisir catégorie d'abord --</option>
+                                        <select id="article-${room.id}">
+                                            <option value="">-- Sélectionner --</option>
+                                            ${generateCatalogueOptions()}
                                         </select>
                                     </div>
                                     <div class="form-group">
@@ -1250,39 +1066,6 @@
                                     <span>€</span>
                                 </label>
 
-                                <!-- CÂBLAGE DE CETTE INTERVENTION -->
-                                <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #0ea5e9;">
-                                    <h4 style="margin: 0 0 10px 0;">🔗 Câblage intervention</h4>
-                                    
-                                    <!-- Liste des câbles -->
-                                    <div id="cabling-list-${room.id}" style="margin-bottom: 10px;">
-                                        ${(room.cabling.cables || []).map((cable, idx) => `
-                                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                                                <div>
-                                                    <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
-                                                </div>
-                                                <button onclick="deleteCable(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
-                                            </div>
-                                        `).join('') || '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>'}
-                                    </div>
-                                    
-                                    <!-- Formulaire rapide -->
-                                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                                        <select id="cable-type-${room.id}" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                            <option value="">Type câble</option>
-                                            <option value="3G1.5">3G1.5 (1.20€/m)</option>
-                                            <option value="3G2.5">3G2.5 (1.80€/m)</option>
-                                            <option value="5G6">5G6 (3.50€/m)</option>
-                                            <option value="HDMI">HDMI (2.00€/m)</option>
-                                            <option value="RJ45">RJ45 (1.50€/m)</option>
-                                        </select>
-                                        <div style="display: flex; gap: 8px;">
-                                            <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                            <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">+ Câble</button>
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                                     <button class="btn btn-info" onclick="calculateArticle(${room.id})" style="flex: 1;">🧮 Calculer</button>
                                     <button class="btn btn-success" onclick="addArticle(${room.id})" style="flex: 1;">➕ Ajouter</button>
@@ -1312,6 +1095,45 @@
                                 `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article</div>'}
                             </div>
 
+                            <div class="cabling-section">
+                                <h4>🔗 Câblage</h4>
+                                <div class="form-grid">
+                                    <div class="form-group">
+                                        <label>Câble interne</label>
+                                        <select id="cable-internal-${room.id}">
+                                            <option value="">-- Type --</option>
+                                            <option value="1.2,0.05">XVB 3G1.5 (1.20€/m)</option>
+                                            <option value="1.8,0.05">XVB 3G2.5 (1.80€/m)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Longueur (m)</label>
+                                        <input type="number" id="cable-internal-length-${room.id}" value="0" min="0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Câble → Tableau</label>
+                                        <select id="cable-tableau-${room.id}">
+                                            <option value="">-- Type --</option>
+                                            <option value="1.8,0.05">XVB 3G2.5 (1.80€/m)</option>
+                                            <option value="2.5,0.05">XVB 3G4 (2.50€/m)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Longueur (m)</label>
+                                        <input type="number" id="cable-tableau-length-${room.id}" value="0" min="0">
+                                    </div>
+                                </div>
+                                <button class="btn btn-info" onclick="calculateCabling(${room.id})" style="width: 100%;">Calculer câblage</button>
+                                
+                                ${(room.cabling.internal.cost > 0 || room.cabling.tableau.cost > 0) ? `
+                                    <div style="background: white; margin-top: 15px; padding: 15px; border-radius: 8px;">
+                                        <h4>💰 Coûts câblage</h4>
+                                        ${room.cabling.internal.cost > 0 ? `<div style="display: flex; justify-content: space-between;"><span>Interne:</span><strong>${room.cabling.internal.cost.toFixed(2)}€</strong></div>` : ''}
+                                        ${room.cabling.tableau.cost > 0 ? `<div style="display: flex; justify-content: space-between;"><span>Tableau:</span><strong>${room.cabling.tableau.cost.toFixed(2)}€</strong></div>` : ''}
+                                        <div style="display: flex; justify-content: space-between; border-top: 2px solid #3b82f6; padding-top: 10px; margin-top: 10px;"><strong>Total:</strong><strong style="color: #3b82f6;">${(room.cabling.internal.cost + room.cabling.tableau.cost).toFixed(2)}€</strong></div>
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1334,69 +1156,6 @@
                 html += `</optgroup>`;
             });
             return html;
-        }
-
-        // NOUVEAU : Filtrer produits par catégorie
-        window.filterProducts = function(roomId) {
-            const categorySelect = document.getElementById(`category-${roomId}`);
-            const articleSelect = document.getElementById(`article-${roomId}`);
-            const category = categorySelect.value;
-
-            if (!category) {
-                articleSelect.disabled = true;
-                articleSelect.innerHTML = '<option value="">-- Choisir catégorie d\'abord --</option>';
-                return;
-            }
-
-            // Mapper les catégories UI vers les catégories techniques
-            const categoryMap = {
-                'eclairage': ['appareillage'],
-                'prises': ['appareillage'],
-                'interrupteurs': ['appareillage'],
-                'protections': ['protections'],
-                'cables': ['cables'],
-                'consommables': ['consommables'],
-                'autres': ['appareillage', 'goulottes', 'gros-materiel']
-            };
-
-            const targetCategories = categoryMap[category] || [category];
-
-            // Filtrer par nom ET catégorie
-            let filtered = catalogueProduits.filter(p => {
-                const name = (p.name || '').toLowerCase();
-                const cat = p.category || 'appareillage';
-
-                if (category === 'eclairage') {
-                    return name.includes('led') || name.includes('spot') || name.includes('luminaire') || 
-                           name.includes('plafonnier') || name.includes('lampe');
-                } else if (category === 'prises') {
-                    return name.includes('prise') && !name.includes('interrupteur');
-                } else if (category === 'interrupteurs') {
-                    return name.includes('interrupteur') || name.includes('va-et-vient') || 
-                           name.includes('bouton') || name.includes('variateur');
-                } else if (category === 'consommables') {
-                    return name.includes('cheville') || name.includes('wago') || name.includes('vis') || 
-                           name.includes('domino') || name.includes('scotch') || cat === 'consommables';
-                } else {
-                    return targetCategories.includes(cat);
-                }
-            });
-
-            // Générer options
-            if (filtered.length === 0) {
-                articleSelect.innerHTML = '<option value="">Aucun produit dans cette catégorie</option>';
-                articleSelect.disabled = true;
-            } else {
-                articleSelect.disabled = false;
-                let html = '<option value="">-- Sélectionner --</option>';
-                filtered.forEach(p => {
-                    const prixAchat = p.price.toFixed(2);
-                    const marge = MARGES_CATEGORIE[p.category] || 0.25;
-                    const prixVente = (p.price * (1 + marge)).toFixed(2);
-                    html += `<option value="${p.ref}">${p.name} - Achat: ${prixAchat}€ → Vente: ${prixVente}€ (+${(marge*100).toFixed(0)}%)</option>`;
-                });
-                articleSelect.innerHTML = html;
-            }
         }
 
         window.selectInstall = function(roomId, type, e) {
@@ -1447,7 +1206,6 @@
             const product = catalogueProduits.find(p => p.ref === ref);
             if (!product) return;
 
-            const room = devisState.rooms.find(r => r.id === roomId);
             const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
             const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
             const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
@@ -1455,33 +1213,31 @@
             const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             
-            const category = product.category || 'appareillage';
-            const tempsBase = product.tempsBase || 30;
-            const prixAchat = product.price;
-            const prixVente = calculateSalePrice(prixAchat, category);
-            const materiel = prixVente * qty;
-            
-            const coeffInstall = FACTEURS.installation[installType];
-            const coeffCircuit = FACTEURS.circuit[circuitType];
-            
-            // Temps UNIQUEMENT pour cet article (sans câblage)
-            let tempsArticle = tempsBase * qty * coeffInstall * coeffCircuit;
-            tempsArticle = roundTo15Minutes(tempsArticle);
-            
-            const mo = (tempsArticle / 60) * tarif;
+            const materiel = product.price * qty;
+            let temps = product.temps * qty;
+            temps *= FACTEURS.installation[installType];
+            temps *= FACTEURS.circuit[circuitType];
+            const mo = temps * tarif;
             const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
-            const total = materiel + mo + rebouchageTotal;
+
+            let prixUnitaire = product.price + (mo / qty);
+            if (qty >= 10) prixUnitaire *= 0.75;
+            else if (qty >= 5) prixUnitaire *= 0.85;
+
+            const total = (prixUnitaire * qty) + rebouchageTotal;
+
+            let degressif = '';
+            if (qty >= 10) degressif = '<span style="color: #28a745;">(-25%)</span>';
+            else if (qty >= 5) degressif = '<span style="color: #28a745;">(-15%)</span>';
 
             document.getElementById(`preview-${roomId}`).style.display = 'block';
             document.getElementById(`preview-content-${roomId}`).innerHTML = `
-                <div><strong>${qty}x ${product.name}</strong></div>
+                <div><strong>${qty}x ${product.name}</strong> ${degressif}</div>
                 <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
-                    <div>Prix achat:</div><div style="text-align: right;">${prixAchat.toFixed(2)}€</div>
-                    <div>Marge (+${((MARGES_CATEGORIE[category] || 0.25) * 100).toFixed(0)}%):</div><div style="text-align: right;">${prixVente.toFixed(2)}€</div>
-                    <div>Matériel total:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
-                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${tempsArticle}min)</div>
-                    <div>Facteur install:</div><div style="text-align: right;">×${coeffInstall}</div>
-                    <div>Facteur circuit:</div><div style="text-align: right;">×${coeffCircuit}</div>
+                    <div>Matériel:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
+                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${temps.toFixed(2)}h)</div>
+                    <div>Facteur install:</div><div style="text-align: right;">×${FACTEURS.installation[installType]}</div>
+                    <div>Facteur circuit:</div><div style="text-align: right;">×${FACTEURS.circuit[circuitType]}</div>
                     ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
                     <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
                     <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${total.toFixed(2)}€</strong></div>
@@ -1500,37 +1256,36 @@
             if (!product) return;
 
             const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
+            const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
+            const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
             const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
             const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
+            const tarif = parseFloat(document.getElementById('globalTarif').value);
             
-            // NOUVEAU : Utiliser category et tempsBase du produit
-            const category = product.category || 'appareillage';
-            const tempsBase = product.tempsBase || 30; // 30 min par défaut
-            const prixAchat = product.price;
-            
-            // NOUVEAU : Appliquer marge automatique
-            const prixVente = calculateSalePrice(prixAchat, category);
-            const materielTotal = prixVente * qty;
-            
-            // NOUVEAU : Calculer temps avec nouveau système (sera recalculé dans calculateRecap avec câbles)
-            const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
-            const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
-            
+            const materiel = product.price * qty;
+            let temps = product.temps * qty;
+            temps *= FACTEURS.installation[installType];
+            temps *= FACTEURS.circuit[circuitType];
+            const mo = temps * tarif;
+            const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
+
+            let prixUnitaire = product.price + (mo / qty);
+            if (qty >= 10) prixUnitaire *= 0.75;
+            else if (qty >= 5) prixUnitaire *= 0.85;
+
+            const total = (prixUnitaire * qty) + rebouchageTotal;
+
             room.articles.push({
                 ref: product.ref,
                 name: product.name,
                 qty: qty,
-                prixAchat: prixAchat,
-                category: category,
-                tempsBase: tempsBase,
-                materiel: materielTotal,
-                mo: 0, // Sera calculé dans calculateRecap
-                rebouchage: rebouchage ? rebouchagePrice : 0,
-                total: 0 // Sera calculé dans calculateRecap
+                materiel: materiel,
+                mo: mo,
+                rebouchage: rebouchageTotal,
+                total: total
             });
 
             renderRooms();
-            calculateRecap();
         }
 
         window.deleteArticle = function(roomId, idx) {
@@ -1538,78 +1293,6 @@
             if (room && confirm('Supprimer ?')) {
                 room.articles.splice(idx, 1);
                 renderRooms();
-                calculateRecap();
-            }
-        }
-
-        // NOUVEAU : Gestion des câbles
-        window.addCable = function(roomId) {
-            const room = devisState.rooms.find(r => r.id === roomId);
-            if (!room) return;
-
-            const type = document.getElementById(`cable-type-${roomId}`).value;
-            const length = parseFloat(document.getElementById(`cable-length-${roomId}`).value);
-
-            if (!type) {
-                alert('Sélectionnez un type de câble');
-                return;
-            }
-
-            if (!length || length <= 0) {
-                alert('Longueur invalide');
-                return;
-            }
-
-            // Prix selon type
-            const prices = {
-                '3G1.5': 1.20,
-                '3G2.5': 1.80,
-                '5G6': 3.50,
-                '3G4': 2.50,
-                'HDMI': 2.00,
-                'RJ45': 1.50
-            };
-
-            room.cabling.cables.push({
-                type: type,
-                length: length,
-                pricePerMeter: prices[type] || 1.50,
-                category: 'cables'
-            });
-
-            // Reset formulaire
-            document.getElementById(`cable-type-${roomId}`).value = '';
-            document.getElementById(`cable-length-${roomId}`).value = '10';
-
-            // Mettre à jour UNIQUEMENT la liste des câbles (pas tout renderRooms)
-            updateCablesList(roomId, room);
-        }
-
-        // Fonction pour mettre à jour la liste des câbles sans tout re-render
-        function updateCablesList(roomId, room) {
-            const container = document.querySelector(`#cabling-list-${roomId}`);
-            if (!container) return;
-            
-            if (!room.cabling.cables || room.cabling.cables.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>';
-            } else {
-                container.innerHTML = room.cabling.cables.map((cable, idx) => `
-                    <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                        <div>
-                            <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
-                        </div>
-                        <button onclick="deleteCable(${roomId}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
-                    </div>
-                `).join('');
-            }
-        }
-
-        window.deleteCable = function(roomId, idx) {
-            const room = devisState.rooms.find(r => r.id === roomId);
-            if (room && confirm('Supprimer ce câble ?')) {
-                room.cabling.cables.splice(idx, 1);
-                renderRooms();
-                calculateRecap();
             }
         }
 
@@ -1667,86 +1350,22 @@
         }
 
         function calculateRecap() {
-            const tarif = parseFloat(document.getElementById('globalTarif').value) || 45;
-            const deplacement = parseFloat(document.getElementById('globalDeplacement').value) || 25;
+            const tarif = parseFloat(document.getElementById('globalTarif').value);
+            const deplacement = parseFloat(document.getElementById('globalDeplacement').value);
             const buildingAge = document.querySelector('input[name="buildingAge"]:checked').value;
             const tva = buildingAge === 'old' ? 0.06 : 0.21;
 
             let totalMateriel = 0;
             let totalMO = 0;
-            let totalMinutes = 0;
 
-            // NOUVEAU CALCUL : Par intervention (room)
             devisState.rooms.forEach(room => {
-                const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
-                const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
-                
-                // Calculer le temps de câblage UNE FOIS pour toute la pièce
-                let tempsCablagePiece = 0;
-                if (room.cabling.cables && room.cabling.cables.length > 0) {
-                    tempsCablagePiece += SETUP_TIRAGE;
-                    room.cabling.cables.forEach(cable => {
-                        const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
-                        const lengthFactor = getLengthFactor(cable.length);
-                        tempsCablagePiece += cable.length * minutesPerMeter * lengthFactor;
-                    });
-                    tempsCablagePiece = tempsCablagePiece * coeffInstall * coeffCircuit;
-                }
-                
                 room.articles.forEach(art => {
-                    // Temps de base selon type (si disponible dans catalogue)
-                    const tempsBase = art.tempsBase || 30; // 30 min par défaut
-                    
-                    // Calculer temps SANS câblage (juste l'article × facteurs)
-                    let tempsArticle = tempsBase * art.qty * coeffInstall * coeffCircuit;
-                    tempsArticle = roundTo15Minutes(tempsArticle);
-                    
-                    totalMinutes += tempsArticle;
-                    
-                    // Prix matériel avec marge automatique
-                    const category = art.category || 'appareillage';
-                    const prixVente = calculateSalePrice(art.prixAchat, category);
-                    const materielTotal = prixVente * art.qty;
-                    
-                    totalMateriel += materielTotal + (art.rebouchage || 0);
-                    
-                    // MO calculée sur temps réel
-                    const mo = (tempsArticle / 60) * tarif;
-                    totalMO += mo;
-                    
-                    // IMPORTANT : Mettre à jour l'article pour l'affichage
-                    art.materiel = materielTotal;
-                    art.mo = mo;
-                    art.total = materielTotal + mo + (art.rebouchage || 0);
+                    totalMateriel += art.materiel + art.rebouchage;
+                    totalMO += art.mo;
                 });
-                
-                // Ajouter le temps de câblage UNE FOIS pour la pièce
-                if (tempsCablagePiece > 0) {
-                    totalMinutes += tempsCablagePiece;
-                    const moCablage = (tempsCablagePiece / 60) * tarif;
-                    totalMO += moCablage;
-                }
-                
-                // Ajouter coût matériel des câbles (avec marge)
-                (room.cabling.cables || []).forEach(cable => {
-                    const coutCable = cable.length * cable.pricePerMeter;
-                    const coutAvecMarge = calculateSalePrice(coutCable, 'cables');
-                    totalMateriel += coutAvecMarge;
-                });
-                
-                // Ancien système câblage (conservé pour compatibilité)
-                totalMateriel += (room.cabling.internal?.cost || 0) + (room.cabling.tableau?.cost || 0);
+                totalMateriel += room.cabling.internal.cost + room.cabling.tableau.cost;
             });
 
-            // Appliquer minimum facturable 60 min
-            totalMinutes = applyMinimumBillable(totalMinutes);
-            
-            // Recalculer MO si minimum appliqué
-            if (totalMinutes === 60 && totalMO < tarif) {
-                totalMO = tarif; // 1 heure minimum
-            }
-
-            // Tableau électrique
             const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
             const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
             const diffA = parseInt(document.getElementById('diffA').value) || 0;
@@ -1755,7 +1374,6 @@
 
             totalMateriel += coffret + (diffAC * 35) + (diffA * 45) + parafoudre + contacteur;
 
-            // Services
             let totalServices = 0;
             if (document.getElementById('service-conformite').checked) totalServices += 450;
             if (document.getElementById('service-diagnostic').checked) totalServices += 180;
@@ -1764,7 +1382,6 @@
 
             let sousTotalHT = totalMateriel + totalMO + totalServices + deplacement;
 
-            // Ristourne
             let montantRistourne = 0;
             if (document.getElementById('ristourneEnabled').checked) {
                 const pourcent = parseFloat(document.getElementById('ristournePourcent').value) || 10;
@@ -1781,7 +1398,6 @@
             const montantTVA = sousTotalHT * tva;
             const totalTTC = sousTotalHT + montantTVA;
 
-            // Affichage
             document.getElementById('totalMaterielHT').textContent = totalMateriel.toFixed(2) + ' €';
             document.getElementById('totalMOHT').textContent = totalMO.toFixed(2) + ' €';
             document.getElementById('totalServicesHT').textContent = totalServices.toFixed(2) + ' €';
@@ -1796,16 +1412,12 @@
                     <h3>👤 Client</h3>
                     <p><strong>${document.getElementById('clientName').value || 'Non renseigné'}</strong></p>
                     <p>${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}</p>
-                    <p><em>Temps total: ${Math.round(totalMinutes)} minutes (${(totalMinutes/60).toFixed(1)}h)</em></p>
                 </div>
                 <div style="background: white; padding: 20px; border-radius: 10px;">
                     <h3>📍 Pièces (${devisState.rooms.length})</h3>
                     ${devisState.rooms.map(room => `<p><strong>${room.name}</strong> - ${room.articles.length} articles</p>`).join('')}
                 </div>
             `;
-            
-            // Mettre à jour l'affichage des pièces avec les nouveaux calculs
-            renderRooms();
         }
 
         // Générer PDF PROFESSIONNEL
@@ -2101,12 +1713,12 @@
             if (ristourneEnabled) {
                 y += 5;
                 pdf.setFillColor(255, 243, 205);
-                pdf.rect(20, y, pageWidth - 40, 32, 'F');
+                pdf.rect(20, y, pageWidth - 40, 27, 'F');
                 
                 pdf.setTextColor(133, 100, 4);
                 pdf.setFontSize(11);
                 pdf.setFont(undefined, 'bold');
-                pdf.text('🎁 OFFRE SPECIALE', 25, y + 7);
+                pdf.text('OFFRE SPECIALE', 25, y + 7);
                 
                 pdf.setFont(undefined, 'normal');
                 pdf.setFontSize(9);
@@ -2117,20 +1729,15 @@
                 const dateLimiteStr = dateLimite.toLocaleDateString('fr-FR');
                 
                 const totalAvecRistourne = sousTotalApresRistourne + montantTVA;
-                const economieClientTTC = (totalAvantRistourne + (totalAvantRistourne * tva)) - totalAvecRistourne;
                 
-                pdf.text(`Ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€ HT) valable ${delai} jours`, 25, y + 13);
+                pdf.text(`Ristourne de ${pourcent}% (${montantRistourne.toFixed(2)}€) valable ${delai} jours`, 25, y + 13);
                 pdf.text(`(jusqu'au ${dateLimiteStr} inclus)`, 25, y + 18);
                 
                 pdf.setFont(undefined, 'bold');
                 pdf.setFontSize(11);
-                pdf.text(`Prix final après ristourne : ${totalAvecRistourne.toFixed(2)}€ TTC`, 25, y + 24);
+                pdf.text(`Prix final apres ristourne : ${totalAvecRistourne.toFixed(2)}€`, 25, y + 24);
                 
-                pdf.setFontSize(8);
-                pdf.setFont(undefined, 'normal');
-                pdf.text(`Soit une économie totale de ${economieClientTTC.toFixed(2)}€ TTC`, 25, y + 29);
-                
-                y += 37;
+                y += 32;
             }
             
             // PAIEMENT
@@ -2169,7 +1776,10 @@
             const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
             pdf.save(fileName);
             
-            alert('✅ PDF généré ! Cliquez sur "Enregistrer" pour sauvegarder le devis.');
+            // Sauvegarder dans Firestore
+            await saveDevis();
+            
+            alert('✅ PDF généré et devis sauvegardé !');
         }
 
         // Sauvegarder le devis
@@ -2205,24 +1815,6 @@
                         age: document.querySelector('input[name="buildingAge"]:checked').value
                     },
                     rooms: devisState.rooms,
-                    tableau: {
-                        coffret: document.getElementById('coffretType').value,
-                        diffAC: parseInt(document.getElementById('diffAC').value) || 0,
-                        diffA: parseInt(document.getElementById('diffA').value) || 0,
-                        parafoudre: document.getElementById('parafoudre').value === 'oui',
-                        contacteur: parseInt(document.getElementById('contacteur').value) || 0
-                    },
-                    services: {
-                        conformite: document.getElementById('service-conformite').checked,
-                        diagnostic: document.getElementById('service-diagnostic').checked,
-                        certificat: document.getElementById('service-certificat').checked,
-                        schema: document.getElementById('service-schema').checked
-                    },
-                    ristourne: {
-                        enabled: document.getElementById('ristourneEnabled').checked,
-                        pourcent: parseFloat(document.getElementById('ristournePourcent').value) || 0,
-                        delai: parseInt(document.getElementById('ristourneDelai').value) || 30
-                    },
                     totaux: {
                         materielHT: parseFloat(document.getElementById('totalMaterielHT').textContent),
                         moHT: parseFloat(document.getElementById('totalMOHT').textContent),
