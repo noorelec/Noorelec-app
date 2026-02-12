@@ -1250,8 +1250,8 @@
                                     </div>
                                     
                                     <!-- Formulaire rapide -->
-                                    <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; align-items: end;">
-                                        <select id="cable-type-${room.id}" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
+                                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                                        <select id="cable-type-${room.id}" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
                                             <option value="">Type câble</option>
                                             <option value="3G1.5">3G1.5 (1.20€/m)</option>
                                             <option value="3G2.5">3G2.5 (1.80€/m)</option>
@@ -1259,8 +1259,10 @@
                                             <option value="HDMI">HDMI (2.00€/m)</option>
                                             <option value="RJ45">RJ45 (1.50€/m)</option>
                                         </select>
-                                        <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                        <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; white-space: nowrap;">+ Câble</button>
+                                        <div style="display: flex; gap: 8px;">
+                                            <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
+                                            <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">+ Câble</button>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1428,6 +1430,7 @@
             const product = catalogueProduits.find(p => p.ref === ref);
             if (!product) return;
 
+            const room = devisState.rooms.find(r => r.id === roomId);
             const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
             const installType = document.querySelector(`input[name="install-${roomId}"]:checked`).value;
             const circuitType = document.querySelector(`input[name="circuit-${roomId}"]:checked`).value;
@@ -1435,31 +1438,29 @@
             const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             
-            const materiel = product.price * qty;
-            let temps = product.temps * qty;
-            temps *= FACTEURS.installation[installType];
-            temps *= FACTEURS.circuit[circuitType];
-            const mo = temps * tarif;
+            const category = product.category || 'appareillage';
+            const tempsBase = product.tempsBase || 30;
+            const prixAchat = product.price;
+            const prixVente = calculateSalePrice(prixAchat, category);
+            const materiel = prixVente * qty;
+            
+            const coeffInstall = FACTEURS.installation[installType];
+            const coeffCircuit = FACTEURS.circuit[circuitType];
+            const tempsIntervention = calculateInterventionTime(tempsBase, room?.cabling?.cables || [], coeffInstall, coeffCircuit);
+            const mo = (tempsIntervention / 60) * tarif;
             const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
-
-            let prixUnitaire = product.price + (mo / qty);
-            if (qty >= 10) prixUnitaire *= 0.75;
-            else if (qty >= 5) prixUnitaire *= 0.85;
-
-            const total = (prixUnitaire * qty) + rebouchageTotal;
-
-            let degressif = '';
-            if (qty >= 10) degressif = '<span style="color: #28a745;">(-25%)</span>';
-            else if (qty >= 5) degressif = '<span style="color: #28a745;">(-15%)</span>';
+            const total = materiel + mo + rebouchageTotal;
 
             document.getElementById(`preview-${roomId}`).style.display = 'block';
             document.getElementById(`preview-content-${roomId}`).innerHTML = `
-                <div><strong>${qty}x ${product.name}</strong> ${degressif}</div>
+                <div><strong>${qty}x ${product.name}</strong></div>
                 <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 14px;">
-                    <div>Matériel:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
-                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${temps.toFixed(2)}h)</div>
-                    <div>Facteur install:</div><div style="text-align: right;">×${FACTEURS.installation[installType]}</div>
-                    <div>Facteur circuit:</div><div style="text-align: right;">×${FACTEURS.circuit[circuitType]}</div>
+                    <div>Prix achat:</div><div style="text-align: right;">${prixAchat.toFixed(2)}€</div>
+                    <div>Marge (+${((MARGES_CATEGORIE[category] || 0.25) * 100).toFixed(0)}%):</div><div style="text-align: right;">${prixVente.toFixed(2)}€</div>
+                    <div>Matériel total:</div><div style="text-align: right;">${materiel.toFixed(2)}€</div>
+                    <div>Main d'œuvre:</div><div style="text-align: right;">${mo.toFixed(2)}€ (${tempsIntervention}min)</div>
+                    <div>Facteur install:</div><div style="text-align: right;">×${coeffInstall}</div>
+                    <div>Facteur circuit:</div><div style="text-align: right;">×${coeffCircuit}</div>
                     ${rebouchage ? `<div>Rebouchage:</div><div style="text-align: right;">${rebouchagePrice.toFixed(2)}€</div>` : ''}
                     <div style="border-top: 2px solid #667eea; padding-top: 5px;"><strong>Total:</strong></div>
                     <div style="border-top: 2px solid #667eea; padding-top: 5px; text-align: right;"><strong>${total.toFixed(2)}€</strong></div>
@@ -1655,13 +1656,19 @@
                     
                     // Prix matériel avec marge automatique
                     const category = art.category || 'appareillage';
-                    const prixVente = calculateSalePrice(art.prixAchat || art.materiel, category);
+                    const prixVente = calculateSalePrice(art.prixAchat, category);
+                    const materielTotal = prixVente * art.qty;
                     
-                    totalMateriel += prixVente + (art.rebouchage || 0);
+                    totalMateriel += materielTotal + (art.rebouchage || 0);
                     
                     // MO calculée sur temps réel
                     const mo = (tempsIntervention / 60) * tarif;
                     totalMO += mo;
+                    
+                    // IMPORTANT : Mettre à jour l'article pour l'affichage
+                    art.materiel = materielTotal;
+                    art.mo = mo;
+                    art.total = materielTotal + mo + (art.rebouchage || 0);
                 });
                 
                 // Ajouter coût matériel des câbles (avec marge)
@@ -1740,6 +1747,9 @@
                     ${devisState.rooms.map(room => `<p><strong>${room.name}</strong> - ${room.articles.length} articles</p>`).join('')}
                 </div>
             `;
+            
+            // Mettre à jour l'affichage des pièces avec les nouveaux calculs
+            renderRooms();
         }
 
         // Générer PDF PROFESSIONNEL
