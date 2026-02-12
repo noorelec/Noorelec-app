@@ -1446,7 +1446,7 @@
             
             const coeffInstall = FACTEURS.installation[installType];
             const coeffCircuit = FACTEURS.circuit[circuitType];
-            const tempsIntervention = calculateInterventionTime(tempsBase, room?.cabling?.cables || [], coeffInstall, coeffCircuit);
+            const tempsIntervention = calculateInterventionTime(tempsBase * qty, room?.cabling?.cables || [], coeffInstall, coeffCircuit);
             const mo = (tempsIntervention / 60) * tarif;
             const rebouchageTotal = rebouchage ? rebouchagePrice : 0;
             const total = materiel + mo + rebouchageTotal;
@@ -1646,7 +1646,7 @@
                     
                     // Calculer temps avec câblage de cette intervention
                     const tempsIntervention = calculateInterventionTime(
-                        tempsBase,
+                        tempsBase * art.qty,
                         room.cabling.cables || [],
                         coeffInstall,
                         coeffCircuit
