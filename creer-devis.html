@@ -1170,10 +1170,22 @@
                             
                             <div class="form-grid">
                                 <div class="form-group">
-                                    <label>Article</label>
-                                    <select id="article-${room.id}">
+                                    <label>Catégorie</label>
+                                    <select id="category-${room.id}" onchange="filterProducts(${room.id})">
                                         <option value="">-- Sélectionner --</option>
-                                        ${generateCatalogueOptions()}
+                                        <option value="eclairage">💡 Éclairage</option>
+                                        <option value="prises">🔌 Prises</option>
+                                        <option value="interrupteurs">🎛️ Interrupteurs</option>
+                                        <option value="protections">🛡️ Protections</option>
+                                        <option value="cables">🔗 Câbles</option>
+                                        <option value="consommables">🔩 Consommables (Chevilles, Wago, Vis...)</option>
+                                        <option value="autres">📦 Autres</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Article</label>
+                                    <select id="article-${room.id}" disabled>
+                                        <option value="">-- Choisir catégorie d'abord --</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -1228,6 +1240,37 @@
                                 <span>€</span>
                             </label>
 
+                            <!-- CÂBLAGE DE CETTE INTERVENTION -->
+                            <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #0ea5e9;">
+                                <h4 style="margin: 0 0 10px 0;">🔗 Câblage intervention</h4>
+                                
+                                <!-- Liste des câbles -->
+                                <div style="margin-bottom: 10px;">
+                                    ${(room.cabling.cables || []).map((cable, idx) => `
+                                        <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                                            <div>
+                                                <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
+                                            </div>
+                                            <button onclick="deleteCable(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+                                        </div>
+                                    `).join('') || '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>'}
+                                </div>
+                                
+                                <!-- Formulaire rapide -->
+                                <div style="display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; align-items: end;">
+                                    <select id="cable-type-${room.id}" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
+                                        <option value="">Type câble</option>
+                                        <option value="3G1.5">3G1.5 (1.20€/m)</option>
+                                        <option value="3G2.5">3G2.5 (1.80€/m)</option>
+                                        <option value="5G6">5G6 (3.50€/m)</option>
+                                        <option value="HDMI">HDMI (2.00€/m)</option>
+                                        <option value="RJ45">RJ45 (1.50€/m)</option>
+                                    </select>
+                                    <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
+                                    <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; font-size: 12px; white-space: nowrap;">+ Câble</button>
+                                </div>
+                            </div>
+
                             <div style="display: flex; gap: 10px; margin-top: 20px;">
                                 <button class="btn btn-info" onclick="calculateArticle(${room.id})" style="flex: 1;">🧮 Calculer</button>
                                 <button class="btn btn-success" onclick="addArticle(${room.id})" style="flex: 1;">➕ Ajouter</button>
@@ -1257,45 +1300,6 @@
                             `).join('') || '<div style="text-align: center; padding: 20px; color: #999;">Aucun article</div>'}
                         </div>
 
-                        <div class="cabling-section">
-                            <h4>🔗 Câblage de cette intervention</h4>
-                            
-                            <!-- Liste des câbles -->
-                            <div class="cables-list">
-                                ${(room.cabling.cables || []).map((cable, idx) => `
-                                    <div class="cable-item" style="background: #f0f4ff; padding: 10px; border-radius: 5px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <strong>${cable.type}</strong> - ${cable.length}m
-                                            <div style="font-size: 12px; color: #666;">${cable.pricePerMeter.toFixed(2)}€/m</div>
-                                        </div>
-                                        <button onclick="deleteCable(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">🗑️</button>
-                                    </div>
-                                `).join('') || '<div style="text-align: center; padding: 10px; color: #999; font-size: 13px;">Aucun câble ajouté</div>'}
-                            </div>
-                            
-                            <!-- Formulaire ajout câble -->
-                            <div style="background: white; padding: 15px; border-radius: 8px; margin-top: 10px;">
-                                <h5 style="margin-bottom: 10px;">➕ Ajouter un câble</h5>
-                                <div class="form-grid">
-                                    <div class="form-group">
-                                        <label>Type de câble</label>
-                                        <select id="cable-type-${room.id}">
-                                            <option value="">-- Sélectionner --</option>
-                                            <option value="3G1.5">3G1.5 (1.20€/m)</option>
-                                            <option value="3G2.5">3G2.5 (1.80€/m)</option>
-                                            <option value="5G6">5G6 (3.50€/m)</option>
-                                            <option value="HDMI">HDMI (2.00€/m)</option>
-                                            <option value="RJ45">RJ45 (1.50€/m)</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Longueur (mètres)</label>
-                                        <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5">
-                                    </div>
-                                </div>
-                                <button class="btn btn-primary" onclick="addCable(${room.id})" style="width: 100%; margin-top: 10px;">Ajouter ce câble</button>
-                            </div>
-                        </div>
                     </div>
                 </div>
             `;
@@ -1318,6 +1322,69 @@
             html += `</optgroup>`;
         });
         return html;
+    }
+
+    // NOUVEAU : Filtrer produits par catégorie
+    window.filterProducts = function(roomId) {
+        const categorySelect = document.getElementById(`category-${roomId}`);
+        const articleSelect = document.getElementById(`article-${roomId}`);
+        const category = categorySelect.value;
+
+        if (!category) {
+            articleSelect.disabled = true;
+            articleSelect.innerHTML = '<option value="">-- Choisir catégorie d\'abord --</option>';
+            return;
+        }
+
+        // Mapper les catégories UI vers les catégories techniques
+        const categoryMap = {
+            'eclairage': ['appareillage'],
+            'prises': ['appareillage'],
+            'interrupteurs': ['appareillage'],
+            'protections': ['protections'],
+            'cables': ['cables'],
+            'consommables': ['consommables'],
+            'autres': ['appareillage', 'goulottes', 'gros-materiel']
+        };
+
+        const targetCategories = categoryMap[category] || [category];
+
+        // Filtrer par nom ET catégorie
+        let filtered = catalogueProduits.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            const cat = p.category || 'appareillage';
+
+            if (category === 'eclairage') {
+                return name.includes('led') || name.includes('spot') || name.includes('luminaire') || 
+                       name.includes('plafonnier') || name.includes('lampe');
+            } else if (category === 'prises') {
+                return name.includes('prise') && !name.includes('interrupteur');
+            } else if (category === 'interrupteurs') {
+                return name.includes('interrupteur') || name.includes('va-et-vient') || 
+                       name.includes('bouton') || name.includes('variateur');
+            } else if (category === 'consommables') {
+                return name.includes('cheville') || name.includes('wago') || name.includes('vis') || 
+                       name.includes('domino') || name.includes('scotch') || cat === 'consommables';
+            } else {
+                return targetCategories.includes(cat);
+            }
+        });
+
+        // Générer options
+        if (filtered.length === 0) {
+            articleSelect.innerHTML = '<option value="">Aucun produit dans cette catégorie</option>';
+            articleSelect.disabled = true;
+        } else {
+            articleSelect.disabled = false;
+            let html = '<option value="">-- Sélectionner --</option>';
+            filtered.forEach(p => {
+                const prixAchat = p.price.toFixed(2);
+                const marge = MARGES_CATEGORIE[p.category] || 0.25;
+                const prixVente = (p.price * (1 + marge)).toFixed(2);
+                html += `<option value="${p.ref}">${p.name} - Achat: ${prixAchat}€ → Vente: ${prixVente}€ (+${(marge*100).toFixed(0)}%)</option>`;
+            });
+            articleSelect.innerHTML = html;
+        }
     }
 
     window.selectInstall = function(roomId, type, e) {
