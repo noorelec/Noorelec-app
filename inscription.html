@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DevTech — Inscription & essai 14 jours</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 24px 16px 48px;
+        }
+        .wrap { max-width: 480px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        h1 { font-size: 24px; color: #333; margin-bottom: 8px; }
+        .lead { color: #555; font-size: 15px; line-height: 1.55; margin-bottom: 20px; }
+        label { display: block; font-weight: 600; color: #333; margin-bottom: 8px; font-size: 14px; }
+        input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+        input:focus { outline: none; border-color: #667eea; }
+        .hint { font-size: 12px; color: #666; margin: -10px 0 14px; line-height: 1.4; }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        button.secondary { background: #0d9488; margin-top: 12px; }
+        button:hover:not(:disabled) { background: #5568d3; }
+        button.secondary:hover:not(:disabled) { background: #0f766e; }
+        button:disabled { opacity: 0.55; cursor: not-allowed; }
+        #err, #info { margin-top: 14px; font-size: 14px; line-height: 1.45; }
+        #err { color: #b91c1c; }
+        #info { color: #065f46; background: #d1fae5; padding: 12px 14px; border-radius: 10px; display: none; }
+        #step2 { display: none; }
+        .login-link { text-align: center; margin-top: 20px; font-size: 15px; }
+        .login-link a { color: #fff; font-weight: 600; }
+        .notice {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1e3a5f;
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="card" id="step1">
+            <h1>Créer un compte</h1>
+            <p class="lead">14 jours d’accès complet après validation de votre <strong>numéro de TVA</strong> (vérification officielle VIES) et de votre e-mail. Chaque numéro TVA ne peut être utilisé qu’<strong>une seule fois</strong>.</p>
+            <div class="notice">
+                <strong>Important :</strong> le service VIES est hébergé par l’administration européenne. Il peut être temporairement indisponible : réessayez plus tard si un message l’indique.
+            </div>
+            <label for="email">E-mail professionnel</label>
+            <input type="email" id="email" autocomplete="email" placeholder="vous@entreprise.be">
+            <label for="password">Mot de passe</label>
+            <input type="password" id="password" autocomplete="new-password" placeholder="Au moins 6 caractères">
+            <label for="password2">Confirmer le mot de passe</label>
+            <input type="password" id="password2" autocomplete="new-password">
+            <label for="vat">Numéro de TVA (UE)</label>
+            <input type="text" id="vat" placeholder="BE0123456789 ou FRXX…" autocapitalize="characters">
+            <p class="hint">Indiquez le code pays (BE, FR, NL, DE…). Sans code, <strong>BE</strong> sera ajouté par défaut. Le numéro doit être valide dans VIES et n’avoir jamais servi sur DevTech.</p>
+            <button type="button" id="btn-signup">Créer mon compte</button>
+            <p id="err"></p>
+        </div>
+
+        <div class="card" id="step2">
+            <h1>Vérifiez votre e-mail</h1>
+            <p class="lead">Un lien de confirmation a été envoyé. Cliquez dessus, puis revenez ici et appuyez sur le bouton ci-dessous pour valider votre TVA et activer les 14 jours.</p>
+            <p id="info"></p>
+            <button type="button" class="secondary" id="btn-activate">J’ai validé mon e-mail — activer mon essai (TVA)</button>
+            <p id="err2" style="color:#b91c1c;margin-top:12px;font-size:14px;"></p>
+        </div>
+
+        <p class="login-link">Déjà inscrit ? <a href="login.html">Connexion</a></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
+            authDomain: "devtech-20997.firebaseapp.com",
+            projectId: "devtech-20997",
+            storageBucket: "devtech-20997.firebasestorage.app",
+            messagingSenderId: "95961701207",
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12",
+            measurementId: "G-7S08YYT59J"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const functions = getFunctions(app, 'europe-west1');
+        const setupTrialAccount = httpsCallable(functions, 'setupTrialAccount');
+        const claimTrialWithVat = httpsCallable(functions, 'claimTrialWithVat');
+
+        let pendingVat = '';
+
+        function showErr(el, msg) {
+            const n = document.getElementById(el);
+            if (n) n.textContent = msg || '';
+        }
+
+        function explainCallableError(e) {
+            if (e.code === 'functions/not-found') {
+                return 'Les Cloud Functions ne sont pas déployées. Dans le dossier du projet : npm install dans functions/, puis firebase deploy --only functions (plan Blaze requis).';
+            }
+            const m = (e.message || '').trim();
+            switch (m) {
+                case 'EMAIL_NOT_VERIFIED':
+                    return 'Votre e-mail n’est pas encore validé. Cliquez sur le lien dans le message reçu.';
+                case 'VAT_INVALID':
+                    return 'Ce numéro de TVA n’est pas reconnu comme valide par le service européen VIES.';
+                case 'VAT_FORMAT':
+                    return 'Format de numéro de TVA incorrect.';
+                case 'VAT_ALREADY_USED':
+                    return 'Ce numéro de TVA a déjà été utilisé pour un essai DevTech. Un seul essai par entreprise.';
+                case 'VIES_DOWN':
+                    return 'Le service de vérification TVA (VIES) est temporairement indisponible. Réessayez dans quelques minutes.';
+                default:
+                    return m || 'Erreur serveur ou réseau.';
+            }
+        }
+
+        document.getElementById('btn-signup').addEventListener('click', async () => {
+            showErr('err', '');
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const password2 = document.getElementById('password2').value;
+            const vat = document.getElementById('vat').value.trim();
+
+            if (!email || !password || !vat) {
+                showErr('err', 'Remplissez l’e-mail, le mot de passe et le numéro de TVA.');
+                return;
+            }
+            if (password.length < 6) {
+                showErr('err', 'Le mot de passe doit contenir au moins 6 caractères.');
+                return;
+            }
+            if (password !== password2) {
+                showErr('err', 'Les mots de passe ne correspondent pas.');
+                return;
+            }
+
+            pendingVat = vat;
+            const btn = document.getElementById('btn-signup');
+            btn.disabled = true;
+
+            try {
+                const cred = await createUserWithEmailAndPassword(auth, email, password);
+                await sendEmailVerification(cred.user);
+                await setupTrialAccount();
+                document.getElementById('step1').style.display = 'none';
+                document.getElementById('step2').style.display = 'block';
+                const info = document.getElementById('info');
+                info.style.display = 'block';
+                info.textContent = 'E-mail de vérification envoyé à ' + email + '.';
+            } catch (e) {
+                const msg = e.code === 'auth/email-already-in-use'
+                    ? 'Cet e-mail est déjà utilisé. Connectez-vous ou utilisez « mot de passe oublié » dans Firebase.'
+                    : (e.message || 'Inscription impossible.');
+                showErr('err', msg);
+                pendingVat = '';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('btn-activate').addEventListener('click', async () => {
+            showErr('err2', '');
+            const user = auth.currentUser;
+            if (!user) {
+                showErr('err2', 'Session expirée. Rechargez la page et reconnectez-vous, puis utilisez « J’ai validé… » à nouveau.');
+                return;
+            }
+
+            const btn = document.getElementById('btn-activate');
+            btn.disabled = true;
+            try {
+                await user.reload();
+                if (!user.emailVerified) {
+                    showErr('err2', 'L’e-mail n’est pas encore validé. Vérifiez votre boîte de réception et le dossier spam.');
+                    return;
+                }
+                const res = await claimTrialWithVat({ vat: pendingVat || document.getElementById('vat').value.trim() });
+                if (res.data && res.data.ok) {
+                    window.location.href = 'app.html';
+                }
+            } catch (e) {
+                showErr('err2', explainCallableError(e));
+            } finally {
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

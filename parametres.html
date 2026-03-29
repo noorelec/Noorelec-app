@@ -206,6 +206,34 @@
             100% { transform: rotate(360deg); }
         }
 
+        .access-paywall {
+            display: none;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #f5f7fa;
+        }
+        .access-paywall-inner {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 440px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        }
+        .access-paywall-inner h2 { color: #333; margin-bottom: 12px; font-size: 22px; }
+        .access-paywall-inner p { color: #666; line-height: 1.6; margin-bottom: 24px; }
+        .access-paywall-inner a {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 20px 15px;
@@ -218,6 +246,15 @@
     </style>
 </head>
 <body>
+    <div id="access-paywall" class="access-paywall">
+        <div class="access-paywall-inner">
+            <h2 id="paywall-title">Accès restreint</h2>
+            <p id="paywall-text"></p>
+            <p id="paywall-inscription-hint" style="display:none;margin-top:16px;"><a href="inscription.html">Finaliser mon inscription (TVA)</a></p>
+            <a href="app.html">Retour au tableau de bord</a>
+        </div>
+    </div>
+    <div id="param-main">
     <div class="header">
         <div class="header-content">
             <h1>⚙️ Paramètres de l'application</h1>
@@ -474,11 +511,13 @@
             </div>
         </div>
     </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
         import { getFirestore, doc, getDoc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { checkElectricianAccess, paywallMessage } from './devtech-access.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
@@ -544,10 +583,26 @@
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = 'login.html';
-            } else {
-                currentUser = user;
-                await loadSettings();
+                return;
             }
+            currentUser = user;
+            try {
+                const userSnap = await getDoc(doc(db, 'users', user.uid));
+                const { allowed, reason } = checkElectricianAccess(userSnap.exists() ? userSnap.data() : null);
+                if (!allowed) {
+                    const msg = paywallMessage(reason);
+                    document.getElementById('paywall-title').textContent = msg.title;
+                    document.getElementById('paywall-text').textContent = msg.text;
+                    const hint = document.getElementById('paywall-inscription-hint');
+                    if (hint) hint.style.display = reason === 'trial_not_activated' ? 'block' : 'none';
+                    document.getElementById('access-paywall').style.display = 'flex';
+                    document.getElementById('param-main').style.display = 'none';
+                    return;
+                }
+            } catch (e) {
+                console.error('Accès:', e);
+            }
+            await loadSettings();
         });
 
         async function loadSettings() {
