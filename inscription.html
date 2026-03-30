@@ -135,6 +135,8 @@
             switch (m) {
                 case 'EMAIL_NOT_VERIFIED':
                     return 'Votre e-mail n’est pas encore validé. Cliquez sur le lien dans le message reçu.';
+                case 'SETUP_TRIAL_ACCOUNT_FAILED':
+                    return 'Erreur serveur lors de la création du profil utilisateur. Ouvrez “Google Cloud → Cloud Functions → Journaux” pour voir le détail, puis réessayez.';
                 case 'VAT_INVALID':
                     return 'Ce numéro de TVA n’est pas reconnu comme valide par le service européen VIES.';
                 case 'VAT_FORMAT':
@@ -182,9 +184,12 @@
                 info.style.display = 'block';
                 info.textContent = 'E-mail de vérification envoyé à ' + email + '.';
             } catch (e) {
-                const msg = e.code === 'auth/email-already-in-use'
-                    ? 'Cet e-mail est déjà utilisé. Connectez-vous ou utilisez « mot de passe oublié » dans Firebase.'
-                    : (e.message || 'Inscription impossible.');
+                const isCallable = typeof e.code === 'string' && e.code.startsWith('functions/');
+                const msg = isCallable
+                    ? explainCallableError(e)
+                    : (e.code === 'auth/email-already-in-use'
+                        ? 'Cet e-mail est déjà utilisé. Connectez-vous ou utilisez « mot de passe oublié » dans Firebase.'
+                        : (e.message || 'Inscription impossible.'));
                 showErr('err', msg);
                 pendingVat = '';
             } finally {

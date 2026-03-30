@@ -80,33 +80,38 @@ exports.setupTrialAccount = onCall(async (request) => {
     throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   }
 
-  const uid = request.auth.uid;
-  const ref = admin.firestore().doc(`users/${uid}`);
-  const snap = await ref.get();
+  try {
+    const uid = request.auth.uid;
+    const ref = admin.firestore().doc(`users/${uid}`);
+    const snap = await ref.get();
 
-  if (snap.exists) {
-    const d = snap.data();
-    if (d.accountType === "paid" && d.subscriptionStatus === "active") {
-      return { ok: true, skipped: "already_paid" };
-    }
-    if (d.hasTrial === true && d.trialEndDate) {
-      const end = new Date(d.trialEndDate);
-      if (end > new Date()) {
-        return { ok: true, skipped: "trial_active" };
+    if (snap.exists) {
+      const d = snap.data();
+      if (d.accountType === "paid" && d.subscriptionStatus === "active") {
+        return { ok: true, skipped: "already_paid" };
+      }
+      if (d.hasTrial === true && d.trialEndDate) {
+        const end = new Date(d.trialEndDate);
+        if (end > new Date()) {
+          return { ok: true, skipped: "trial_active" };
+        }
       }
     }
+
+    await ref.set(
+      {
+        accountType: "trial",
+        hasTrial: false,
+        trialAccountPreparedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return { ok: true };
+  } catch (e) {
+    console.error("setupTrialAccount failed:", e);
+    throw new HttpsError("internal", "SETUP_TRIAL_ACCOUNT_FAILED");
   }
-
-  await ref.set(
-    {
-      accountType: "trial",
-      hasTrial: false,
-      trialAccountPreparedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
-
-  return { ok: true };
 });
 
 /**
