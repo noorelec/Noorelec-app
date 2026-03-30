@@ -77,11 +77,7 @@ async function checkVies(countryCode, vatNumber) {
  */
 exports.setupTrialAccount = onCall(
   {
-    cors: [
-      "https://noorelec.github.io",
-      "http://localhost:5000",
-      "http://127.0.0.1:5000",
-    ],
+    cors: true,
   },
   async (request) => {
   if (!request.auth) {
@@ -129,11 +125,7 @@ exports.setupTrialAccount = onCall(
  */
 exports.claimTrialWithVat = onCall(
   {
-    cors: [
-      "https://noorelec.github.io",
-      "http://localhost:5000",
-      "http://127.0.0.1:5000",
-    ],
+    cors: true,
   },
   async (request) => {
   if (!request.auth) {
