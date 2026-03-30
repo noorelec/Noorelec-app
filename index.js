@@ -75,7 +75,15 @@ async function checkVies(countryCode, vatNumber) {
  * Crée le document users/{uid} en mode « essai non activé » après inscription.
  * Les comptes existants (déjà payés ou déjà en essai actif) ne sont pas modifiés.
  */
-exports.setupTrialAccount = onCall(async (request) => {
+exports.setupTrialAccount = onCall(
+  {
+    cors: [
+      "https://noorelec.github.io",
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+    ],
+  },
+  async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   }
@@ -112,13 +120,22 @@ exports.setupTrialAccount = onCall(async (request) => {
     console.error("setupTrialAccount failed:", e);
     throw new HttpsError("internal", "SETUP_TRIAL_ACCOUNT_FAILED");
   }
-});
+  }
+);
 
 /**
  * Vérifie l’e-mail, valide la TVA via VIES, garantit l’unicité du n° TVA,
  * puis active 14 jours d’essai sur users/{uid}.
  */
-exports.claimTrialWithVat = onCall(async (request) => {
+exports.claimTrialWithVat = onCall(
+  {
+    cors: [
+      "https://noorelec.github.io",
+      "http://localhost:5000",
+      "http://127.0.0.1:5000",
+    ],
+  },
+  async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
   }
@@ -229,4 +246,5 @@ exports.claimTrialWithVat = onCall(async (request) => {
   }
 
   return { ok: true, trialEndDate: uFinal.data().trialEndDate };
-});
+  }
+);

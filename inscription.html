@@ -131,6 +131,10 @@
             if (e.code === 'functions/not-found') {
                 return 'Les Cloud Functions ne sont pas déployées. Dans le dossier du projet : npm install dans functions/, puis firebase deploy --only functions (plan Blaze requis).';
             }
+            const raw = String(e && (e.message || e.toString()) || '').trim();
+            if (/Failed to fetch|fetch/i.test(raw)) {
+                return 'Erreur réseau/CORS : les Cloud Functions refusent l’origine du site. Redéployez les functions avec CORS autorisé pour https://noorelec.github.io puis réessayez.';
+            }
             const m = (e.message || '').trim();
             switch (m) {
                 case 'EMAIL_NOT_VERIFIED':
