@@ -8,24 +8,110 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            background: #f5f7fa;
+        }
+        .app-container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .app-header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .logo { font-size: 24px; font-weight: bold; color: #667eea; }
+        .back-btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .content {
+            background: white;
+            border-radius: 15px;
+            padding: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .toolbar input[type="search"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 10px 14px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 15px;
+        }
+        .btn {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; }
+        .btn-outline { background: #eef2ff; color: #4338ca; }
+        .btn-danger { background: #fee2e2; color: #b91c1c; }
+        .clients-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .clients-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 600;
+        }
+        .clients-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        .clients-table tr:hover { background: #f9fafb; }
+        .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .empty-state {
+            text-align: center;
+            padding: 48px 20px;
+            color: #64748b;
+        }
+        .empty-state h3 { margin-bottom: 8px; color: #334155; }
+        .loader { text-align: center; padding: 40px; color: #64748b; }
+        .access-paywall {
+            display: none;
+            min-height: 100vh;
             align-items: center;
             justify-content: center;
             padding: 24px;
         }
-        .box {
+        .access-paywall-inner {
             background: white;
             border-radius: 16px;
             padding: 40px;
-            max-width: 480px;
+            max-width: 440px;
             text-align: center;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
         }
-        h1 { color: #333; font-size: 22px; margin-bottom: 12px; }
-        p { color: #666; line-height: 1.6; margin-bottom: 24px; }
-        a {
+        .access-paywall-inner h2 { color: #333; margin-bottom: 12px; font-size: 22px; }
+        .access-paywall-inner p { color: #666; line-height: 1.6; margin-bottom: 24px; }
+        .access-paywall-inner a {
             display: inline-block;
             background: #667eea;
             color: white;
@@ -34,14 +120,166 @@
             text-decoration: none;
             font-weight: 600;
         }
-        a:hover { background: #5568d3; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h1>Gestion clients</h1>
-        <p>Ce module arrive dans une prochaine version de DevTech. Les clients sont déjà enregistrés lors de la création d’un devis.</p>
-        <a href="app.html">← Tableau de bord</a>
+    <div id="access-paywall" class="access-paywall">
+        <div class="access-paywall-inner">
+            <h2 id="paywall-title">Accès restreint</h2>
+            <p id="paywall-text"></p>
+            <p id="paywall-inscription-hint" style="display:none;margin-top:16px;"><a href="inscription.html">Finaliser mon inscription (TVA)</a></p>
+            <a href="app.html">Retour au tableau de bord</a>
+        </div>
     </div>
+
+    <div class="app-container" id="main-app">
+        <header class="app-header">
+            <div class="logo">👥 Gestion clients</div>
+            <a href="app.html" class="back-btn">← Tableau de bord</a>
+        </header>
+        <div class="content">
+            <div class="toolbar">
+                <input type="search" id="search" placeholder="Rechercher (nom, e-mail, téléphone…)" autocomplete="off">
+                <a href="creer-devis.html" class="btn btn-primary">+ Nouveau devis</a>
+            </div>
+            <div id="loading" class="loader">Chargement des clients…</div>
+            <div id="list-wrap" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, collection, query, where, getDocs, doc, deleteDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { checkElectricianAccess, paywallMessage } from './devtech-access.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
+            authDomain: "devtech-20997.firebaseapp.com",
+            projectId: "devtech-20997",
+            storageBucket: "devtech-20997.firebasestorage.app",
+            messagingSenderId: "95961701207",
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        let clients = [];
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user || !user.emailVerified) {
+                window.location.href = 'login.html';
+                return;
+            }
+            currentUser = user;
+            try {
+                const userSnap = await getDoc(doc(db, 'users', user.uid));
+                const { allowed, reason } = checkElectricianAccess(userSnap.exists() ? userSnap.data() : null);
+                if (!allowed) {
+                    const msg = paywallMessage(reason);
+                    document.getElementById('paywall-title').textContent = msg.title;
+                    document.getElementById('paywall-text').textContent = msg.text;
+                    const hint = document.getElementById('paywall-inscription-hint');
+                    if (hint) hint.style.display = reason === 'trial_not_activated' ? 'block' : 'none';
+                    document.getElementById('access-paywall').style.display = 'flex';
+                    document.getElementById('main-app').style.display = 'none';
+                    return;
+                }
+            } catch (e) {
+                console.error('Accès:', e);
+            }
+            await loadClients();
+        });
+
+        async function loadClients() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('list-wrap').style.display = 'none';
+            try {
+                const q = query(collection(db, 'clients'), where('userId', '==', currentUser.uid));
+                const snap = await getDocs(q);
+                clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                clients.sort((a, b) => (a.nom || '').localeCompare(b.nom || '', 'fr'));
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('list-wrap').style.display = 'block';
+                render();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading').innerHTML = '<p style="color:#b91c1c;">Erreur de chargement : ' + (e.message || '') + '</p>';
+            }
+        }
+
+        function render(filterText = '') {
+            const q = filterText.trim().toLowerCase();
+            const filtered = !q ? clients : clients.filter(c => {
+                const blob = [c.nom, c.email, c.telephone, c.tva, c.adresse].filter(Boolean).join(' ').toLowerCase();
+                return blob.includes(q);
+            });
+
+            const wrap = document.getElementById('list-wrap');
+            if (filtered.length === 0) {
+                wrap.innerHTML = `
+                    <div class="empty-state">
+                        <h3>${clients.length === 0 ? 'Aucun client enregistré' : 'Aucun résultat'}</h3>
+                        <p>${clients.length === 0 ? 'Les clients sont ajoutés à chaque enregistrement de devis. Créez un premier devis pour remplir la liste.' : 'Essayez un autre mot-clé.'}</p>
+                        <a href="creer-devis.html" class="btn btn-primary" style="margin-top:12px;">Créer un devis</a>
+                    </div>`;
+                return;
+            }
+
+            wrap.innerHTML = `
+                <table class="clients-table">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Contact</th>
+                            <th>Adresse</th>
+                            <th style="width:220px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${filtered.map(c => {
+                            const date = c.createdAt ? new Date(c.createdAt).toLocaleDateString('fr-FR') : '—';
+                            return `
+                            <tr>
+                                <td><strong>${escapeHtml(c.nom || '—')}</strong><br><span style="color:#64748b;font-size:12px;">Ajouté le ${date}</span></td>
+                                <td>${escapeHtml(c.email || '—')}<br>${escapeHtml(c.telephone || '—')}<br>${c.tva ? 'TVA ' + escapeHtml(c.tva) : ''}</td>
+                                <td>${escapeHtml(c.adresse || '—')}</td>
+                                <td class="actions">
+                                    <a class="btn btn-primary" href="creer-devis.html?clientId=${encodeURIComponent(c.id)}">Nouveau devis</a>
+                                    <button type="button" class="btn btn-danger" data-del="${escapeHtml(c.id)}">Supprimer</button>
+                                </td>
+                            </tr>`;
+                        }).join('')}
+                    </tbody>
+                </table>`;
+
+            wrap.querySelectorAll('[data-del]').forEach(btn => {
+                btn.addEventListener('click', () => deleteClient(btn.getAttribute('data-del')));
+            });
+        }
+
+        function escapeHtml(s) {
+            if (!s) return '';
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+
+        async function deleteClient(id) {
+            if (!confirm('Supprimer ce client de votre liste ? Les devis déjà enregistrés ne sont pas supprimés.')) return;
+            try {
+                await deleteDoc(doc(db, 'clients', id));
+                clients = clients.filter(c => c.id !== id);
+                render(document.getElementById('search').value);
+            } catch (e) {
+                alert('Impossible de supprimer : ' + (e.message || e.code || ''));
+            }
+        }
+
+        document.getElementById('search').addEventListener('input', (e) => render(e.target.value));
+    </script>
 </body>
 </html>

@@ -8,24 +8,103 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            background: #f5f7fa;
+        }
+        .app-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .app-header {
+            background: white;
+            border-radius: 15px;
+            padding: 20px 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
             display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { font-size: 24px; font-weight: bold; color: #667eea; }
+        .back-btn {
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .content {
+            background: white;
+            border-radius: 15px;
+            padding: 28px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .kpi {
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        .kpi .val { font-size: 28px; font-weight: 700; color: #4338ca; }
+        .kpi .lbl { font-size: 13px; color: #64748b; margin-top: 6px; }
+        h2 { font-size: 18px; color: #334155; margin: 24px 0 12px; }
+        .bars { margin-top: 8px; }
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .bar-row span:first-child { width: 120px; flex-shrink: 0; color: #475569; }
+        .bar-track {
+            flex: 1;
+            height: 22px;
+            background: #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .bar-fill { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+        .bar-fill.pending { background: #f59e0b; }
+        .bar-fill.accepted { background: #22c55e; }
+        .bar-fill.refused { background: #ef4444; }
+        .bar-count { width: 40px; text-align: right; font-weight: 600; color: #334155; }
+        .mini-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+            margin-top: 8px;
+        }
+        .mini-table th {
+            text-align: left;
+            padding: 10px 8px;
+            background: #667eea;
+            color: white;
+        }
+        .mini-table td { padding: 10px 8px; border-bottom: 1px solid #e5e7eb; }
+        .loader { text-align: center; padding: 40px; color: #64748b; }
+        .access-paywall {
+            display: none;
+            min-height: 100vh;
             align-items: center;
             justify-content: center;
             padding: 24px;
         }
-        .box {
+        .access-paywall-inner {
             background: white;
             border-radius: 16px;
             padding: 40px;
-            max-width: 480px;
+            max-width: 440px;
             text-align: center;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
         }
-        h1 { color: #333; font-size: 22px; margin-bottom: 12px; }
-        p { color: #666; line-height: 1.6; margin-bottom: 24px; }
-        a {
+        .access-paywall-inner h2 { color: #333; margin-bottom: 12px; font-size: 22px; }
+        .access-paywall-inner p { color: #666; line-height: 1.6; margin-bottom: 24px; }
+        .access-paywall-inner a {
             display: inline-block;
             background: #667eea;
             color: white;
@@ -34,14 +113,165 @@
             text-decoration: none;
             font-weight: 600;
         }
-        a:hover { background: #5568d3; }
     </style>
 </head>
 <body>
-    <div class="box">
-        <h1>Statistiques</h1>
-        <p>Le chiffre d’affaires des devis acceptés est déjà visible sur le tableau de bord. Des graphiques détaillés seront ajoutés dans une prochaine étape.</p>
-        <a href="app.html">← Tableau de bord</a>
+    <div id="access-paywall" class="access-paywall">
+        <div class="access-paywall-inner">
+            <h2 id="paywall-title">Accès restreint</h2>
+            <p id="paywall-text"></p>
+            <p id="paywall-inscription-hint" style="display:none;margin-top:16px;"><a href="inscription.html">Finaliser mon inscription (TVA)</a></p>
+            <a href="app.html">Retour au tableau de bord</a>
+        </div>
     </div>
+
+    <div class="app-container" id="main-app">
+        <header class="app-header">
+            <div class="logo">📈 Statistiques</div>
+            <a href="app.html" class="back-btn">← Tableau de bord</a>
+        </header>
+        <div class="content">
+            <div id="loading" class="loader">Chargement des statistiques…</div>
+            <div id="stats-body" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, collection, query, where, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { checkElectricianAccess, paywallMessage } from './devtech-access.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAQ9YFHCYhKG-65rqJp31QEb68F9oY4HFk",
+            authDomain: "devtech-20997.firebaseapp.com",
+            projectId: "devtech-20997",
+            storageBucket: "devtech-20997.firebasestorage.app",
+            messagingSenderId: "95961701207",
+            appId: "1:95961701207:web:25ac1e97f292c58797bc12"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (!user || !user.emailVerified) {
+                window.location.href = 'login.html';
+                return;
+            }
+            try {
+                const userSnap = await getDoc(doc(db, 'users', user.uid));
+                const { allowed, reason } = checkElectricianAccess(userSnap.exists() ? userSnap.data() : null);
+                if (!allowed) {
+                    const msg = paywallMessage(reason);
+                    document.getElementById('paywall-title').textContent = msg.title;
+                    document.getElementById('paywall-text').textContent = msg.text;
+                    const hint = document.getElementById('paywall-inscription-hint');
+                    if (hint) hint.style.display = reason === 'trial_not_activated' ? 'block' : 'none';
+                    document.getElementById('access-paywall').style.display = 'flex';
+                    document.getElementById('main-app').style.display = 'none';
+                    return;
+                }
+            } catch (e) {
+                console.error('Accès:', e);
+            }
+            await loadStats(user.uid);
+        });
+
+        async function loadStats(uid) {
+            try {
+                const q = query(collection(db, 'devis'), where('userId', '==', uid));
+                const snap = await getDocs(q);
+                const devis = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+                let nPending = 0, nAccepted = 0, nRefused = 0;
+                let caAccepted = 0;
+                let caPending = 0;
+                const acceptedList = [];
+
+                devis.forEach(d => {
+                    const st = d.status || 'pending';
+                    const ttc = d.totaux?.totalTTC != null ? Number(d.totaux.totalTTC) : 0;
+                    if (st === 'accepted') {
+                        nAccepted++;
+                        caAccepted += ttc;
+                        acceptedList.push({
+                            nom: d.client?.nom || 'Client',
+                            ttc,
+                            date: d.createdAt ? new Date(d.createdAt).toLocaleDateString('fr-FR') : '—'
+                        });
+                    } else if (st === 'refused') {
+                        nRefused++;
+                    } else {
+                        nPending++;
+                        caPending += ttc;
+                    }
+                });
+
+                const total = devis.length || 1;
+                const pct = (n) => Math.round((n / total) * 100);
+
+                acceptedList.sort((a, b) => b.ttc - a.ttc);
+                const top5 = acceptedList.slice(0, 5);
+
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('stats-body').style.display = 'block';
+                document.getElementById('stats-body').innerHTML = `
+                    <div class="grid">
+                        <div class="kpi">
+                            <div class="val">${devis.length}</div>
+                            <div class="lbl">Devis enregistrés</div>
+                        </div>
+                        <div class="kpi">
+                            <div class="val">${caAccepted.toFixed(2)} €</div>
+                            <div class="lbl">Chiffre d’affaires (devis acceptés, TTC)</div>
+                        </div>
+                        <div class="kpi">
+                            <div class="val">${caPending.toFixed(2)} €</div>
+                            <div class="lbl">Montant TTC en attente / autre statut</div>
+                        </div>
+                    </div>
+
+                    <h2>Répartition des statuts</h2>
+                    <div class="bars">
+                        <div class="bar-row">
+                            <span>En attente</span>
+                            <div class="bar-track"><div class="bar-fill pending" style="width:${pct(nPending)}%"></div></div>
+                            <span class="bar-count">${nPending}</span>
+                        </div>
+                        <div class="bar-row">
+                            <span>Acceptés</span>
+                            <div class="bar-track"><div class="bar-fill accepted" style="width:${pct(nAccepted)}%"></div></div>
+                            <span class="bar-count">${nAccepted}</span>
+                        </div>
+                        <div class="bar-row">
+                            <span>Refusés</span>
+                            <div class="bar-track"><div class="bar-fill refused" style="width:${pct(nRefused)}%"></div></div>
+                            <span class="bar-count">${nRefused}</span>
+                        </div>
+                    </div>
+
+                    <h2>Top 5 — devis acceptés (montant TTC)</h2>
+                    ${top5.length === 0 ? '<p style="color:#64748b;">Aucun devis accepté pour l’instant.</p>' : `
+                    <table class="mini-table">
+                        <thead><tr><th>Client</th><th>Date</th><th>Montant TTC</th></tr></thead>
+                        <tbody>
+                            ${top5.map(r => `<tr><td>${escapeHtml(r.nom)}</td><td>${escapeHtml(r.date)}</td><td><strong>${r.ttc.toFixed(2)} €</strong></td></tr>`).join('')}
+                        </tbody>
+                    </table>`}
+                `;
+            } catch (e) {
+                console.error(e);
+                document.getElementById('loading').innerHTML = '<p style="color:#b91c1c;">Erreur : ' + (e.message || '') + '</p>';
+            }
+        }
+
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = s;
+            return d.innerHTML;
+        }
+    </script>
 </body>
 </html>

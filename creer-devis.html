@@ -997,28 +997,52 @@
                 }
             }
             
-            // Sinon, charger pour modification
+            // Sinon, charger pour modification d’un devis existant
             const editDevisId = localStorage.getItem('editDevisId');
-            if (!editDevisId) return;
-            
-            try {
-                const devisDoc = await getDoc(doc(db, 'devis', editDevisId));
-                if (!devisDoc.exists()) {
+            if (editDevisId) {
+                try {
+                    const devisDoc = await getDoc(doc(db, 'devis', editDevisId));
+                    if (!devisDoc.exists()) {
+                        localStorage.removeItem('editDevisId');
+                        return;
+                    }
+                    const devisData = devisDoc.data();
+                    editingDevisId = editDevisId;
+                    editingClientId = devisData.clientId || null;
+                    await loadDevisData(devisData);
                     localStorage.removeItem('editDevisId');
-                    return;
+                    alert('✅ Devis chargé ! Vous pouvez le modifier.');
+                } catch (error) {
+                    console.error('Erreur chargement devis:', error);
+                    localStorage.removeItem('editDevisId');
                 }
-                
-                const devisData = devisDoc.data();
-                editingDevisId = editDevisId;
-                editingClientId = devisData.clientId || null;
-                await loadDevisData(devisData);
-                
-                localStorage.removeItem('editDevisId');
-                alert('✅ Devis chargé ! Vous pouvez le modifier.');
-                
-            } catch (error) {
-                console.error('Erreur chargement devis:', error);
-                localStorage.removeItem('editDevisId');
+                return;
+            }
+
+            // Préremplir depuis la fiche client (gestion clients → Nouveau devis)
+            const clientIdParam = urlParams.get('clientId');
+            if (clientIdParam) {
+                try {
+                    const cdoc = await getDoc(doc(db, 'clients', clientIdParam));
+                    if (!cdoc.exists()) return;
+                    const c = cdoc.data();
+                    if (c.userId !== currentUser.uid) return;
+                    editingClientId = clientIdParam;
+                    document.getElementById('clientName').value = c.nom || '';
+                    document.getElementById('clientPhone').value = c.telephone || '';
+                    document.getElementById('clientEmail').value = c.email || '';
+                    document.getElementById('clientTVA').value = c.tva || '';
+                    const parts = (c.adresse || '').split(',');
+                    document.getElementById('clientRue').value = parts[0]?.trim() || '';
+                    if (parts[1]) {
+                        const cpVille = parts[1].trim().split(/\s+/);
+                        document.getElementById('clientCP').value = cpVille[0] || '';
+                        document.getElementById('clientCommune').value = cpVille.slice(1).join(' ') || '';
+                    }
+                    history.replaceState({}, '', 'creer-devis.html');
+                } catch (e) {
+                    console.error('Chargement client:', e);
+                }
             }
         }
         
@@ -2329,14 +2353,24 @@
                     }
                     alert('✅ Devis mis à jour !\nRéf: ' + editingDevisId.substring(0, 8).toUpperCase());
                 } else {
-                    const clientRef = await addDoc(collection(db, 'clients'), {
-                        userId: currentUser.uid,
-                        ...clientData,
-                        createdAt: new Date().toISOString()
-                    });
+                    let clientRefId;
+                    if (editingClientId) {
+                        await updateDoc(doc(db, 'clients', editingClientId), {
+                            userId: currentUser.uid,
+                            ...clientData
+                        });
+                        clientRefId = editingClientId;
+                    } else {
+                        const clientRef = await addDoc(collection(db, 'clients'), {
+                            userId: currentUser.uid,
+                            ...clientData,
+                            createdAt: new Date().toISOString()
+                        });
+                        clientRefId = clientRef.id;
+                    }
                     const devisRef = await addDoc(collection(db, 'devis'), {
                         ...devisPayload,
-                        clientId: clientRef.id,
+                        clientId: clientRefId,
                         status: 'pending',
                         createdAt: new Date().toISOString()
                     });
