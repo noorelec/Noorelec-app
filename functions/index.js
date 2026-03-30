@@ -1,17 +1,11 @@
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { setGlobalOptions } = require("firebase-functions/v2");
+const functions = require("firebase-functions");
+const { HttpsError } = functions.https;
 const admin = require("firebase-admin");
-
-setGlobalOptions({ region: "europe-west1" });
 
 admin.initializeApp();
 
 const VIES_URL = "https://ec.europa.eu/taxation_customs/vies/services/checkVatService";
 
-/**
- * Normalise et découpe un n° TVA UE (VIES).
- * Si pas de préfixe pays, préfixe BE par défaut.
- */
 function parseEUVat(raw) {
   if (!raw || typeof raw !== "string") {
     throw new Error("FORMAT");
@@ -28,10 +22,6 @@ function parseEUVat(raw) {
   return { country, number, full: s };
 }
 
-/**
- * Interroge le service officiel VIES (SOAP).
- * Peut retourner UNAVAILABLE si le service national est temporairement hors ligne.
- */
 async function checkVies(countryCode, vatNumber) {
   const body =
     `<?xml version="1.0" encoding="UTF-8"?>` +
@@ -72,171 +62,125 @@ async function checkVies(countryCode, vatNumber) {
 }
 
 /**
- * Crée le document users/{uid} en mode « essai non activé » après inscription.
- * Les comptes existants (déjà payés ou déjà en essai actif) ne sont pas modifiés.
+ * Inscription essai 14 jours : VIES + unicité TVA AVANT création du compte Firebase.
+ * Si la TVA est invalide ou déjà utilisée → aucun compte n’est créé.
  */
-exports.setupTrialAccount = onCall(
-  {
-    cors: true,
-  },
-  async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
-  }
+exports.registerTrialWithVat = functions
+  .region("europe-west1")
+  .https.onCall(async (data) => {
+    const email = String((data && data.email) || "")
+      .trim()
+      .toLowerCase();
+    const password = String((data && data.password) || "");
+    const vatRaw = data && data.vat;
 
-  try {
-    const uid = request.auth.uid;
-    const ref = admin.firestore().doc(`users/${uid}`);
-    const snap = await ref.get();
-
-    if (snap.exists) {
-      const d = snap.data();
-      if (d.accountType === "paid" && d.subscriptionStatus === "active") {
-        return { ok: true, skipped: "already_paid" };
-      }
-      if (d.hasTrial === true && d.trialEndDate) {
-        const end = new Date(d.trialEndDate);
-        if (end > new Date()) {
-          return { ok: true, skipped: "trial_active" };
-        }
-      }
+    if (!email || !password) {
+      throw new HttpsError("invalid-argument", "EMAIL_PASSWORD_REQUIRED");
     }
+    if (password.length < 6) {
+      throw new HttpsError("invalid-argument", "PASSWORD_TOO_SHORT");
+    }
+
+    let parsed;
+    try {
+      parsed = parseEUVat(String(vatRaw || "").trim());
+    } catch {
+      throw new HttpsError("invalid-argument", "VAT_FORMAT");
+    }
+
+    const vies = await checkVies(parsed.country, parsed.number);
+    if (!vies.ok) {
+      if (vies.error === "UNAVAILABLE") {
+        throw new HttpsError("unavailable", "VIES_DOWN");
+      }
+      if (vies.error === "INVALID") {
+        throw new HttpsError("failed-precondition", "VAT_INVALID");
+      }
+      throw new HttpsError("internal", "VIES_UNKNOWN");
+    }
+
+    const db = admin.firestore();
+    const vatDocRef = db.doc(`vatRegistrations/${parsed.full}`);
+    const vatSnap = await vatDocRef.get();
+    if (vatSnap.exists) {
+      throw new HttpsError("already-exists", "VAT_ALREADY_USED");
+    }
+
+    let uid;
+    try {
+      const userRecord = await admin.auth().createUser({
+        email,
+        password,
+        emailVerified: false,
+      });
+      uid = userRecord.uid;
+    } catch (e) {
+      if (e.code === "auth/email-already-exists") {
+        throw new HttpsError("already-exists", "EMAIL_ALREADY_IN_USE");
+      }
+      console.error("createUser failed:", e);
+      throw new HttpsError("internal", "AUTH_CREATE_FAILED");
+    }
+
+    const trialEnd = new Date();
+    trialEnd.setDate(trialEnd.getDate() + 14);
+    const trialEndIso = trialEnd.toISOString();
+
+    const trialPayload = {
+      accountType: "trial",
+      hasTrial: true,
+      trialEndDate: trialEndIso,
+      trialStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+      vatNumberNormalized: parsed.full,
+    };
+
+    try {
+      await db.runTransaction(async (t) => {
+        const v = await t.get(vatDocRef);
+        if (v.exists) {
+          throw new HttpsError("already-exists", "VAT_ALREADY_USED");
+        }
+        t.set(vatDocRef, {
+          userId: uid,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        t.set(db.doc(`users/${uid}`), trialPayload);
+      });
+    } catch (e) {
+      await admin.auth().deleteUser(uid).catch(() => {});
+      if (e instanceof HttpsError) {
+        throw e;
+      }
+      console.error(e);
+      throw new HttpsError("internal", "TRANSACTION_FAILED");
+    }
+
+    return { ok: true, trialEndDate: trialEndIso };
+  });
+
+/**
+ * Après inscription « sans essai » (createUser côté client), crée le profil Firestore.
+ * Accès complet pour l’instant ; Stripe pourra exiger subscriptionStatus plus tard.
+ */
+exports.setupRegisteredAccount = functions
+  .region("europe-west1")
+  .https.onCall(async (data, context) => {
+    if (!context || !context.auth) {
+      throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
+    }
+
+    const uid = context.auth.uid;
+    const ref = admin.firestore().doc(`users/${uid}`);
 
     await ref.set(
       {
-        accountType: "trial",
+        accountType: "registered",
         hasTrial: false,
-        trialAccountPreparedAt: admin.firestore.FieldValue.serverTimestamp(),
+        subscriptionStatus: "pending_payment",
+        registeredAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       { merge: true }
     );
 
     return { ok: true };
-  } catch (e) {
-    console.error("setupTrialAccount failed:", e);
-    throw new HttpsError("internal", "SETUP_TRIAL_ACCOUNT_FAILED");
-  }
-  }
-);
-
-/**
- * Vérifie l’e-mail, valide la TVA via VIES, garantit l’unicité du n° TVA,
- * puis active 14 jours d’essai sur users/{uid}.
- */
-exports.claimTrialWithVat = onCall(
-  {
-    cors: true,
-  },
-  async (request) => {
-  if (!request.auth) {
-    throw new HttpsError("unauthenticated", "AUTH_REQUIRED");
-  }
-
-  const uid = request.auth.uid;
-  const vatRaw = request.data && request.data.vat;
-
-  let userRecord;
-  try {
-    userRecord = await admin.auth().getUser(uid);
-  } catch (e) {
-    throw new HttpsError("internal", "USER_LOOKUP_FAILED");
-  }
-
-  if (!userRecord.emailVerified) {
-    throw new HttpsError("failed-precondition", "EMAIL_NOT_VERIFIED");
-  }
-
-  let parsed;
-  try {
-    parsed = parseEUVat(String(vatRaw || "").trim());
-  } catch {
-    throw new HttpsError("invalid-argument", "VAT_FORMAT");
-  }
-
-  const vies = await checkVies(parsed.country, parsed.number);
-  if (!vies.ok) {
-    if (vies.error === "UNAVAILABLE") {
-      throw new HttpsError("unavailable", "VIES_DOWN");
-    }
-    if (vies.error === "INVALID") {
-      throw new HttpsError("failed-precondition", "VAT_INVALID");
-    }
-    throw new HttpsError("internal", "VIES_UNKNOWN");
-  }
-
-  const db = admin.firestore();
-  const vatDocRef = db.doc(`vatRegistrations/${parsed.full}`);
-  const userRef = db.doc(`users/${uid}`);
-
-  const trialEnd = new Date();
-  trialEnd.setDate(trialEnd.getDate() + 14);
-  const trialEndIso = trialEnd.toISOString();
-
-  const trialPayload = {
-    accountType: "trial",
-    hasTrial: true,
-    trialEndDate: trialEndIso,
-    trialStartedAt: admin.firestore.FieldValue.serverTimestamp(),
-    vatNumberNormalized: parsed.full,
-  };
-
-  const vatPre = await vatDocRef.get();
-  if (vatPre.exists) {
-    const owner = vatPre.data().userId;
-    if (owner && owner !== uid) {
-      throw new HttpsError("already-exists", "VAT_ALREADY_USED");
-    }
-    const uSnap = await userRef.get();
-    if (uSnap.exists && uSnap.data().trialEndDate && uSnap.data().hasTrial === true) {
-      return {
-        ok: true,
-        trialEndDate: uSnap.data().trialEndDate,
-        alreadyRegistered: true,
-      };
-    }
-    await userRef.set(trialPayload, { merge: true });
-    return { ok: true, trialEndDate: trialEndIso, repaired: true };
-  }
-
-  try {
-    await db.runTransaction(async (t) => {
-      const vSnap = await t.get(vatDocRef);
-      if (vSnap.exists) {
-        const owner = vSnap.data().userId;
-        if (owner && owner !== uid) {
-          throw new HttpsError("already-exists", "VAT_ALREADY_USED");
-        }
-        const uSnap = await t.get(userRef);
-        const u = uSnap.data();
-        if (u && u.hasTrial === true && u.trialEndDate) {
-          return;
-        }
-        t.set(userRef, trialPayload, { merge: true });
-        return;
-      }
-      t.set(vatDocRef, {
-        userId: uid,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-      t.set(userRef, trialPayload, { merge: true });
-    });
-  } catch (e) {
-    if (e instanceof HttpsError) {
-      throw e;
-    }
-    console.error(e);
-    throw new HttpsError("internal", "TRANSACTION_FAILED");
-  }
-
-  const uFinal = await userRef.get();
-  const vFinal = await vatDocRef.get();
-  if (!vFinal.exists || vFinal.data().userId !== uid) {
-    throw new HttpsError("already-exists", "VAT_ALREADY_USED");
-  }
-  if (!uFinal.exists || uFinal.data().hasTrial !== true || !uFinal.data().trialEndDate) {
-    throw new HttpsError("internal", "USER_TRIAL_NOT_SET");
-  }
-
-  return { ok: true, trialEndDate: uFinal.data().trialEndDate };
-  }
-);
+  });
