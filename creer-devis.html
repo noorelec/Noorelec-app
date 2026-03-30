@@ -632,11 +632,11 @@
                 </div>
                 <div class="form-group">
                     <label>Différentiel 40A Type AC (35€)</label>
-                    <input type="number" id="diffAC" value="1" min="0">
+                    <input type="number" id="diffAC" value="0" min="0">
                 </div>
                 <div class="form-group">
                     <label>Différentiel 40A Type A (45€)</label>
-                    <input type="number" id="diffA" value="1" min="0">
+                    <input type="number" id="diffA" value="0" min="0">
                 </div>
                 <div class="form-group">
                     <label>Parafoudre (120€)</label>
@@ -1676,20 +1676,36 @@
                 return;
             }
 
-            // Prix selon type
-            const prices = {
-                '3G1.5': 1.20,
-                '3G2.5': 1.80,
-                '5G6': 3.50,
-                '3G4': 2.50,
-                'HDMI': 2.00,
-                'RJ45': 1.50
+            // Prix selon type (priorité à la personnalisation catalogue via userProductOverrides)
+            const getCablePricePerMeter = (cableType) => {
+                // Le catalogue a des noms du style "Câble ... 3G1.5mm²", etc.
+                const token = String(cableType || '').toLowerCase();
+                const match = (catalogueProduits || []).find(p => {
+                    if (!p || p.category !== 'cables') return false;
+                    const name = String(p.name || '').toLowerCase();
+                    return name.includes(token);
+                });
+
+                if (match && typeof match.price === 'number' && Number.isFinite(match.price)) {
+                    return match.price; // prix d'achat HT
+                }
+
+                // Fallback si le catalogue ne contient pas ce câble
+                const fallback = {
+                    '3G1.5': 1.20,
+                    '3G2.5': 1.80,
+                    '5G6': 3.50,
+                    '3G4': 2.50,
+                    'HDMI': 2.00,
+                    'RJ45': 1.50
+                };
+                return fallback[cableType] ?? 1.50;
             };
 
             room.cabling.cables.push({
                 type: type,
                 length: length,
-                pricePerMeter: prices[type] || 1.50,
+                pricePerMeter: getCablePricePerMeter(type),
                 category: 'cables'
             });
 
@@ -2047,15 +2063,52 @@
                     y += 5;
                 });
                 
-                // Câblage
+                // Câblage intervention (câbles ajoutés via "Câblage intervention")
+                if (room.cabling.cables && room.cabling.cables.length > 0) {
+                    const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
+                    const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
+                    const tarif = parseFloat(document.getElementById('globalTarif').value) || 0;
+
+                    // Matériel (HT avec marge) + temps (MO) comme dans calculateRecap()
+                    let tempsCablagePiece = SETUP_TIRAGE;
+
+                    let totalCablesMateriel = 0;
+                    room.cabling.cables.forEach(cable => {
+                        const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
+                        const lengthFactor = getLengthFactor(cable.length);
+                        tempsCablagePiece += cable.length * minutesPerMeter * lengthFactor;
+
+                        const coutCable = cable.length * (cable.pricePerMeter || 0); // prix d'achat HT
+                        const coutAvecMarge = calculateSalePrice(coutCable, 'cables'); // HT avec marge
+                        totalCablesMateriel += coutAvecMarge;
+
+                        if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                        pdf.text(`  ${cable.length}m ${cable.type}`, 26, y);
+                        pdf.text(coutAvecMarge.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                        y += 5;
+                    });
+
+                    tempsCablagePiece = tempsCablagePiece * coeffInstall * coeffCircuit;
+                    if (tempsCablagePiece > 0) {
+                        const moCablage = (tempsCablagePiece / 60) * tarif;
+                        if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                        pdf.text(`  Main d'œuvre câblage ( ${Math.round(tempsCablagePiece)} min )`, 26, y);
+                        pdf.text(moCablage.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                        y += 5;
+                    }
+                }
+
+                // Câblage optionnel via anciens champs internal/tableau (si calculé)
                 const intC = room.cabling.internal;
                 const tabC = room.cabling.tableau;
-                if (intC.cost > 0) {
+                if (intC && intC.cost > 0) {
+                    if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
                     pdf.text(`  Cablage entre points (${intC.length || 0}m)`, 26, y);
                     pdf.text(intC.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 }
-                if (tabC.cost > 0) {
+                if (tabC && tabC.cost > 0) {
+                    if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
                     pdf.text(`  Cablage au tableau (${tabC.length || 0}m)`, 26, y);
                     pdf.text(tabC.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
