@@ -49,10 +49,8 @@
             color: #3730a3;
             line-height: 1.5;
         }
-        .toolbar {
-            margin-bottom: 16px;
-        }
-        .toolbar input {
+        .toolbar { margin-bottom: 16px; }
+        .toolbar input[type="search"] {
             width: 100%;
             max-width: 400px;
             padding: 10px 14px;
@@ -73,11 +71,51 @@
             font-weight: 600;
         }
         .cat-table td {
-            padding: 10px 8px;
+            padding: 8px;
             border-bottom: 1px solid #e5e7eb;
+            vertical-align: middle;
         }
         .cat-table tr:hover { background: #f9fafb; }
+        .cat-table tr.hidden-search { display: none; }
         .ref { font-family: ui-monospace, monospace; font-size: 12px; color: #475569; }
+        .inp-num {
+            width: 100%;
+            max-width: 100px;
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+        .inp-num:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 2px rgba(102,126,234,0.2); }
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .btn-sm {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-sm.save { background: #667eea; color: white; }
+        .btn-sm.save:hover { background: #5568d3; }
+        .btn-sm.reset { background: #e2e8f0; color: #475569; }
+        .btn-sm.reset:hover { background: #cbd5e1; }
+        .badge-perso {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            background: #fef3c7;
+            color: #92400e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
         .loader { text-align: center; padding: 40px; color: #64748b; }
         .access-paywall {
             display: none;
@@ -105,6 +143,7 @@
             text-decoration: none;
             font-weight: 600;
         }
+        .msg-inline { font-size: 12px; color: #16a34a; margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -124,8 +163,8 @@
         </header>
         <div class="content">
             <p class="note">
-                Liste des articles utilisés dans <strong>Créer un devis</strong> (prix d’achat, temps de base, catégorie).
-                La modification des fiches se fait dans la <strong>console Firebase</strong> → Firestore → collection <code>products</code> (sécurité : pas d’édition depuis l’app pour l’instant).
+                Articles communs à tous les utilisateurs ; vous pouvez définir <strong>votre propre prix d’achat HT</strong> et <strong>temps de base main-d’œuvre (minutes)</strong> par article.
+                Ces réglages s’appliquent dans <strong>Créer un devis</strong> pour votre compte uniquement. Utilisez <strong>Enregistrer</strong> sur chaque ligne ; <strong>Défaut catalogue</strong> supprime votre personnalisation.
             </p>
             <div class="toolbar">
                 <input type="search" id="search" placeholder="Filtrer par référence, nom ou catégorie…" autocomplete="off">
@@ -138,7 +177,9 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, collection, getDocs, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import {
+            getFirestore, collection, getDocs, doc, getDoc, query, where, setDoc, deleteDoc
+        } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
         import { checkElectricianAccess, paywallMessage } from './devtech-access.js';
 
         const firebaseConfig = {
@@ -154,13 +195,39 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let products = [];
+        let currentUser = null;
+        let productRows = [];
+
+        function inferCategory(data) {
+            if (data.category) return data.category;
+            const name = (data.name || '').toLowerCase();
+            if (name.includes('prise') || name.includes('interrupteur') || name.includes('va-et-vient')) return 'appareillage';
+            if (name.includes('cable') || name.includes('fil')) return 'cables';
+            if (name.includes('disjoncteur') || name.includes('differentiel')) return 'protections';
+            if (name.includes('goulotte')) return 'goulottes';
+            return 'appareillage';
+        }
+
+        function inferTempsBase(data) {
+            if (data.tempsBase != null && data.tempsBase !== '') return Number(data.tempsBase);
+            const name = (data.name || '').toLowerCase();
+            if (name.includes('va-et-vient')) return 75;
+            if (name.includes('prise') && name.includes('encastr')) return 35;
+            if (name.includes('prise')) return 25;
+            if (name.includes('interrupteur')) return 20;
+            if (name.includes('spot') || name.includes('led')) return 30;
+            if (name.includes('luminaire') || name.includes('plafonnier')) return 40;
+            if (name.includes('disjoncteur')) return 40;
+            if (name.includes('differentiel')) return 60;
+            return 30;
+        }
 
         onAuthStateChanged(auth, async (user) => {
             if (!user || !user.emailVerified) {
                 window.location.href = 'login.html';
                 return;
             }
+            currentUser = user;
             try {
                 const userSnap = await getDoc(doc(db, 'users', user.uid));
                 const { allowed, reason } = checkElectricianAccess(userSnap.exists() ? userSnap.data() : null);
@@ -183,59 +250,191 @@
         async function loadProducts() {
             try {
                 const snap = await getDocs(collection(db, 'products'));
-                products = snap.docs.map(d => {
+                const overSnap = await getDocs(
+                    query(collection(db, 'userProductOverrides'), where('userId', '==', currentUser.uid))
+                );
+                const overrides = {};
+                overSnap.forEach((d) => {
+                    const o = d.data();
+                    if (o.productId) overrides[o.productId] = o;
+                });
+
+                productRows = snap.docs.map((d) => {
                     const data = d.data();
+                    const id = d.id;
+                    const ref = data.ref ?? id;
+                    const basePrice = typeof data.price === 'number' ? data.price : parseFloat(data.price) || 0;
+                    const category = inferCategory(data);
+                    const baseTemps = inferTempsBase(data);
+                    const o = overrides[id];
+                    const hasOverride = !!(o && (typeof o.customPrice === 'number' || typeof o.customTempsBase === 'number'));
+                    const effectivePrice = typeof o?.customPrice === 'number' ? o.customPrice : basePrice;
+                    const effectiveTemps = typeof o?.customTempsBase === 'number' ? o.customTempsBase : baseTemps;
                     return {
-                        id: d.id,
-                        ref: data.ref ?? d.id,
+                        id,
+                        ref,
                         name: data.name || '—',
-                        price: typeof data.price === 'number' ? data.price : parseFloat(data.price) || 0,
-                        category: data.category || '—',
-                        tempsBase: data.tempsBase != null ? data.tempsBase : '—'
+                        category,
+                        basePrice,
+                        baseTemps,
+                        effectivePrice,
+                        effectiveTemps,
+                        hasOverride
                     };
                 });
-                products.sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
+                productRows.sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('table-wrap').style.display = 'block';
-                render('');
+                renderTable();
+                bindTableEvents();
             } catch (e) {
                 console.error(e);
                 document.getElementById('loading').innerHTML = '<p style="color:#b91c1c;">Erreur : ' + (e.message || '') + '</p>';
             }
         }
 
-        function render(filterText) {
-            const q = filterText.trim().toLowerCase();
-            const filtered = !q ? products : products.filter(p => {
-                const blob = [p.ref, p.name, p.category, String(p.tempsBase)].join(' ').toLowerCase();
-                return blob.includes(q);
-            });
-
+        function renderTable() {
             const wrap = document.getElementById('table-wrap');
             wrap.innerHTML = `
-                <p style="margin-bottom:12px;color:#64748b;font-size:14px;"><strong>${filtered.length}</strong> article(s)</p>
+                <p style="margin-bottom:12px;color:#64748b;font-size:14px;"><strong>${productRows.length}</strong> article(s)</p>
                 <table class="cat-table">
                     <thead>
                         <tr>
                             <th>Réf.</th>
                             <th>Désignation</th>
                             <th>Catégorie</th>
-                            <th>Prix achat HT</th>
-                            <th>Temps base (min)</th>
+                            <th>Prix achat HT (€)</th>
+                            <th>Temps base MO (min)</th>
+                            <th style="min-width:140px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${filtered.map(p => `
-                            <tr>
-                                <td class="ref">${escapeHtml(String(p.ref))}</td>
+                        ${productRows.map((p) => {
+                            const searchBlob = [p.ref, p.name, p.category].join(' ').toLowerCase();
+                            const searchAttr = String(searchBlob).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+                            const badge = p.hasOverride ? '<span class="badge-perso">Perso</span>' : '';
+                            return `
+                            <tr class="cat-row" data-search="${searchAttr}">
+                                <td class="ref">${escapeHtml(String(p.ref))}${badge}</td>
                                 <td>${escapeHtml(String(p.name))}</td>
                                 <td>${escapeHtml(String(p.category))}</td>
-                                <td>${p.price.toFixed(2)} €</td>
-                                <td>${escapeHtml(String(p.tempsBase))}</td>
-                            </tr>
-                        `).join('')}
+                                <td>
+                                    <input type="number" class="inp-num inp-price" min="0" step="0.01" data-pid="${escapeHtml(p.id)}"
+                                        value="${Number(p.effectivePrice).toFixed(2)}" />
+                                    <div class="muted" style="font-size:11px;color:#94a3b8;">Catalogue : ${p.basePrice.toFixed(2)} €</div>
+                                </td>
+                                <td>
+                                    <input type="number" class="inp-num inp-temps" min="0" step="1" data-pid="${escapeHtml(p.id)}"
+                                        value="${Math.round(p.effectiveTemps)}" />
+                                    <div class="muted" style="font-size:11px;color:#94a3b8;">Réf. : ${Math.round(p.baseTemps)} min</div>
+                                </td>
+                                <td>
+                                    <div class="btn-row">
+                                        <button type="button" class="btn-sm save" data-pid="${escapeHtml(p.id)}">Enregistrer</button>
+                                        <button type="button" class="btn-sm reset" data-pid="${escapeHtml(p.id)}" ${p.hasOverride ? '' : 'disabled style="opacity:0.5;cursor:not-allowed"'}>Défaut catalogue</button>
+                                    </div>
+                                    <div class="row-msg" data-msg="${escapeHtml(p.id)}" style="min-height:16px;"></div>
+                                </td>
+                            </tr>`;
+                        }).join('')}
                     </tbody>
                 </table>`;
+        }
+
+        function bindTableEvents() {
+            const wrap = document.getElementById('table-wrap');
+            wrap.onclick = async (e) => {
+                const t = e.target;
+                const pid = t.getAttribute('data-pid');
+                if (!pid) return;
+
+                if (t.classList.contains('save')) {
+                    const priceInp = wrap.querySelector(`.inp-price[data-pid="${cssEscape(pid)}"]`);
+                    const tempsInp = wrap.querySelector(`.inp-temps[data-pid="${cssEscape(pid)}"]`);
+                    const msgEl = wrap.querySelector(`[data-msg="${cssEscape(pid)}"]`);
+                    const price = parseFloat(priceInp?.value);
+                    const temps = parseInt(tempsInp?.value, 10);
+                    if (Number.isNaN(price) || price < 0) {
+                        alert('Prix invalide.');
+                        return;
+                    }
+                    if (Number.isNaN(temps) || temps < 0) {
+                        alert('Temps invalide (minutes ≥ 0).');
+                        return;
+                    }
+                    try {
+                        const refDoc = doc(db, 'userProductOverrides', `${currentUser.uid}_${pid}`);
+                        await setDoc(refDoc, {
+                            userId: currentUser.uid,
+                            productId: pid,
+                            customPrice: price,
+                            customTempsBase: temps,
+                            updatedAt: new Date().toISOString()
+                        });
+                        const row = productRows.find((r) => r.id === pid);
+                        if (row) {
+                            row.effectivePrice = price;
+                            row.effectiveTemps = temps;
+                            row.hasOverride = true;
+                        }
+                        if (msgEl) {
+                            msgEl.textContent = 'Enregistré.';
+                            setTimeout(() => { msgEl.textContent = ''; }, 2500);
+                        }
+                        const resetBtn = t.parentElement.querySelector('.btn-sm.reset');
+                        if (resetBtn) {
+                            resetBtn.disabled = false;
+                            resetBtn.style.opacity = '1';
+                            resetBtn.style.cursor = 'pointer';
+                        }
+                        const tr = t.closest('tr');
+                        if (tr) {
+                            const refCell = tr.querySelector('.ref');
+                            if (refCell && !refCell.querySelector('.badge-perso')) {
+                                const span = document.createElement('span');
+                                span.className = 'badge-perso';
+                                span.textContent = 'Perso';
+                                refCell.appendChild(span);
+                            }
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erreur enregistrement : ' + (err.code || err.message));
+                    }
+                    return;
+                }
+
+                if (t.classList.contains('reset') && !t.disabled) {
+                    try {
+                        await deleteDoc(doc(db, 'userProductOverrides', `${currentUser.uid}_${pid}`));
+                        const row = productRows.find((r) => r.id === pid);
+                        if (row) {
+                            row.effectivePrice = row.basePrice;
+                            row.effectiveTemps = row.baseTemps;
+                            row.hasOverride = false;
+                        }
+                        const priceInp = wrap.querySelector(`.inp-price[data-pid="${cssEscape(pid)}"]`);
+                        const tempsInp = wrap.querySelector(`.inp-temps[data-pid="${cssEscape(pid)}"]`);
+                        if (row && priceInp) priceInp.value = row.basePrice.toFixed(2);
+                        if (row && tempsInp) tempsInp.value = String(Math.round(row.baseTemps));
+                        t.disabled = true;
+                        t.style.opacity = '0.5';
+                        t.style.cursor = 'not-allowed';
+                        const tr = t.closest('tr');
+                        const badge = tr?.querySelector('.badge-perso');
+                        if (badge) badge.remove();
+                    } catch (err) {
+                        console.error(err);
+                        alert('Erreur : ' + (err.code || err.message));
+                    }
+                }
+            };
+        }
+
+        function cssEscape(s) {
+            if (typeof CSS !== 'undefined' && CSS.escape) return CSS.escape(s);
+            return s.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
         }
 
         function escapeHtml(s) {
@@ -244,7 +443,13 @@
             return d.innerHTML;
         }
 
-        document.getElementById('search').addEventListener('input', (e) => render(e.target.value));
+        document.getElementById('search').addEventListener('input', (e) => {
+            const q = e.target.value.trim().toLowerCase();
+            document.querySelectorAll('.cat-row').forEach((tr) => {
+                const blob = (tr.getAttribute('data-search') || '').toLowerCase();
+                tr.classList.toggle('hidden-search', q.length > 0 && !blob.includes(q));
+            });
+        });
     </script>
 </body>
 </html>

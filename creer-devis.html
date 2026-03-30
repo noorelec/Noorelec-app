@@ -786,7 +786,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
         import { checkElectricianAccess, paywallMessage } from './devtech-access.js';
 
         const firebaseConfig = {
@@ -1173,6 +1173,24 @@
                     
                     return { id: doc.id, ...data };
                 });
+
+                const overSnap = await getDocs(
+                    query(collection(db, 'userProductOverrides'), where('userId', '==', currentUser.uid))
+                );
+                const overrides = {};
+                overSnap.forEach((d) => {
+                    const o = d.data();
+                    if (o.productId) overrides[o.productId] = o;
+                });
+                catalogueProduits = catalogueProduits.map((p) => {
+                    const o = overrides[p.id];
+                    if (!o) return p;
+                    const next = { ...p };
+                    if (typeof o.customPrice === 'number') next.price = o.customPrice;
+                    if (typeof o.customTempsBase === 'number') next.tempsBase = o.customTempsBase;
+                    return next;
+                });
+
                 console.log('✅ Catalogue chargé:', catalogueProduits.length, 'produits');
             } catch (error) {
                 console.error('❌ Erreur:', error);
