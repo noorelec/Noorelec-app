@@ -814,6 +814,22 @@
             nextRoomId: 1
         };
 
+        /** Câblage interne/tableau : objets requis pour le PDF et calculateCabling (sinon .cost sur undefined). */
+        function ensureRoomCablingShape(room) {
+            if (!room.cabling) room.cabling = {};
+            room.cabling.cables = Array.isArray(room.cabling.cables) ? room.cabling.cables : [];
+            const int = room.cabling.internal;
+            room.cabling.internal = {
+                cost: typeof int?.cost === 'number' ? int.cost : 0,
+                length: typeof int?.length === 'number' ? int.length : 0
+            };
+            const tab = room.cabling.tableau;
+            room.cabling.tableau = {
+                cost: typeof tab?.cost === 'number' ? tab.cost : 0,
+                length: typeof tab?.length === 'number' ? tab.length : 0
+            };
+        }
+
         const FACTEURS = {
             installation: {
                 'apparent': 1.0,
@@ -1047,6 +1063,7 @@
             
             // Charger les pièces
             devisState.rooms = devisData.rooms || [];
+            devisState.rooms.forEach(ensureRoomCablingShape);
             devisState.nextRoomId = Math.max(...devisState.rooms.map(r => r.id), 0) + 1;
             
             // Charger le tableau électrique (si présent)
@@ -1197,7 +1214,9 @@
                 name: roomName,
                 articles: [],
                 cabling: {
-                    cables: []
+                    cables: [],
+                    internal: { cost: 0, length: 0 },
+                    tableau: { cost: 0, length: 0 }
                 },
                 coefficients: {
                     installation: 'encastre',
@@ -1671,6 +1690,7 @@
         window.calculateCabling = function(roomId) {
             const room = devisState.rooms.find(r => r.id === roomId);
             if (!room) return;
+            ensureRoomCablingShape(room);
 
             const tarif = parseFloat(document.getElementById('globalTarif').value);
             let total = 0;
@@ -1888,6 +1908,8 @@
             const pdf = new jsPDF();
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
+
+            devisState.rooms.forEach(ensureRoomCablingShape);
             
             // EN-TÊTE
             pdf.setFontSize(28);
@@ -1975,21 +1997,25 @@
                 
                 // Articles
                 room.articles.forEach(art => {
+                    if (!art) return;
                     if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
-                    pdf.text(`  ${art.qty}x ${art.name}`, 26, y);
-                    pdf.text(art.total.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    const lineTotal = typeof art.total === 'number' ? art.total : 0;
+                    pdf.text(`  ${art.qty || 0}x ${art.name || ''}`, 26, y);
+                    pdf.text(lineTotal.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 });
                 
                 // Câblage
-                if (room.cabling.internal.cost > 0) {
-                    pdf.text(`  Cablage entre points (${room.cabling.internal.length || 0}m)`, 26, y);
-                    pdf.text(room.cabling.internal.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                const intC = room.cabling.internal;
+                const tabC = room.cabling.tableau;
+                if (intC.cost > 0) {
+                    pdf.text(`  Cablage entre points (${intC.length || 0}m)`, 26, y);
+                    pdf.text(intC.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 }
-                if (room.cabling.tableau.cost > 0) {
-                    pdf.text(`  Cablage au tableau (${room.cabling.tableau.length || 0}m)`, 26, y);
-                    pdf.text(room.cabling.tableau.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                if (tabC.cost > 0) {
+                    pdf.text(`  Cablage au tableau (${tabC.length || 0}m)`, 26, y);
+                    pdf.text(tabC.cost.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 }
                 
