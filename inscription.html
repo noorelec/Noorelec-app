@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevTech — Inscription & essai 14 jours</title>
+    <title>DevTech — Inscription</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -22,6 +22,30 @@
         }
         h1 { font-size: 24px; color: #333; margin-bottom: 8px; }
         .lead { color: #555; font-size: 15px; line-height: 1.55; margin-bottom: 20px; }
+        .mode-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 22px;
+        }
+        .mode-tab {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            background: #f9fafb;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            text-align: center;
+            color: #444;
+        }
+        .mode-tab.active {
+            border-color: #667eea;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .mode-panel { display: none; }
+        .mode-panel.active { display: block; }
         label { display: block; font-weight: 600; color: #333; margin-bottom: 8px; font-size: 14px; }
         input {
             width: 100%;
@@ -49,10 +73,10 @@
         button:hover:not(:disabled) { background: #5568d3; }
         button.secondary:hover:not(:disabled) { background: #0f766e; }
         button:disabled { opacity: 0.55; cursor: not-allowed; }
-        #err, #info { margin-top: 14px; font-size: 14px; line-height: 1.45; }
-        #err { color: #b91c1c; }
+        #err, #info, #err-verify { margin-top: 14px; font-size: 14px; line-height: 1.45; }
+        #err, #err-verify { color: #b91c1c; }
         #info { color: #065f46; background: #d1fae5; padding: 12px 14px; border-radius: 10px; display: none; }
-        #step2 { display: none; }
+        #step-verify { display: none; }
         .login-link { text-align: center; margin-top: 20px; font-size: 15px; }
         .login-link a { color: #fff; font-weight: 600; }
         .notice {
@@ -69,31 +93,56 @@
 </head>
 <body>
     <div class="wrap">
-        <div class="card" id="step1">
+        <div class="card" id="step-form">
             <h1>Créer un compte</h1>
-            <p class="lead">14 jours d’accès complet après validation de votre <strong>numéro de TVA</strong> (vérification officielle VIES) et de votre e-mail. Chaque numéro TVA ne peut être utilisé qu’<strong>une seule fois</strong>.</p>
-            <div class="notice">
-                <strong>Important :</strong> le service VIES est hébergé par l’administration européenne. Il peut être temporairement indisponible : réessayez plus tard si un message l’indique.
+            <p class="lead">Choisissez comment vous souhaitez commencer.</p>
+
+            <div class="mode-tabs">
+                <button type="button" class="mode-tab active" id="tab-trial" data-mode="trial">Essai 14 jours (TVA)</button>
+                <button type="button" class="mode-tab" id="tab-paid" data-mode="paid">Sans essai</button>
             </div>
-            <label for="email">E-mail professionnel</label>
-            <input type="email" id="email" autocomplete="email" placeholder="vous@entreprise.be">
-            <label for="password">Mot de passe</label>
-            <input type="password" id="password" autocomplete="new-password" placeholder="Au moins 6 caractères">
-            <label for="password2">Confirmer le mot de passe</label>
-            <input type="password" id="password2" autocomplete="new-password">
-            <label for="vat">Numéro de TVA (UE)</label>
-            <input type="text" id="vat" placeholder="BE0123456789 ou FRXX…" autocapitalize="characters">
-            <p class="hint">Indiquez le code pays (BE, FR, NL, DE…). Sans code, <strong>BE</strong> sera ajouté par défaut. Le numéro doit être valide dans VIES et n’avoir jamais servi sur DevTech.</p>
-            <button type="button" id="btn-signup">Créer mon compte</button>
-            <p id="err"></p>
+
+            <div id="panel-trial" class="mode-panel active">
+                <p class="lead" style="font-size:14px;margin-bottom:16px;">
+                    Le compte n’est créé <strong>que si</strong> votre numéro de TVA est valide (VIES) et n’a jamais été utilisé sur DevTech.
+                </p>
+                <div class="notice">
+                    <strong>VIES :</strong> le service peut être temporairement indisponible — réessayez plus tard si besoin.
+                </div>
+                <label for="email-t">E-mail professionnel</label>
+                <input type="email" id="email-t" autocomplete="email" placeholder="vous@entreprise.be">
+                <label for="password-t">Mot de passe</label>
+                <input type="password" id="password-t" autocomplete="new-password" placeholder="Au moins 6 caractères">
+                <label for="password2-t">Confirmer le mot de passe</label>
+                <input type="password" id="password2-t" autocomplete="new-password">
+                <label for="vat">Numéro de TVA (UE)</label>
+                <input type="text" id="vat" placeholder="BE0123456789 ou FR…" autocapitalize="characters">
+                <p class="hint">Sans code pays, <strong>BE</strong> est ajouté par défaut.</p>
+                <button type="button" id="btn-trial">Créer mon compte (essai)</button>
+                <p id="err-trial"></p>
+            </div>
+
+            <div id="panel-paid" class="mode-panel">
+                <p class="lead" style="font-size:14px;margin-bottom:16px;">
+                    Compte sans période d’essai. Le paiement (abonnement) sera ajouté plus tard ; pour l’instant vous avez accès à l’application.
+                </p>
+                <label for="email-p">E-mail</label>
+                <input type="email" id="email-p" autocomplete="email" placeholder="vous@entreprise.be">
+                <label for="password-p">Mot de passe</label>
+                <input type="password" id="password-p" autocomplete="new-password" placeholder="Au moins 6 caractères">
+                <label for="password2-p">Confirmer le mot de passe</label>
+                <input type="password" id="password2-p" autocomplete="new-password">
+                <button type="button" id="btn-paid">Créer mon compte (sans essai)</button>
+                <p id="err-paid"></p>
+            </div>
         </div>
 
-        <div class="card" id="step2">
+        <div class="card" id="step-verify">
             <h1>Vérifiez votre e-mail</h1>
-            <p class="lead">Un lien de confirmation a été envoyé. Cliquez dessus, puis revenez ici et appuyez sur le bouton ci-dessous pour valider votre TVA et activer les 14 jours.</p>
+            <p class="lead">Un message de confirmation vous a été envoyé. Cliquez sur le lien dans l’e-mail, puis revenez ici.</p>
             <p id="info"></p>
-            <button type="button" class="secondary" id="btn-activate">J’ai validé mon e-mail — activer mon essai (TVA)</button>
-            <p id="err2" style="color:#b91c1c;margin-top:12px;font-size:14px;"></p>
+            <button type="button" class="secondary" id="btn-verify">J’ai validé mon e-mail — continuer</button>
+            <p id="err-verify"></p>
         </div>
 
         <p class="login-link">Déjà inscrit ? <a href="login.html">Connexion</a></p>
@@ -101,7 +150,7 @@
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getAuth, createUserWithEmailAndPassword, sendEmailVerification, signInWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
         import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-functions.js';
 
         const firebaseConfig = {
@@ -117,112 +166,155 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const functions = getFunctions(app, 'europe-west1');
-        const setupTrialAccount = httpsCallable(functions, 'setupTrialAccount');
-        const claimTrialWithVat = httpsCallable(functions, 'claimTrialWithVat');
+        const registerTrialWithVat = httpsCallable(functions, 'registerTrialWithVat');
+        const setupRegisteredAccount = httpsCallable(functions, 'setupRegisteredAccount');
 
-        let pendingVat = '';
+        let verifyMode = 'trial';
 
-        function showErr(el, msg) {
-            const n = document.getElementById(el);
+        function showErr(id, msg) {
+            const n = document.getElementById(id);
             if (n) n.textContent = msg || '';
         }
 
         function explainCallableError(e) {
             if (e.code === 'functions/not-found') {
-                return 'Les Cloud Functions ne sont pas déployées. Dans le dossier du projet : npm install dans functions/, puis firebase deploy --only functions (plan Blaze requis).';
-            }
-            const raw = String(e && (e.message || e.toString()) || '').trim();
-            if (/Failed to fetch|fetch/i.test(raw)) {
-                return 'Erreur réseau/CORS : les Cloud Functions refusent l’origine du site. Redéployez les functions avec CORS autorisé pour https://noorelec.github.io puis réessayez.';
+                return 'Déployez les Cloud Functions (firebase deploy --only functions).';
             }
             const m = (e.message || '').trim();
             switch (m) {
-                case 'EMAIL_NOT_VERIFIED':
-                    return 'Votre e-mail n’est pas encore validé. Cliquez sur le lien dans le message reçu.';
-                case 'SETUP_TRIAL_ACCOUNT_FAILED':
-                    return 'Erreur serveur lors de la création du profil utilisateur. Ouvrez “Google Cloud → Cloud Functions → Journaux” pour voir le détail, puis réessayez.';
+                case 'EMAIL_ALREADY_IN_USE':
+                    return 'Cet e-mail est déjà utilisé.';
+                case 'EMAIL_PASSWORD_REQUIRED':
+                    return 'E-mail et mot de passe requis.';
+                case 'PASSWORD_TOO_SHORT':
+                    return 'Le mot de passe doit contenir au moins 6 caractères.';
                 case 'VAT_INVALID':
-                    return 'Ce numéro de TVA n’est pas reconnu comme valide par le service européen VIES.';
+                    return 'Numéro de TVA non reconnu comme valide par VIES. Aucun compte n’a été créé.';
                 case 'VAT_FORMAT':
-                    return 'Format de numéro de TVA incorrect.';
+                    return 'Format de numéro de TVA incorrect. Aucun compte n’a été créé.';
                 case 'VAT_ALREADY_USED':
-                    return 'Ce numéro de TVA a déjà été utilisé pour un essai DevTech. Un seul essai par entreprise.';
+                    return 'Ce numéro de TVA a déjà été utilisé. Aucun compte n’a été créé.';
                 case 'VIES_DOWN':
-                    return 'Le service de vérification TVA (VIES) est temporairement indisponible. Réessayez dans quelques minutes.';
+                    return 'Service VIES temporairement indisponible. Réessayez plus tard.';
+                case 'AUTH_CREATE_FAILED':
+                    return 'Impossible de créer le compte. Réessayez ou contactez le support.';
                 default:
                     return m || 'Erreur serveur ou réseau.';
             }
         }
 
-        document.getElementById('btn-signup').addEventListener('click', async () => {
-            showErr('err', '');
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const password2 = document.getElementById('password2').value;
+        document.getElementById('tab-trial').addEventListener('click', () => {
+            document.getElementById('tab-trial').classList.add('active');
+            document.getElementById('tab-paid').classList.remove('active');
+            document.getElementById('panel-trial').classList.add('active');
+            document.getElementById('panel-paid').classList.remove('active');
+        });
+        document.getElementById('tab-paid').addEventListener('click', () => {
+            document.getElementById('tab-paid').classList.add('active');
+            document.getElementById('tab-trial').classList.remove('active');
+            document.getElementById('panel-paid').classList.add('active');
+            document.getElementById('panel-trial').classList.remove('active');
+        });
+
+        document.getElementById('btn-trial').addEventListener('click', async () => {
+            showErr('err-trial', '');
+            const email = document.getElementById('email-t').value.trim().toLowerCase();
+            const password = document.getElementById('password-t').value;
+            const password2 = document.getElementById('password2-t').value;
             const vat = document.getElementById('vat').value.trim();
 
             if (!email || !password || !vat) {
-                showErr('err', 'Remplissez l’e-mail, le mot de passe et le numéro de TVA.');
+                showErr('err-trial', 'Remplissez e-mail, mot de passe et numéro de TVA.');
                 return;
             }
             if (password.length < 6) {
-                showErr('err', 'Le mot de passe doit contenir au moins 6 caractères.');
+                showErr('err-trial', 'Mot de passe : au moins 6 caractères.');
                 return;
             }
             if (password !== password2) {
-                showErr('err', 'Les mots de passe ne correspondent pas.');
+                showErr('err-trial', 'Les mots de passe ne correspondent pas.');
                 return;
             }
 
-            pendingVat = vat;
-            const btn = document.getElementById('btn-signup');
+            const btn = document.getElementById('btn-trial');
             btn.disabled = true;
-
             try {
-                const cred = await createUserWithEmailAndPassword(auth, email, password);
-                await sendEmailVerification(cred.user);
-                await setupTrialAccount();
-                document.getElementById('step1').style.display = 'none';
-                document.getElementById('step2').style.display = 'block';
+                await registerTrialWithVat({ email, password, vat });
+                await signInWithEmailAndPassword(auth, email, password);
+                await sendEmailVerification(auth.currentUser);
+                verifyMode = 'trial';
+                document.getElementById('step-form').style.display = 'none';
+                document.getElementById('step-verify').style.display = 'block';
                 const info = document.getElementById('info');
                 info.style.display = 'block';
                 info.textContent = 'E-mail de vérification envoyé à ' + email + '.';
             } catch (e) {
                 const isCallable = typeof e.code === 'string' && e.code.startsWith('functions/');
-                const msg = isCallable
-                    ? explainCallableError(e)
-                    : (e.code === 'auth/email-already-in-use'
-                        ? 'Cet e-mail est déjà utilisé. Connectez-vous ou utilisez « mot de passe oublié » dans Firebase.'
-                        : (e.message || 'Inscription impossible.'));
-                showErr('err', msg);
-                pendingVat = '';
+                showErr('err-trial', isCallable ? explainCallableError(e) : (e.message || 'Erreur.'));
             } finally {
                 btn.disabled = false;
             }
         });
 
-        document.getElementById('btn-activate').addEventListener('click', async () => {
-            showErr('err2', '');
-            const user = auth.currentUser;
-            if (!user) {
-                showErr('err2', 'Session expirée. Rechargez la page et reconnectez-vous, puis utilisez « J’ai validé… » à nouveau.');
+        document.getElementById('btn-paid').addEventListener('click', async () => {
+            showErr('err-paid', '');
+            const email = document.getElementById('email-p').value.trim().toLowerCase();
+            const password = document.getElementById('password-p').value;
+            const password2 = document.getElementById('password2-p').value;
+
+            if (!email || !password) {
+                showErr('err-paid', 'Remplissez l’e-mail et le mot de passe.');
+                return;
+            }
+            if (password.length < 6) {
+                showErr('err-paid', 'Mot de passe : au moins 6 caractères.');
+                return;
+            }
+            if (password !== password2) {
+                showErr('err-paid', 'Les mots de passe ne correspondent pas.');
                 return;
             }
 
-            const btn = document.getElementById('btn-activate');
+            const btn = document.getElementById('btn-paid');
+            btn.disabled = true;
+            try {
+                await createUserWithEmailAndPassword(auth, email, password);
+                await setupRegisteredAccount();
+                await sendEmailVerification(auth.currentUser);
+                verifyMode = 'paid';
+                document.getElementById('step-form').style.display = 'none';
+                document.getElementById('step-verify').style.display = 'block';
+                const info = document.getElementById('info');
+                info.style.display = 'block';
+                info.textContent = 'Compte créé. E-mail de vérification envoyé à ' + email + '.';
+            } catch (e) {
+                const msg = e.code === 'auth/email-already-in-use'
+                    ? 'Cet e-mail est déjà utilisé.'
+                    : (e.message || 'Inscription impossible.');
+                showErr('err-paid', msg);
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        document.getElementById('btn-verify').addEventListener('click', async () => {
+            showErr('err-verify', '');
+            const user = auth.currentUser;
+            if (!user) {
+                showErr('err-verify', 'Session expirée. Reconnectez-vous depuis la page de connexion.');
+                return;
+            }
+            const btn = document.getElementById('btn-verify');
             btn.disabled = true;
             try {
                 await user.reload();
                 if (!user.emailVerified) {
-                    showErr('err2', 'L’e-mail n’est pas encore validé. Vérifiez votre boîte de réception et le dossier spam.');
+                    showErr('err-verify', 'E-mail pas encore validé. Vérifiez votre boîte et le dossier spam.');
                     return;
                 }
-                const res = await claimTrialWithVat({ vat: pendingVat || document.getElementById('vat').value.trim() });
-                if (res.data && res.data.ok) {
-                    window.location.href = 'app.html';
-                }
+                window.location.href = 'app.html';
             } catch (e) {
-                showErr('err2', explainCallableError(e));
+                showErr('err-verify', e.message || 'Erreur.');
             } finally {
                 btn.disabled = false;
             }

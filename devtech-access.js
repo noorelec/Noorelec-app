@@ -8,6 +8,10 @@ export function checkElectricianAccess(userData) {
     }
     const { accountType, hasTrial, trialEndDate, subscriptionStatus } = userData;
 
+    if (accountType === 'registered') {
+        return { allowed: true, reason: 'registered_pending_payment' };
+    }
+
     if (accountType === 'trial' && hasTrial === false) {
         return { allowed: false, reason: 'trial_not_activated' };
     }

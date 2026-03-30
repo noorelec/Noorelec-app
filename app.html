@@ -158,6 +158,12 @@
             border-color: #ef4444;
         }
 
+        .alert-info {
+            background: #e0f2fe;
+            color: #075985;
+            border-color: #0ea5e9;
+        }
+
         .loader {
             text-align: center;
             padding: 100px 20px;
@@ -321,6 +327,10 @@
                     badge.textContent = '💳 Paiement en attente';
                     badge.style.background = 'rgba(239, 68, 68, 0.3)';
                 }
+            } else if (userData.accountType === 'registered' && userData.subscriptionStatus === 'pending_payment') {
+                badge.textContent = '💳 Paiement à venir';
+                badge.style.background = 'rgba(251, 191, 36, 0.35)';
+                badge.style.display = '';
             } else {
                 badge.style.display = 'none';
             }
@@ -352,6 +362,13 @@
                             </div>
                         `;
                     }
+                } else if (userData.accountType === 'registered' && userData.subscriptionStatus === 'pending_payment') {
+                    alertHTML = `
+                        <div class="alert alert-info">
+                            <strong>💳 Paiement à venir</strong><br>
+                            L’abonnement sera proposé prochainement. Vous avez accès à l’application en attendant.
+                        </div>
+                    `;
                 } else if (userData.accountType === 'paid' && userData.subscriptionStatus === 'pending_payment') {
                     alertHTML = `
                         <div class="alert alert-warning">
