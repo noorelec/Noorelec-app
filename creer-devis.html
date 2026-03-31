@@ -1085,6 +1085,7 @@
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
         import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
         import { getFirestore, collection, addDoc, getDocs, doc, getDoc, updateDoc, query, where } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js';
         import { checkElectricianAccess, paywallMessage } from './devtech-access.js';
 
         const firebaseConfig = {
@@ -1099,6 +1100,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
 
         let currentUser = null;
         let catalogueProduits = [];
@@ -3159,7 +3161,7 @@
                 pdf.text('SERVICES ADMINISTRATIFS', 22, y + 5.5);
                 pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
                 
-                y += 10;
+                y += 14;
                 pdf.setTextColor(0, 0, 0);
                 pdf.setFont(undefined, 'normal');
                 pdf.setFontSize(9);
@@ -3187,7 +3189,7 @@
             }
             
             // TOTAUX
-            y += 10;
+            y += 12;
             if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
             
             const totalMateriel = parseFloat(document.getElementById('totalMaterielHT').textContent);
@@ -3238,7 +3240,9 @@
             
             // RISTOURNE texte avec date ET prix final
             if (ristourneEnabled) {
-                y += 5;
+                y += 6;
+                // s'assurer que le bloc ne coupe pas en bas de page
+                if (y > pageHeight - 85) { pdf.addPage(); y = 20; }
                 pdf.setFillColor(255, 243, 205);
                 pdf.rect(20, y, pageWidth - 40, 32, 'F');
                 
@@ -3273,8 +3277,8 @@
             }
             
             // PAIEMENT
-            y += 5;
-            if (y > pageHeight - 50) { pdf.addPage(); y = 20; }
+            y += 6;
+            if (y > pageHeight - 55) { pdf.addPage(); y = 20; }
             
             pdf.setFillColor(240, 240, 240);
             pdf.rect(20, y, pageWidth - 40, 45, 'F');
@@ -3306,9 +3310,90 @@
             
             // Télécharger
             const fileName = 'Devis_' + (document.getElementById('clientName').value || 'Client').replace(/\s/g, '_') + '_' + today.replace(/\//g, '-') + '.pdf';
+            const blob = pdf.output('blob');
+
+            // S'assurer que le devis existe en base pour y attacher le PDF
+            const ensureDevisId = async () => {
+                if (editingDevisId) return editingDevisId;
+                // Créer un devis minimal sans quitter la page
+                const clientNom = document.getElementById('clientName').value;
+                if (!clientNom) throw new Error('Nom client requis avant génération PDF.');
+                await calculateRecap();
+                const projectTypeEl = document.querySelector('input[name=\"projectType\"]:checked');
+                const buildingAgeEl = document.querySelector('input[name=\"buildingAge\"]:checked');
+                const clientData = {
+                    nom: clientNom,
+                    email: document.getElementById('clientEmail').value,
+                    telephone: document.getElementById('clientPhone').value,
+                    tva: document.getElementById('clientTVA').value,
+                    adresse: `${document.getElementById('clientRue').value}, ${document.getElementById('clientCP').value} ${document.getElementById('clientCommune').value}`
+                };
+
+                const clientRef = await addDoc(collection(db, 'clients'), {
+                    userId: currentUser.uid,
+                    ...clientData,
+                    createdAt: new Date().toISOString()
+                });
+
+                const devisPayload = {
+                    userId: currentUser.uid,
+                    client: clientData,
+                    batiment: { type: projectTypeEl?.value || 'residential', age: buildingAgeEl?.value || 'old' },
+                    rooms: devisState.rooms,
+                    tableau: {
+                        coffret: document.getElementById('coffretType').value,
+                        diffAC: parseInt(document.getElementById('diffAC').value) || 0,
+                        diffA: parseInt(document.getElementById('diffA').value) || 0,
+                        parafoudre: document.getElementById('parafoudre').value === 'oui',
+                        contacteur: parseInt(document.getElementById('contacteur').value) || 0
+                    },
+                    services: {
+                        conformite: document.getElementById('service-conformite').checked,
+                        diagnostic: document.getElementById('service-diagnostic').checked,
+                        certificat: document.getElementById('service-certificat').checked,
+                        schema: document.getElementById('service-schema').checked
+                    },
+                    ristourne: {
+                        enabled: document.getElementById('ristourneEnabled').checked,
+                        pourcent: parseFloat(document.getElementById('ristournePourcent').value) || 0,
+                        delai: parseInt(document.getElementById('ristourneDelai').value) || 30
+                    },
+                    totaux: {
+                        materielHT: parseFloat(document.getElementById('totalMaterielHT').textContent),
+                        moHT: parseFloat(document.getElementById('totalMOHT').textContent),
+                        servicesHT: parseFloat(document.getElementById('totalServicesHT').textContent),
+                        totalTTC: parseFloat(document.getElementById('totalTTC').textContent)
+                    },
+                    clientId: clientRef.id,
+                    status: 'pending',
+                    createdAt: new Date().toISOString()
+                };
+
+                const devisRef = await addDoc(collection(db, 'devis'), devisPayload);
+                editingDevisId = devisRef.id;
+                editingClientId = clientRef.id;
+                return devisRef.id;
+            };
+
+            const devisId = await ensureDevisId();
+
+            // Upload Storage + URL dans Firestore
+            const path = `devis_pdfs/${currentUser.uid}/${devisId}_${Date.now()}.pdf`;
+            const r = storageRef(storage, path);
+            await uploadBytes(r, blob, { contentType: 'application/pdf' });
+            const url = await getDownloadURL(r);
+
+            await updateDoc(doc(db, 'devis', devisId), {
+                pdfUrl: url,
+                pdfPath: path,
+                pdfFileName: fileName,
+                pdfGeneratedAt: new Date().toISOString()
+            });
+
+            // Télécharger localement aussi (optionnel)
             pdf.save(fileName);
-            
-            alert('✅ PDF généré ! Cliquez sur "Enregistrer" pour sauvegarder le devis.');
+
+            alert('✅ PDF généré et enregistré dans “Mes devis”.');
         }
 
         // Sauvegarder le devis
