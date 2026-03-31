@@ -2780,6 +2780,36 @@
                 totalMO = devisState._manualMoOverride;
             }
 
+            // Mode manuel : répartir une MO forfaitaire sur les lignes pour rendre le PDF lisible (fourniture + pose)
+            // Sans ça, le client voit des prix incohérents vs une MO globale.
+            const isManualRoom = (r) => String(r?.name || '').toLowerCase().includes('manuel');
+            if (hasMoOverride && devisState._manualMoOverride > 0) {
+                devisState.rooms.forEach(room => {
+                    if (!isManualRoom(room)) return;
+                    const items = (room.articles || []).filter(Boolean);
+                    if (items.length === 0) return;
+
+                    // Pondération : temps théorique (mo calculée avant override) sinon fallback sur matériel
+                    const weights = items.map(a => {
+                        const w = (typeof a.mo === 'number' && a.mo > 0) ? a.mo : (typeof a.materiel === 'number' ? a.materiel : 1);
+                        return Number.isFinite(w) && w > 0 ? w : 1;
+                    });
+                    const sumW = weights.reduce((s, w) => s + w, 0) || 1;
+
+                    let allocated = 0;
+                    items.forEach((a, idx) => {
+                        const share = idx === items.length - 1
+                            ? (devisState._manualMoOverride - allocated)
+                            : (devisState._manualMoOverride * (weights[idx] / sumW));
+                        const moAlloc = Math.max(0, share);
+                        allocated += moAlloc;
+
+                        a.mo = moAlloc;
+                        a.total = (a.materiel || 0) + moAlloc + (a.rebouchage || 0);
+                    });
+                });
+            }
+
             // Minimum 1h : seulement si on n’est pas en forfait/manuel override
             const skipMin = devisState._skipMinimumBillable === true || hasMoOverride;
             if (!skipMin) {
@@ -2964,11 +2994,22 @@
                 pdf.setFontSize(9);
                 
                 // Articles
+                const isManualPdf = String(room.name || '').toLowerCase().includes('manuel') && typeof devisState._manualMoOverride === 'number' && devisState._manualMoOverride > 0;
+                if (isManualPdf) {
+                    if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                    pdf.setTextColor(71, 85, 105);
+                    pdf.text('  (Prix indicatifs par poste : fourniture + pose incluses)', 26, y);
+                    pdf.setTextColor(0, 0, 0);
+                    y += 4.5;
+                }
                 room.articles.forEach(art => {
                     if (!art) return;
                     if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
                     const lineTotal = typeof art.total === 'number' ? art.total : 0;
-                    pdf.text(`  ${art.qty || 0}x ${art.name || ''}`, 26, y);
+                    const label = isManualPdf
+                        ? `  ${art.qty || 0}x ${art.name || ''} — fourniture & pose`
+                        : `  ${art.qty || 0}x ${art.name || ''}`;
+                    pdf.text(label, 26, y);
                     pdf.text(lineTotal.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
                     y += 5;
                 });
