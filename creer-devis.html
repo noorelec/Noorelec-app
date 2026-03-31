@@ -728,15 +728,6 @@
                     <div class="empty-state">Créez une pièce pour commencer</div>
                 </div>
 
-                <div class="inline-panel">
-                    <div class="inline-toggle">
-                        <label><input type="checkbox" id="detailedShowTableau"> Inclure tableau électrique</label>
-                        <label><input type="checkbox" id="detailedShowAdmin"> Inclure services admin</label>
-                    </div>
-                    <div id="detailedInlineTableau" style="display:none;"></div>
-                    <div id="detailedInlineAdmin" style="display:none;margin-top:12px;"></div>
-                </div>
-
                 <button class="btn btn-primary btn-block" onclick="switchPage('recapitulatif')">
                     Suivant : Récapitulatif →
                 </button>
@@ -798,8 +789,8 @@
 
                     <div class="inline-panel">
                         <div class="inline-toggle">
-                            <label><input type="checkbox" id="manualShowTableau"> Inclure tableau électrique</label>
-                            <label><input type="checkbox" id="manualShowAdmin"> Inclure services admin</label>
+                            <label><input type="checkbox" id="manualShowTableau" style="display:none;">&nbsp;</label>
+                            <label><input type="checkbox" id="manualShowAdmin" style="display:none;">&nbsp;</label>
                         </div>
                         <div id="manualInlineTableau" style="display:none;"></div>
                         <div id="manualInlineAdmin" style="display:none;margin-top:12px;"></div>
@@ -868,8 +859,8 @@
 
                     <div class="inline-panel">
                         <div class="inline-toggle">
-                            <label><input type="checkbox" id="forfaitShowTableau"> Inclure tableau électrique</label>
-                            <label><input type="checkbox" id="forfaitShowAdmin"> Inclure services admin</label>
+                            <label><input type="checkbox" id="forfaitShowTableau" style="display:none;">&nbsp;</label>
+                            <label><input type="checkbox" id="forfaitShowAdmin" style="display:none;">&nbsp;</label>
                         </div>
                         <div id="forfaitInlineTableau" style="display:none;"></div>
                         <div id="forfaitInlineAdmin" style="display:none;margin-top:12px;"></div>
@@ -882,6 +873,25 @@
                 </div>
 
                 <div id="forfait-result" style="margin-top:14px;"></div>
+            </div>
+
+            <!-- RUBRIQUES (globales) -->
+            <div class="inline-panel" style="margin-top:16px;">
+                <h4>⚡ Tableau électrique</h4>
+                <div class="inline-toggle">
+                    <label><input type="checkbox" id="includeTableau"> Inclure dans le devis</label>
+                    <span style="color:#64748b;font-size:12px;">Coche si tu fais un coffret, différentiels, parafoudre…</span>
+                </div>
+                <div id="globalInlineTableau" style="display:none;margin-top:10px;"></div>
+            </div>
+
+            <div class="inline-panel">
+                <h4>📋 Services admin</h4>
+                <div class="inline-toggle">
+                    <label><input type="checkbox" id="includeAdmin"> Inclure dans le devis</label>
+                    <span style="color:#64748b;font-size:12px;">Ex: schéma électrique, certificat, diagnostic…</span>
+                </div>
+                <div id="globalInlineAdmin" style="display:none;margin-top:10px;"></div>
             </div>
         </div>
 
@@ -1455,6 +1465,8 @@
             }
             await loadCatalogue();
             await loadEditDevis();
+            // Activer l’intégration Tableau/Admin dès le chargement (sinon les cases ne font rien en mode détaillé)
+            try { manualBindInlinePanels(); } catch (e) { console.warn('Inline panels:', e); }
         });
 
         // UI: afficher/masquer le panneau câblage par article
@@ -1613,8 +1625,13 @@
         // Inline tableau/admin embedding: move DOM nodes (no duplicate IDs)
         const originalHosts = {};
         function manualBindInlinePanels() {
-            const dT = document.getElementById('detailedShowTableau');
-            const dA = document.getElementById('detailedShowAdmin');
+            // Nouveau: rubriques globales (prioritaires)
+            const gT = document.getElementById('includeTableau');
+            const gA = document.getElementById('includeAdmin');
+            const globalInlineT = document.getElementById('globalInlineTableau');
+            const globalInlineA = document.getElementById('globalInlineAdmin');
+
+            // Ancien (masqué) : conservé pour compatibilité, mais non utilisé si global dispo
             const mT = document.getElementById('manualShowTableau');
             const mA = document.getElementById('manualShowAdmin');
             const fT = document.getElementById('forfaitShowTableau');
@@ -1644,49 +1661,45 @@
             const mInlineA = document.getElementById('manualInlineAdmin');
             const fInlineT = document.getElementById('forfaitInlineTableau');
             const fInlineA = document.getElementById('forfaitInlineAdmin');
-            const dInlineT = document.getElementById('detailedInlineTableau');
-            const dInlineA = document.getElementById('detailedInlineAdmin');
 
             function handle() {
-                // Manual tableau/admin
-                if (mT && mInlineT) {
+                // Global rubriques (priorité)
+                if (gT && globalInlineT) {
+                    globalInlineT.style.display = gT.checked ? 'block' : 'none';
+                    if (gT.checked) move(tableauNode, globalInlineT); else restore(tableauNode, 'tableau-form');
+                }
+                if (gA && globalInlineA) {
+                    globalInlineA.style.display = gA.checked ? 'block' : 'none';
+                    if (gA.checked) move(adminNode, globalInlineA); else restore(adminNode, 'admin-form');
+                }
+
+                // Ancien: si pas de rubriques globales (fallback)
+                if (!gT && mT && mInlineT) {
                     mInlineT.style.display = mT.checked ? 'block' : 'none';
                     if (mT.checked) move(tableauNode, mInlineT); else restore(tableauNode, 'tableau-form');
                 }
-                if (mA && mInlineA) {
+                if (!gA && mA && mInlineA) {
                     mInlineA.style.display = mA.checked ? 'block' : 'none';
                     if (mA.checked) move(adminNode, mInlineA); else restore(adminNode, 'admin-form');
                 }
-
-                // Forfait tableau/admin
-                if (fT && fInlineT) {
+                if (!gT && fT && fInlineT) {
                     fInlineT.style.display = fT.checked ? 'block' : 'none';
                     if (fT.checked) move(tableauNode, fInlineT); else restore(tableauNode, 'tableau-form');
                 }
-                if (fA && fInlineA) {
+                if (!gA && fA && fInlineA) {
                     fInlineA.style.display = fA.checked ? 'block' : 'none';
                     if (fA.checked) move(adminNode, fInlineA); else restore(adminNode, 'admin-form');
                 }
 
-                // Detailed tableau/admin
-                if (dT && dInlineT) {
-                    dInlineT.style.display = dT.checked ? 'block' : 'none';
-                    if (dT.checked) move(tableauNode, dInlineT); else restore(tableauNode, 'tableau-form');
-                }
-                if (dA && dInlineA) {
-                    dInlineA.style.display = dA.checked ? 'block' : 'none';
-                    if (dA.checked) move(adminNode, dInlineA); else restore(adminNode, 'admin-form');
-                }
-
                 // If both off, ensure restored
-                const anyInline = (dT?.checked || dA?.checked || mT?.checked || mA?.checked || fT?.checked || fA?.checked);
+                const anyInline = (gT?.checked || gA?.checked || mT?.checked || mA?.checked || fT?.checked || fA?.checked);
                 if (!anyInline) {
                     restore(tableauNode, 'tableau-form');
                     restore(adminNode, 'admin-form');
                 }
             }
 
-            [dT, dA, mT, mA, fT, fA].forEach(el => el && el.addEventListener('change', () => { handle(); calculateRecap(); manualRenderSummary(); }));
+            [gT, gA, mT, mA, fT, fA].forEach(el => el && el.addEventListener('change', () => { handle(); calculateRecap(); manualRenderSummary(); }));
             handle();
         }
 
