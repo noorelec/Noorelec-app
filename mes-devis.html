@@ -504,15 +504,9 @@
                 </div>
 
                 <div class="action-buttons">
-                    ${devis.pdfUrl ? `
-                        <a class="btn btn-primary" href="${devis.pdfUrl}" target="_blank" rel="noopener noreferrer">
-                            📄 Ouvrir PDF
-                        </a>
-                    ` : `
-                        <button class="btn btn-primary" onclick="downloadPDF('${devisId}')">
-                            📄 Générer PDF
-                        </button>
-                    `}
+                    <button class="btn btn-primary" onclick="downloadPDF('${devisId}')">
+                        📄 Télécharger PDF
+                    </button>
                     <button class="btn btn-warning" onclick="editDevis('${devisId}')">
                         ✏️ Modifier
                     </button>
@@ -550,12 +544,8 @@
         window.downloadPDF = async function(devisId) {
             const devis = allDevis.find(d => d.id === devisId);
             if (!devis) return;
-            if (devis.pdfUrl) {
-                window.open(devis.pdfUrl, '_blank');
-                return;
-            }
-
-            // Stocker le devis et rediriger pour regénération (la page créateur uploadera et attachera au devis)
+            
+            // Stocker le devis et rediriger
             localStorage.setItem('generatePDFFromDevis', JSON.stringify(devis));
             window.location.href = 'creer-devis.html?action=generatePDF';
         }
