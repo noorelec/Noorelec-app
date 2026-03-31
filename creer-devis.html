@@ -838,10 +838,12 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label><strong>Plusieurs étages ?</strong></label>
-                            <select id="f_q_etages">
-                                <option value="non" selected>Non (0–1 étage)</option>
-                                <option value="oui">Oui (2+)</option>
+                            <label><strong>Nombre d’étages</strong></label>
+                            <select id="f_etages">
+                                <option value="0">0</option>
+                                <option value="1" selected>1</option>
+                                <option value="2">2</option>
+                                <option value="3">3+</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -852,8 +854,24 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label><strong>Nombre de pièces (indicatif)</strong></label>
-                            <input type="number" id="f_pieces" value="6" min="1" step="1">
+                            <label><strong>Nombre total de pièces (indicatif)</strong></label>
+                            <input type="number" id="f_pieces_total" value="6" min="1" step="1">
+                        </div>
+                    </div>
+
+                    <div style="margin-top:12px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
+                        <div style="font-weight:800;color:#334155;margin-bottom:8px;">Pièces (détail)</div>
+                        <div class="form-grid">
+                            <div class="form-group"><label>Salon</label><input type="number" id="f_room_salon" value="1" min="0" step="1"></div>
+                            <div class="form-group"><label>Cuisine</label><input type="number" id="f_room_cuisine" value="1" min="0" step="1"></div>
+                            <div class="form-group"><label>Chambre(s)</label><input type="number" id="f_room_chambre" value="2" min="0" step="1"></div>
+                            <div class="form-group"><label>SDB / douche</label><input type="number" id="f_room_sdb" value="1" min="0" step="1"></div>
+                            <div class="form-group"><label>WC</label><input type="number" id="f_room_wc" value="1" min="0" step="1"></div>
+                            <div class="form-group"><label>Garage</label><input type="number" id="f_room_garage" value="0" min="0" step="1"></div>
+                            <div class="form-group"><label>Débarras</label><input type="number" id="f_room_debaras" value="0" min="0" step="1"></div>
+                            <div class="form-group"><label>Véranda</label><input type="number" id="f_room_veranda" value="0" min="0" step="1"></div>
+                            <div class="form-group"><label>Bureau</label><input type="number" id="f_room_bureau" value="0" min="0" step="1"></div>
+                            <div class="form-group"><label>Couloir / hall</label><input type="number" id="f_room_couloir" value="1" min="0" step="1"></div>
                         </div>
                     </div>
 
@@ -1268,10 +1286,23 @@
 
             const type = document.getElementById('f_type').value;
             const m2 = Math.max(10, parseFloat(document.getElementById('f_m2').value) || 0);
-            const pieces = Math.max(1, parseInt(document.getElementById('f_pieces').value || '1', 10));
+            const piecesTotal = Math.max(1, parseInt(document.getElementById('f_pieces_total').value || '1', 10));
+            const etages = parseInt(document.getElementById('f_etages').value || '1', 10) || 1;
             const saignees = document.getElementById('f_q_saignees').value === 'oui';
-            const multiEtages = document.getElementById('f_q_etages').value === 'oui';
             const haut = document.getElementById('f_q_hauteur').value === 'oui';
+
+            const rooms = {
+                salon: parseInt(document.getElementById('f_room_salon').value || '0', 10) || 0,
+                cuisine: parseInt(document.getElementById('f_room_cuisine').value || '0', 10) || 0,
+                chambre: parseInt(document.getElementById('f_room_chambre').value || '0', 10) || 0,
+                sdb: parseInt(document.getElementById('f_room_sdb').value || '0', 10) || 0,
+                wc: parseInt(document.getElementById('f_room_wc').value || '0', 10) || 0,
+                garage: parseInt(document.getElementById('f_room_garage').value || '0', 10) || 0,
+                debaras: parseInt(document.getElementById('f_room_debaras').value || '0', 10) || 0,
+                veranda: parseInt(document.getElementById('f_room_veranda').value || '0', 10) || 0,
+                bureau: parseInt(document.getElementById('f_room_bureau').value || '0', 10) || 0,
+                couloir: parseInt(document.getElementById('f_room_couloir').value || '0', 10) || 0
+            };
 
             // Références (Belgique 2026, ordre de grandeur) :
             // - Rénovation complète : 80–150 €/m² HTVA
@@ -1285,47 +1316,180 @@
             let mult = 1;
             if (saignees) mult *= 1.15;
             if (haut) mult *= 1.08;
-            if (multiEtages) mult *= 1.06;
-            if (pieces >= 8) mult *= 1.05;
+            if (etages >= 2) mult *= 1.06;
+            if (piecesTotal >= 8) mult *= 1.05;
+
+            // Complexité “pièces humides / cuisine” (plus de circuits, points, protections)
+            const wetFactor = (rooms.sdb + rooms.wc) > 0 ? 1 + Math.min(0.06, (rooms.sdb + rooms.wc) * 0.02) : 1;
+            const kitchenFactor = rooms.cuisine > 0 ? 1.03 : 1;
+            const garageFactor = rooms.garage > 0 ? 1.02 : 1;
+            mult *= wetFactor * kitchenFactor * garageFactor;
 
             const low = m2 * baseLow * mult;
             const high = m2 * baseHigh * mult;
             const mid = (low + high) / 2;
 
-            // Répartition matériel / MO (heuristique) : rénovation plus de MO
-            const materialShare = type === 'neuf' ? 0.45 : 0.40;
-            const materielHT = mid * materialShare;
-            const moHT = mid - materielHT;
-
-            // On encode en 2 lignes synthétiques (prixAchat inversé pour obtenir le montant en HT avec marge)
+            // Devis client : une seule ligne “forfait” (le client ne voit pas le split MO/matériel)
             const inv = (amountHT, cat) => amountHT / (1 + (MARGES_CATEGORIE[cat] || 0.25));
             devisState.rooms[0].articles = [
-                { ref: 'FORFAIT-MAT', name: 'Forfait matériel (estimation)', qty: 1, prixAchat: inv(materielHT, 'appareillage'), category: 'appareillage', tempsBase: 0, materiel: materielHT, mo: 0, rebouchage: 0, total: 0, cables: [] },
-                { ref: 'FORFAIT-MO', name: 'Forfait main d’œuvre (estimation)', qty: 1, prixAchat: 0, category: 'appareillage', tempsBase: 0, materiel: 0, mo: moHT, rebouchage: 0, total: 0, cables: [] }
+                {
+                    ref: 'FORFAIT-HAB',
+                    name: `Forfait habitation — ${m2}m² — ${etages} étage(s) — ${type === 'renov' ? 'rénovation complète' : (type === 'neuf' ? 'nouvelle installation' : 'mise en sécurité/partiel')}`,
+                    qty: 1,
+                    prixAchat: inv(mid, 'appareillage'),
+                    category: 'appareillage',
+                    tempsBase: 0,
+                    materiel: mid,
+                    mo: 0,
+                    rebouchage: 0,
+                    total: 0,
+                    cables: []
+                }
             ];
 
-            // MO forfait: on force un override (sinon calculateRecap recalcule via temps)
-            devisState._manualMoOverride = moHT;
+            // Forfait : pas de minimum 1h / pas de MO détaillée
+            devisState._manualMoOverride = 0;
+            devisState._skipMinimumBillable = true;
+
+            // Détails à afficher dans le PDF
+            // Estimatif postes (sans prix unitaires)
+            const est = (() => {
+                const totalRooms = Object.values(rooms).reduce((a, b) => a + b, 0);
+                const effectiveRooms = Math.max(totalRooms, piecesTotal);
+
+                // Heuristiques par type de pièce
+                const base = {
+                    prise: 0,
+                    interrupteur: 0,
+                    vav: 0,
+                    pointLumineux: 0,
+                    rj45: 0,
+                    circuits: 0
+                };
+                const add = (nPrise, nInter, nVav, nLum, nRj, nCirc) => {
+                    base.prise += nPrise;
+                    base.interrupteur += nInter;
+                    base.vav += nVav;
+                    base.pointLumineux += nLum;
+                    base.rj45 += nRj;
+                    base.circuits += nCirc;
+                };
+
+                // Salon
+                add(rooms.salon * 8, rooms.salon * 2, rooms.salon * 1, rooms.salon * 2, rooms.salon * 2, rooms.salon * 2);
+                // Cuisine (plus chargé)
+                add(rooms.cuisine * 10, rooms.cuisine * 2, rooms.cuisine * 1, rooms.cuisine * 2, rooms.cuisine * 1, rooms.cuisine * 3);
+                // Chambres
+                add(rooms.chambre * 6, rooms.chambre * 1, rooms.chambre * 1, rooms.chambre * 1, rooms.chambre * 1, rooms.chambre * 2);
+                // SDB
+                add(rooms.sdb * 3, rooms.sdb * 1, 0, rooms.sdb * 1, 0, rooms.sdb * 1);
+                // WC
+                add(rooms.wc * 1, rooms.wc * 1, 0, rooms.wc * 1, 0, rooms.wc * 1);
+                // Garage
+                add(rooms.garage * 3, rooms.garage * 1, 0, rooms.garage * 1, 0, rooms.garage * 1);
+                // Bureau
+                add(rooms.bureau * 6, rooms.bureau * 1, rooms.bureau * 1, rooms.bureau * 1, rooms.bureau * 2, rooms.bureau * 2);
+                // Véranda
+                add(rooms.veranda * 2, rooms.veranda * 1, 0, rooms.veranda * 1, 0, rooms.veranda * 1);
+                // Débarras + couloir
+                add(rooms.debaras * 1 + rooms.couloir * 1, rooms.debaras * 0 + rooms.couloir * 1, 0, rooms.debaras * 1 + rooms.couloir * 2, 0, rooms.debaras * 1 + rooms.couloir * 1);
+
+                // Ajustements chantier
+                if (type === 'mise_secu') {
+                    // moins de nouveaux points
+                    base.prise = Math.round(base.prise * 0.55);
+                    base.interrupteur = Math.round(base.interrupteur * 0.55);
+                    base.vav = Math.round(base.vav * 0.55);
+                    base.pointLumineux = Math.round(base.pointLumineux * 0.55);
+                    base.rj45 = Math.round(base.rj45 * 0.35);
+                    base.circuits = Math.round(base.circuits * 0.55);
+                }
+
+                // Estimatif câbles (m) approximatif: dépend de m², étages, saignées (plus de tirage)
+                let cable15 = m2 * 1.4;  // m / m²
+                let cable25 = m2 * 1.1;
+                if (etages >= 2) { cable15 *= 1.08; cable25 *= 1.08; }
+                if (saignees) { cable15 *= 1.12; cable25 *= 1.12; }
+                cable15 = Math.round(cable15);
+                cable25 = Math.round(cable25);
+
+                // Protections tableau (estimatif)
+                let disjoncteurs = Math.max(8, Math.round((base.circuits || effectiveRooms) * 1.1));
+                let differentiels = disjoncteurs > 12 ? 2 : 1;
+                if (type === 'mise_secu') {
+                    disjoncteurs = Math.round(disjoncteurs * 0.7);
+                    differentiels = 1;
+                }
+
+                return {
+                    prise: base.prise,
+                    interrupteur: base.interrupteur,
+                    vaEtVient: base.vav,
+                    pointsLumineux: base.pointLumineux,
+                    rj45: base.rj45,
+                    circuits: base.circuits,
+                    cable3g15m: cable15,
+                    cable3g25m: cable25,
+                    disjoncteurs,
+                    differentiels
+                };
+            })();
+
+            devisState._forfaitMeta = {
+                type,
+                m2,
+                etages,
+                piecesTotal,
+                saignees,
+                haut,
+                rooms,
+                estimatif: est
+            };
 
             // Afficher résultat
             const res = document.getElementById('forfait-result');
             if (res) {
-                res.innerHTML = `
-                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
-                        <div style="font-weight:700;margin-bottom:6px;">Résultat (HTVA)</div>
-                        <div style="color:#334155;font-size:14px;line-height:1.6;">
-                            Fourchette indicative : <strong>${low.toFixed(0)}€</strong> – <strong>${high.toFixed(0)}€</strong><br>
-                            Estimation centrale utilisée : <strong>${mid.toFixed(0)}€</strong><br>
-                            (Matériel ~ ${Math.round(materialShare*100)}% / MO ~ ${Math.round((1-materialShare)*100)}%)
+                const chantierLabel = type === 'renov' ? 'Rénovation complète' : (type === 'neuf' ? 'Nouvelle installation' : 'Mise en sécurité / partiel');
+                const estHtml = `
+                    <div style="margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
+                        <div style="font-weight:900;margin-bottom:6px;">Liste estimative (sans prix unitaires)</div>
+                        <div style="color:#334155;font-size:13px;line-height:1.55;">
+                            - Prises (estim.) : <strong>${est.prise}</strong><br>
+                            - Interrupteurs (estim.) : <strong>${est.interrupteur}</strong> (dont va-et-vient ~ <strong>${est.vaEtVient}</strong>)<br>
+                            - Points lumineux / sorties (estim.) : <strong>${est.pointsLumineux}</strong><br>
+                            - RJ45 (estim.) : <strong>${est.rj45}</strong><br>
+                            - Circuits (estim.) : <strong>${est.circuits}</strong><br>
+                            - Câble 3G1.5 (estim.) : <strong>${est.cable3g15m} m</strong> — 3G2.5 : <strong>${est.cable3g25m} m</strong><br>
+                            - Tableau (estim.) : <strong>${est.disjoncteurs}</strong> disjoncteurs / <strong>${est.differentiels}</strong> différentiel(s)
                         </div>
                     </div>
+                `;
+                res.innerHTML = `
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
+                        <div style="font-weight:900;margin-bottom:6px;">Estimation (HTVA)</div>
+                        <div style="color:#334155;font-size:14px;line-height:1.6;">
+                            <strong>${chantierLabel}</strong> — ${m2}m² — ${etages} étage(s)<br>
+                            Saignées importantes : <strong>${saignees ? 'Oui' : 'Non'}</strong> — Hauteur &gt;2.6m : <strong>${haut ? 'Oui' : 'Non'}</strong><br>
+                            Pièces (total indicatif) : <strong>${piecesTotal}</strong>
+                            <div style="margin-top:8px;color:#475569;">
+                                Détail pièces : Salon ${rooms.salon}, Cuisine ${rooms.cuisine}, Chambres ${rooms.chambre}, SDB ${rooms.sdb}, WC ${rooms.wc}, Garage ${rooms.garage}, Débarras ${rooms.debaras}, Véranda ${rooms.veranda}, Bureau ${rooms.bureau}, Couloir/Hall ${rooms.couloir}.
+                            </div>
+                            <div style="margin-top:10px;">Fourchette : <strong>${low.toFixed(0)}€</strong> – <strong>${high.toFixed(0)}€</strong></div>
+                            <div>Estimation retenue : <strong>${mid.toFixed(0)}€</strong></div>
+                        </div>
+                    </div>
+                    ${estHtml}
                 `;
             }
 
             calculateRecap();
             const totalTTC = document.getElementById('totalTTC')?.textContent || '';
+            const totalHT = document.getElementById('sousTotalHT')?.textContent || '';
             if (res) {
-                res.innerHTML += `<div style="margin-top:10px;background:#0f172a;color:#fff;border-radius:12px;padding:12px;font-weight:900;">Estimation TTC (selon TVA) : ${totalTTC}</div>`;
+                res.innerHTML += `<div style="margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                    <div style="background:#0f172a;color:#fff;border-radius:12px;padding:12px;font-weight:900;">Total HT : ${escapeHtml(totalHT)}</div>
+                    <div style="background:#111827;color:#fff;border-radius:12px;padding:12px;font-weight:900;">Total TVAC : ${escapeHtml(totalTTC)}</div>
+                </div>`;
             }
         }
 
@@ -2611,17 +2775,18 @@
                 totalMateriel += (room.cabling.internal?.cost || 0) + (room.cabling.tableau?.cost || 0);
             });
 
-            // Override MO (mode manuel/forfait)
-            if (typeof devisState._manualMoOverride === 'number' && devisState._manualMoOverride >= 0) {
+            const hasMoOverride = (typeof devisState._manualMoOverride === 'number' && devisState._manualMoOverride >= 0);
+            if (hasMoOverride) {
                 totalMO = devisState._manualMoOverride;
             }
 
-            // Appliquer minimum facturable 60 min
-            totalMinutes = applyMinimumBillable(totalMinutes);
-            
-            // Recalculer MO si minimum appliqué
-            if (totalMinutes === 60 && totalMO < tarif) {
-                totalMO = tarif; // 1 heure minimum
+            // Minimum 1h : seulement si on n’est pas en forfait/manuel override
+            const skipMin = devisState._skipMinimumBillable === true || hasMoOverride;
+            if (!skipMin) {
+                totalMinutes = applyMinimumBillable(totalMinutes);
+                if (totalMinutes === 60 && totalMO < tarif) {
+                    totalMO = tarif; // 1 heure minimum
+                }
             }
 
             // Tableau électrique
@@ -2808,7 +2973,49 @@
                     y += 5;
                 });
                 
-                // Câblage (agrège câbles attachés aux articles + legacy room.cabling.cables)
+                // Forfait: afficher les détails de questionnaire en texte (sans détailler la MO)
+                if (room.articles && room.articles.length === 1 && room.articles[0]?.ref === 'FORFAIT-HAB' && devisState._forfaitMeta) {
+                    const m = devisState._forfaitMeta;
+                    const chantierLabel = m.type === 'renov' ? 'Rénovation complète' : (m.type === 'neuf' ? 'Nouvelle installation' : 'Mise en sécurité / partiel');
+                    const details = [
+                        `  - Chantier : ${chantierLabel}`,
+                        `  - Surface : ${m.m2} m²`,
+                        `  - Étages : ${m.etages}`,
+                        `  - Saignées importantes : ${m.saignees ? 'Oui' : 'Non'}`,
+                        `  - Hauteur > 2.6m : ${m.haut ? 'Oui' : 'Non'}`,
+                        `  - Pièces (total indicatif) : ${m.piecesTotal}`,
+                        `  - Détail : Salon ${m.rooms.salon}, Cuisine ${m.rooms.cuisine}, Chambres ${m.rooms.chambre}, SDB ${m.rooms.sdb}, WC ${m.rooms.wc}, Garage ${m.rooms.garage}, Débarras ${m.rooms.debaras}, Véranda ${m.rooms.veranda}, Bureau ${m.rooms.bureau}, Couloir/Hall ${m.rooms.couloir}`
+                    ];
+                    details.forEach(line => {
+                        if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                        pdf.setTextColor(71, 85, 105);
+                        pdf.text(line, 26, y);
+                        pdf.setTextColor(0, 0, 0);
+                        y += 4.5;
+                    });
+                    y += 2;
+
+                    if (m.estimatif) {
+                        const e = m.estimatif;
+                        const estLines = [
+                            `  - Estimatif (sans prix unitaires) :`,
+                            `    • Prises : ~${e.prise} | Interrupteurs : ~${e.interrupteur} (va-et-vient ~${e.vaEtVient})`,
+                            `    • Points lumineux : ~${e.pointsLumineux} | RJ45 : ~${e.rj45} | Circuits : ~${e.circuits}`,
+                            `    • Câbles : 3G1.5 ~${e.cable3g15m}m | 3G2.5 ~${e.cable3g25m}m`,
+                            `    • Tableau : ~${e.disjoncteurs} disjoncteurs / ~${e.differentiels} différentiel(s)`
+                        ];
+                        estLines.forEach(line => {
+                            if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
+                            pdf.setTextColor(71, 85, 105);
+                            pdf.text(line, 26, y);
+                            pdf.setTextColor(0, 0, 0);
+                            y += 4.5;
+                        });
+                        y += 2;
+                    }
+                }
+
+                // Câblage (agrège câbles attachés aux articles + legacy room.cabling.cables) — pas affiché pour forfait habitation
                 const pdfCables = [];
                 room.articles.forEach(a => {
                     if (a && Array.isArray(a.cables) && a.cables.length) pdfCables.push(...a.cables);
@@ -2817,7 +3024,7 @@
                     pdfCables.push(...room.cabling.cables);
                 }
 
-                if (pdfCables.length > 0) {
+                if (pdfCables.length > 0 && !(room.articles && room.articles.length === 1 && room.articles[0]?.ref === 'FORFAIT-HAB')) {
                     const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
                     const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
                     const tarif = parseFloat(document.getElementById('globalTarif').value) || 0;
@@ -2845,7 +3052,7 @@
                     });
 
                     tempsCablagePiece = tempsCablagePiece * coeffInstall * coeffCircuit;
-                    if (tempsCablagePiece > 0) {
+                    if (tempsCablagePiece > 0 && !(typeof devisState._skipMinimumBillable === 'boolean' && devisState._skipMinimumBillable)) {
                         const moCablage = (tempsCablagePiece / 60) * tarif;
                         if (y > pageHeight - 30) { pdf.addPage(); y = 20; }
                         pdf.text(`  Main d'œuvre câblage ( ${Math.round(tempsCablagePiece)} min )`, 26, y);
