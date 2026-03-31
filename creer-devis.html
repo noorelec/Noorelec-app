@@ -576,14 +576,6 @@
                 <div class="nav-icon">🔨</div>
                 <div class="nav-label">Travaux</div>
             </button>
-            <button class="nav-item" data-page="tableau" onclick="switchPage('tableau')">
-                <div class="nav-icon">⚡</div>
-                <div class="nav-label">Tableau</div>
-            </button>
-            <button class="nav-item" data-page="administratif" onclick="switchPage('administratif')">
-                <div class="nav-icon">📋</div>
-                <div class="nav-label">Admin</div>
-            </button>
             <button class="nav-item" data-page="recapitulatif" onclick="switchPage('recapitulatif')">
                 <div class="nav-icon">💰</div>
                 <div class="nav-label">Récap</div>
@@ -736,8 +728,17 @@
                     <div class="empty-state">Créez une pièce pour commencer</div>
                 </div>
 
-                <button class="btn btn-primary btn-block" onclick="switchPage('tableau')">
-                    Suivant : Tableau électrique →
+                <div class="inline-panel">
+                    <div class="inline-toggle">
+                        <label><input type="checkbox" id="detailedShowTableau"> Inclure tableau électrique</label>
+                        <label><input type="checkbox" id="detailedShowAdmin"> Inclure services admin</label>
+                    </div>
+                    <div id="detailedInlineTableau" style="display:none;"></div>
+                    <div id="detailedInlineAdmin" style="display:none;margin-top:12px;"></div>
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="switchPage('recapitulatif')">
+                    Suivant : Récapitulatif →
                 </button>
             </div>
 
@@ -919,8 +920,8 @@
                 </div>
             </div>
 
-            <button class="btn btn-primary btn-block" onclick="switchPage('administratif')">
-                Suivant : Services administratifs →
+            <button class="btn btn-primary btn-block" onclick="switchPage('recapitulatif')">
+                Suivant : Récapitulatif →
             </button>
         </div>
 
@@ -1603,9 +1604,17 @@
             return String(s || '').replace(/&/g, '&amp;').replace(/\"/g, '&quot;');
         }
 
+        function escapeHtml(s) {
+            const d = document.createElement('div');
+            d.textContent = String(s ?? '');
+            return d.innerHTML;
+        }
+
         // Inline tableau/admin embedding: move DOM nodes (no duplicate IDs)
         const originalHosts = {};
         function manualBindInlinePanels() {
+            const dT = document.getElementById('detailedShowTableau');
+            const dA = document.getElementById('detailedShowAdmin');
             const mT = document.getElementById('manualShowTableau');
             const mA = document.getElementById('manualShowAdmin');
             const fT = document.getElementById('forfaitShowTableau');
@@ -1635,6 +1644,8 @@
             const mInlineA = document.getElementById('manualInlineAdmin');
             const fInlineT = document.getElementById('forfaitInlineTableau');
             const fInlineA = document.getElementById('forfaitInlineAdmin');
+            const dInlineT = document.getElementById('detailedInlineTableau');
+            const dInlineA = document.getElementById('detailedInlineAdmin');
 
             function handle() {
                 // Manual tableau/admin
@@ -1657,15 +1668,25 @@
                     if (fA.checked) move(adminNode, fInlineA); else restore(adminNode, 'admin-form');
                 }
 
+                // Detailed tableau/admin
+                if (dT && dInlineT) {
+                    dInlineT.style.display = dT.checked ? 'block' : 'none';
+                    if (dT.checked) move(tableauNode, dInlineT); else restore(tableauNode, 'tableau-form');
+                }
+                if (dA && dInlineA) {
+                    dInlineA.style.display = dA.checked ? 'block' : 'none';
+                    if (dA.checked) move(adminNode, dInlineA); else restore(adminNode, 'admin-form');
+                }
+
                 // If both off, ensure restored
-                const anyInline = (mT?.checked || mA?.checked || fT?.checked || fA?.checked);
+                const anyInline = (dT?.checked || dA?.checked || mT?.checked || mA?.checked || fT?.checked || fA?.checked);
                 if (!anyInline) {
                     restore(tableauNode, 'tableau-form');
                     restore(adminNode, 'admin-form');
                 }
             }
 
-            [mT, mA, fT, fA].forEach(el => el && el.addEventListener('change', () => { handle(); calculateRecap(); manualRenderSummary(); }));
+            [dT, dA, mT, mA, fT, fA].forEach(el => el && el.addEventListener('change', () => { handle(); calculateRecap(); manualRenderSummary(); }));
             handle();
         }
 
