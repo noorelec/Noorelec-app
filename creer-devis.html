@@ -296,6 +296,94 @@
             padding: 10px;
         }
 
+        /* Mode selector cards */
+        .mode-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .mode-card {
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 12px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .mode-card:hover { border-color: #667eea; box-shadow: 0 10px 24px rgba(102,126,234,0.12); transform: translateY(-1px); }
+        .mode-card.active { border-color: #667eea; background: #f5f7ff; }
+        .mode-ico { font-size: 20px; width: 28px; height: 28px; display:flex; align-items:center; justify-content:center; background:#eef2ff; border-radius: 10px; color:#4338ca; flex-shrink:0; }
+        .mode-title { font-weight: 800; color:#0f172a; font-size: 14px; line-height: 1.2; }
+        .mode-desc { margin-top: 4px; color:#64748b; font-size: 12px; line-height: 1.35; }
+        .mode-dot {
+            margin-left: auto;
+            width: 14px; height: 14px;
+            border-radius: 999px;
+            border: 2px solid #cbd5e1;
+            flex-shrink: 0;
+            margin-top: 4px;
+        }
+        .mode-card.active .mode-dot { border-color:#111827; background:#111827; }
+
+        /* Manual dynamic lines */
+        .manual-lines { display: flex; flex-direction: column; gap: 10px; }
+        .manual-line {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #ffffff;
+            padding: 10px;
+        }
+        .manual-line-grid {
+            display: grid;
+            grid-template-columns: 34px 1.2fr 2fr 120px;
+            gap: 10px;
+            align-items: center;
+        }
+        .manual-x {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            border: 1px solid #fecaca;
+            background: #fee2e2;
+            color: #b91c1c;
+            cursor: pointer;
+            font-weight: 900;
+        }
+        .manual-x:hover { background:#fecaca; }
+        .manual-summary {
+            margin-top: 12px;
+            background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+        .summary-kpi .v { font-weight: 900; color:#4338ca; font-size: 18px; }
+        .summary-kpi .l { color:#64748b; font-size: 12px; margin-top: 2px; }
+
+        /* Inline embeds */
+        .inline-panel {
+            margin-top: 14px;
+            background:#fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .inline-panel h4 { margin:0 0 10px 0; color:#334155; }
+        .inline-toggle {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+        }
+        .inline-toggle label { display:flex; align-items:center; gap:8px; color:#0f172a; font-weight:700; }
+
         .cabling-section {
             background: #e7f3ff;
             border: 2px solid #3b82f6;
@@ -576,19 +664,30 @@
         <div id="page-travaux" class="page">
             <h2 class="section-title">🔨 Configuration des Travaux</h2>
 
-            <div style="background:#ffffff;border:2px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:16px;">
-                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
-                    <div style="font-weight:700;color:#334155;">Mode de chiffrage</div>
-                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                        <button type="button" class="btn btn-info" id="mode-btn-detailed" onclick="setQuoteMode('detailed')" style="padding:8px 12px;border-radius:999px;font-size:13px;">Détaillé (pièce par pièce)</button>
-                        <button type="button" class="btn btn-outline" id="mode-btn-manual" onclick="setQuoteMode('manual')" style="padding:8px 12px;border-radius:999px;font-size:13px;background:#eef2ff;color:#4338ca;">Manuel (quantités globales)</button>
-                        <button type="button" class="btn btn-outline" id="mode-btn-forfait" onclick="setQuoteMode('forfait')" style="padding:8px 12px;border-radius:999px;font-size:13px;background:#eef2ff;color:#4338ca;">Forfait (questionnaire)</button>
+            <div class="mode-cards">
+                <div class="mode-card active" id="mode-card-detailed" onclick="setQuoteMode('detailed')">
+                    <div class="mode-ico">🧩</div>
+                    <div>
+                        <div class="mode-title">Détaillé</div>
+                        <div class="mode-desc">Pièce par pièce, articles + câblage, le plus précis.</div>
                     </div>
+                    <div class="mode-dot"></div>
                 </div>
-                <div style="margin-top:8px;color:#64748b;font-size:12px;line-height:1.45;">
-                    - <strong>Détaillé</strong> : précis, pièce par pièce, câblage au mètre.<br>
-                    - <strong>Manuel</strong> : rapide (ex: 14 prises, 4 interrupteurs) + main d’œuvre libre.<br>
-                    - <strong>Forfait</strong> : estimation au m² (rénovation/neuf) avec majorations.
+                <div class="mode-card" id="mode-card-manual" onclick="setQuoteMode('manual')">
+                    <div class="mode-ico">🧾</div>
+                    <div>
+                        <div class="mode-title">Manuel</div>
+                        <div class="mode-desc">Quantités globales (menus), main d’œuvre libre.</div>
+                    </div>
+                    <div class="mode-dot"></div>
+                </div>
+                <div class="mode-card" id="mode-card-forfait" onclick="setQuoteMode('forfait')">
+                    <div class="mode-ico">📐</div>
+                    <div>
+                        <div class="mode-title">Forfait</div>
+                        <div class="mode-desc">Questionnaire oui/non + surface → estimation rapide.</div>
+                    </div>
+                    <div class="mode-dot"></div>
                 </div>
             </div>
 
@@ -687,46 +786,30 @@
                 </div>
 
                 <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;">
-                    <h4 style="margin:0 0 10px 0;">Quantités</h4>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Prises simples 16A</label>
-                            <input type="number" id="m_pr_simple" value="0" min="0" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Prises doubles 16A</label>
-                            <input type="number" id="m_pr_double" value="0" min="0" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Prises USB</label>
-                            <input type="number" id="m_pr_usb" value="0" min="0" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Interrupteurs simples</label>
-                            <input type="number" id="m_int_simple" value="0" min="0" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Va-et-vient</label>
-                            <input type="number" id="m_vav" value="0" min="0" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Points lumineux / sorties</label>
-                            <input type="number" id="m_lumi" value="0" min="0" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Câble 3G1.5 (m)</label>
-                            <input type="number" id="m_c_3g15" value="0" min="0" step="0.5">
-                        </div>
-                        <div class="form-group">
-                            <label>Câble 3G2.5 (m)</label>
-                            <input type="number" id="m_c_3g25" value="0" min="0" step="0.5">
-                        </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                        <h4 style="margin:0;">Lignes de matériel</h4>
+                        <button type="button" class="btn btn-info" onclick="manualAddEmptyLine()" style="padding:8px 12px;border-radius:10px;font-size:13px;">+ Ajouter une ligne</button>
                     </div>
+                    <div style="margin-top:8px;color:#64748b;font-size:12px;line-height:1.45;">
+                        Choisis une <strong>catégorie</strong>, puis un <strong>article</strong> et la <strong>quantité</strong>. Une nouvelle ligne apparaît automatiquement.
+                    </div>
+                    <div class="manual-lines" id="manual-lines" style="margin-top:12px;"></div>
+
+                    <div class="inline-panel">
+                        <div class="inline-toggle">
+                            <label><input type="checkbox" id="manualShowTableau"> Inclure tableau électrique</label>
+                            <label><input type="checkbox" id="manualShowAdmin"> Inclure services admin</label>
+                        </div>
+                        <div id="manualInlineTableau" style="display:none;"></div>
+                        <div id="manualInlineAdmin" style="display:none;margin-top:12px;"></div>
+                    </div>
+
+                    <div class="manual-summary" id="manual-summary" style="display:none;"></div>
                 </div>
 
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button type="button" class="btn btn-success" onclick="applyManualToDevis()" style="flex:1;min-width:220px;">✅ Générer le devis (manuel)</button>
-                    <button type="button" class="btn btn-primary" onclick="switchPage('tableau')" style="flex:1;min-width:220px;">Suivant : Tableau électrique →</button>
+                    <button type="button" class="btn btn-success" onclick="applyManualToDevis()" style="flex:1;min-width:220px;">✅ Mettre à jour le devis</button>
+                    <button type="button" class="btn btn-primary" onclick="switchPage('recapitulatif')" style="flex:1;min-width:220px;">Voir le récapitulatif →</button>
                 </div>
             </div>
 
@@ -741,7 +824,12 @@
                 </div>
 
                 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <h4 style="margin:0 0 10px 0;">Questionnaire</h4>
                     <div class="form-grid">
+                        <div class="form-group">
+                            <label><strong>Surface totale (m²)</strong></label>
+                            <input type="number" id="f_m2" value="100" min="10" step="1">
+                        </div>
                         <div class="form-group">
                             <label><strong>Type de chantier</strong></label>
                             <select id="f_type">
@@ -751,39 +839,45 @@
                             </select>
                         </div>
                         <div class="form-group">
-                            <label><strong>Surface totale (m²)</strong></label>
-                            <input type="number" id="f_m2" value="100" min="10" step="1">
+                            <label><strong>Rénovation avec saignées importantes ?</strong></label>
+                            <select id="f_q_saignees">
+                                <option value="non" selected>Non</option>
+                                <option value="oui">Oui</option>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label><strong>Nombre de pièces</strong></label>
+                            <label><strong>Plusieurs étages ?</strong></label>
+                            <select id="f_q_etages">
+                                <option value="non" selected>Non (0–1 étage)</option>
+                                <option value="oui">Oui (2+)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Hauteur sous plafond &gt; 2.6m ?</strong></label>
+                            <select id="f_q_hauteur">
+                                <option value="non" selected>Non</option>
+                                <option value="oui">Oui</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Nombre de pièces (indicatif)</strong></label>
                             <input type="number" id="f_pieces" value="6" min="1" step="1">
                         </div>
-                        <div class="form-group">
-                            <label><strong>Étages</strong></label>
-                            <input type="number" id="f_etages" value="1" min="0" step="1">
+                    </div>
+
+                    <div class="inline-panel">
+                        <div class="inline-toggle">
+                            <label><input type="checkbox" id="forfaitShowTableau"> Inclure tableau électrique</label>
+                            <label><input type="checkbox" id="forfaitShowAdmin"> Inclure services admin</label>
                         </div>
-                        <div class="form-group">
-                            <label><strong>Hauteur sous plafond</strong></label>
-                            <select id="f_hauteur">
-                                <option value="std" selected>Standard (2.4–2.6m)</option>
-                                <option value="haut">Haute (&gt; 2.6m)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label><strong>Saignées / encastrement</strong></label>
-                            <select id="f_saignees">
-                                <option value="0" selected>Faible (0%)</option>
-                                <option value="10">Moyen (+10%)</option>
-                                <option value="20">Important (+20%)</option>
-                                <option value="30">Très important (+30%)</option>
-                            </select>
-                        </div>
+                        <div id="forfaitInlineTableau" style="display:none;"></div>
+                        <div id="forfaitInlineAdmin" style="display:none;margin-top:12px;"></div>
                     </div>
                 </div>
 
                 <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
-                    <button type="button" class="btn btn-success" onclick="applyForfaitToDevis()" style="flex:1;min-width:220px;">✅ Calculer forfait</button>
-                    <button type="button" class="btn btn-primary" onclick="switchPage('tableau')" style="flex:1;min-width:220px;">Suivant : Tableau électrique →</button>
+                    <button type="button" class="btn btn-success" onclick="applyForfaitToDevis()" style="flex:1;min-width:220px;">✅ Calculer</button>
+                    <button type="button" class="btn btn-primary" onclick="switchPage('recapitulatif')" style="flex:1;min-width:220px;">Voir le récapitulatif →</button>
                 </div>
 
                 <div id="forfait-result" style="margin-top:14px;"></div>
@@ -794,7 +888,7 @@
         <div id="page-tableau" class="page">
             <h2 class="section-title">⚡ Tableau Électrique</h2>
             
-            <div class="form-grid">
+            <div id="tableau-form" class="form-grid">
                 <div class="form-group">
                     <label>Type de coffret</label>
                     <select id="coffretType">
@@ -833,7 +927,7 @@
         <!-- PAGE ADMINISTRATIVE -->
         <div id="page-administratif" class="page">
             <h2 class="section-title">📋 Services Administratifs</h2>
-            
+            <div id="admin-form">
             <div class="service-item">
                 <div>
                     <div style="font-weight: bold; font-size: 16px;">Mise en conformité</div>
@@ -876,6 +970,7 @@
                     <input type="checkbox" id="service-schema">
                     <span class="toggle-slider"></span>
                 </label>
+            </div>
             </div>
 
             <button class="btn btn-primary btn-block" onclick="switchPage('recapitulatif')">
@@ -1056,6 +1151,15 @@
         // =========================
         let quoteMode = 'detailed';
 
+        function updateModeCards(mode) {
+            const cd = document.getElementById('mode-card-detailed');
+            const cm = document.getElementById('mode-card-manual');
+            const cf = document.getElementById('mode-card-forfait');
+            if (cd) cd.classList.toggle('active', mode === 'detailed');
+            if (cm) cm.classList.toggle('active', mode === 'manual');
+            if (cf) cf.classList.toggle('active', mode === 'forfait');
+        }
+
         window.setQuoteMode = function(mode) {
             quoteMode = mode;
             const detailed = document.getElementById('mode-detailed');
@@ -1064,13 +1168,11 @@
             if (detailed) detailed.style.display = mode === 'detailed' ? 'block' : 'none';
             if (manual) manual.style.display = mode === 'manual' ? 'block' : 'none';
             if (forfait) forfait.style.display = mode === 'forfait' ? 'block' : 'none';
+            updateModeCards(mode);
 
-            const btnD = document.getElementById('mode-btn-detailed');
-            const btnM = document.getElementById('mode-btn-manual');
-            const btnF = document.getElementById('mode-btn-forfait');
-            if (btnD) btnD.className = mode === 'detailed' ? 'btn btn-info' : 'btn btn-outline';
-            if (btnM) btnM.className = mode === 'manual' ? 'btn btn-info' : 'btn btn-outline';
-            if (btnF) btnF.className = mode === 'forfait' ? 'btn btn-info' : 'btn btn-outline';
+            if (mode === 'manual') {
+                manualEnsureInit();
+            }
         }
 
         function findProductByKeywords(keywords) {
@@ -1122,44 +1224,18 @@
         }
 
         window.applyManualToDevis = function() {
-            // Construire un devis synthétique (1 pièce) à partir des quantités
+            // Construire un devis synthétique (1 pièce) à partir des lignes dynamiques
             ensureSyntheticRoom('Travaux (manuel)');
 
-            const qty = (id) => Math.max(0, parseInt(document.getElementById(id).value || '0', 10) || 0);
-            const meters = (id) => Math.max(0, parseFloat(document.getElementById(id).value || '0') || 0);
-
-            const qPrSimple = qty('m_pr_simple');
-            const qPrDouble = qty('m_pr_double');
-            const qPrUsb = qty('m_pr_usb');
-            const qIntSimple = qty('m_int_simple');
-            const qVav = qty('m_vav');
-            const qLumi = qty('m_lumi');
-
-            // Produits (best-effort par mots clés)
             const items = [];
-            const pPrSimple = findProductByKeywords(['prise', 'simple']);
-            const pPrDouble = findProductByKeywords(['prise', 'double']);
-            const pPrUsb = findProductByKeywords(['usb']);
-            const pIntSimple = findProductByKeywords(['interrupteur', 'simple']);
-            const pVav = findProductByKeywords(['va-et-vient']);
-            const pLumi = findProductByKeywords(['spot']) || findProductByKeywords(['luminaire']) || null;
-
-            if (pPrSimple && qPrSimple) items.push(buildArticleFromProduct(pPrSimple, qPrSimple));
-            if (pPrDouble && qPrDouble) items.push(buildArticleFromProduct(pPrDouble, qPrDouble));
-            if (pPrUsb && qPrUsb) items.push(buildArticleFromProduct(pPrUsb, qPrUsb));
-            if (pIntSimple && qIntSimple) items.push(buildArticleFromProduct(pIntSimple, qIntSimple));
-            if (pVav && qVav) items.push(buildArticleFromProduct(pVav, qVav));
-            if (pLumi && qLumi) items.push(buildArticleFromProduct(pLumi, qLumi));
-
-            // Câbles en mètres (traités comme câbles attachés à un “article” synthétique)
-            const c15 = meters('m_c_3g15');
-            const c25 = meters('m_c_3g25');
-            if (c15 > 0) {
-                devisState.rooms[0].cabling.cables.push({ type: '3G1.5', length: c15, pricePerMeter: getCablePricePerMeter('3G1.5') });
-            }
-            if (c25 > 0) {
-                devisState.rooms[0].cabling.cables.push({ type: '3G2.5', length: c25, pricePerMeter: getCablePricePerMeter('3G2.5') });
-            }
+            const lines = Array.isArray(devisState._manualLines) ? devisState._manualLines : [];
+            lines.forEach(l => {
+                if (!l || !l.productId) return;
+                const qty = Math.max(1, parseInt(l.qty || '1', 10) || 1);
+                const p = (catalogueProduits || []).find(x => x && x.id === l.productId);
+                if (!p) return;
+                items.push(buildArticleFromProduct(p, qty));
+            });
 
             devisState.rooms[0].articles = items;
 
@@ -1173,7 +1249,7 @@
             devisState._manualMoOverride = moMode === 'hours' ? (moValue * tarif) : moValue;
 
             calculateRecap();
-            alert('✅ Devis manuel généré. Passe au récapitulatif pour vérifier.');
+            manualRenderSummary();
         }
 
         window.applyForfaitToDevis = function() {
@@ -1182,9 +1258,9 @@
             const type = document.getElementById('f_type').value;
             const m2 = Math.max(10, parseFloat(document.getElementById('f_m2').value) || 0);
             const pieces = Math.max(1, parseInt(document.getElementById('f_pieces').value || '1', 10));
-            const etages = Math.max(0, parseInt(document.getElementById('f_etages').value || '0', 10));
-            const hauteur = document.getElementById('f_hauteur').value;
-            const saigneesPct = Math.max(0, parseInt(document.getElementById('f_saignees').value || '0', 10));
+            const saignees = document.getElementById('f_q_saignees').value === 'oui';
+            const multiEtages = document.getElementById('f_q_etages').value === 'oui';
+            const haut = document.getElementById('f_q_hauteur').value === 'oui';
 
             // Références (Belgique 2026, ordre de grandeur) :
             // - Rénovation complète : 80–150 €/m² HTVA
@@ -1196,9 +1272,9 @@
 
             // Ajustements simples
             let mult = 1;
-            mult *= 1 + (saigneesPct / 100);
-            if (hauteur === 'haut') mult *= 1.08;
-            if (etages >= 2) mult *= 1.06;
+            if (saignees) mult *= 1.15;
+            if (haut) mult *= 1.08;
+            if (multiEtages) mult *= 1.06;
             if (pieces >= 8) mult *= 1.05;
 
             const low = m2 * baseLow * mult;
@@ -1236,7 +1312,10 @@
             }
 
             calculateRecap();
-            alert('✅ Forfait calculé. Passe au récapitulatif pour vérifier.');
+            const totalTTC = document.getElementById('totalTTC')?.textContent || '';
+            if (res) {
+                res.innerHTML += `<div style="margin-top:10px;background:#0f172a;color:#fff;border-radius:12px;padding:12px;font-weight:900;">Estimation TTC (selon TVA) : ${totalTTC}</div>`;
+            }
         }
 
         const FACTEURS = {
@@ -1395,6 +1474,200 @@
                 }
             }
         });
+
+        // =========================
+        // MANUEL: lignes dynamiques (catalogue)
+        // =========================
+        function manualCategoryList() {
+            const cats = new Map();
+            (catalogueProduits || []).forEach(p => {
+                if (!p) return;
+                const raw = String(p.category || 'Autres');
+                const key = normStr(raw) || 'autres';
+                if (!cats.has(key)) cats.set(key, raw);
+            });
+            return Array.from(cats.entries()).map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+        }
+
+        function manualProductsByCategoryKey(catKey) {
+            const key = normStr(catKey);
+            return (catalogueProduits || [])
+                .filter(p => p && normStr(p.category || '').includes(key))
+                .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'));
+        }
+
+        function manualEnsureInit() {
+            if (!Array.isArray(devisState._manualLines) || devisState._manualLines.length === 0) {
+                devisState._manualLines = [{ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), categoryKey: '', productId: '', qty: 1 }];
+            }
+            manualRenderLines();
+            manualBindInlinePanels();
+        }
+
+        window.manualAddEmptyLine = function() {
+            if (!Array.isArray(devisState._manualLines)) devisState._manualLines = [];
+            devisState._manualLines.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), categoryKey: '', productId: '', qty: 1 });
+            manualRenderLines();
+        }
+
+        function manualDeleteLine(lineId) {
+            devisState._manualLines = (devisState._manualLines || []).filter(l => l.id !== lineId);
+            if (devisState._manualLines.length === 0) {
+                devisState._manualLines.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), categoryKey: '', productId: '', qty: 1 });
+            }
+            manualRenderLines();
+            applyManualToDevis();
+        }
+
+        function manualRenderLines() {
+            const host = document.getElementById('manual-lines');
+            if (!host) return;
+
+            const cats = manualCategoryList();
+            const lines = devisState._manualLines || [];
+
+            host.innerHTML = lines.map((l, idx) => {
+                const prodOptions = l.categoryKey ? manualProductsByCategoryKey(l.categoryKey) : [];
+                const catOptionsHtml = `<option value=\"\">— Catégorie —</option>` + cats.map(c => `<option value=\"${escapeAttr(c.key)}\" ${c.key === l.categoryKey ? 'selected' : ''}>${escapeHtml(c.label)}</option>`).join('');
+                const prodOptionsHtml = `<option value=\"\">— Article —</option>` + prodOptions.map(p => `<option value=\"${escapeAttr(p.id)}\" ${p.id === l.productId ? 'selected' : ''}>${escapeHtml(p.name)} (achat ${Number(p.price||0).toFixed(2)}€)</option>`).join('');
+                const showX = lines.length > 1;
+                return `
+                    <div class=\"manual-line\" data-line=\"${escapeAttr(l.id)}\">
+                        <div class=\"manual-line-grid\">
+                            <button type=\"button\" class=\"manual-x\" title=\"Supprimer\" ${showX ? '' : 'style=\"visibility:hidden\"'} data-del=\"${escapeAttr(l.id)}\">×</button>
+                            <div class=\"form-group\" style=\"margin:0;\">
+                                <label style=\"font-size:12px;color:#64748b;\">Catégorie</label>
+                                <select data-cat=\"${escapeAttr(l.id)}\" style=\"width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;\">${catOptionsHtml}</select>
+                            </div>
+                            <div class=\"form-group\" style=\"margin:0;\">
+                                <label style=\"font-size:12px;color:#64748b;\">Article</label>
+                                <select data-prod=\"${escapeAttr(l.id)}\" style=\"width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;\" ${l.categoryKey ? '' : 'disabled'}>${prodOptionsHtml}</select>
+                            </div>
+                            <div class=\"form-group\" style=\"margin:0;\">
+                                <label style=\"font-size:12px;color:#64748b;\">Qté</label>
+                                <input type=\"number\" data-qty=\"${escapeAttr(l.id)}\" value=\"${escapeAttr(String(l.qty || 1))}\" min=\"1\" step=\"1\" style=\"width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:10px;font-size:13px;\">\n                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Bind events
+            host.querySelectorAll('[data-del]').forEach(btn => btn.addEventListener('click', () => manualDeleteLine(btn.getAttribute('data-del'))));
+            host.querySelectorAll('[data-cat]').forEach(sel => sel.addEventListener('change', () => {
+                const id = sel.getAttribute('data-cat');
+                const line = devisState._manualLines.find(x => x.id === id);
+                if (!line) return;
+                line.categoryKey = sel.value;
+                line.productId = '';
+                manualRenderLines();
+            }));
+            host.querySelectorAll('[data-prod]').forEach(sel => sel.addEventListener('change', () => {
+                const id = sel.getAttribute('data-prod');
+                const line = devisState._manualLines.find(x => x.id === id);
+                if (!line) return;
+                line.productId = sel.value;
+                // auto-add next empty line if last line is now filled
+                const last = devisState._manualLines[devisState._manualLines.length - 1];
+                if (last && last.id === id && last.productId) {
+                    devisState._manualLines.push({ id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()), categoryKey: '', productId: '', qty: 1 });
+                    manualRenderLines();
+                }
+                applyManualToDevis();
+            }));
+            host.querySelectorAll('[data-qty]').forEach(inp => inp.addEventListener('input', () => applyManualToDevis()));
+
+            applyManualToDevis();
+        }
+
+        function manualRenderSummary() {
+            const box = document.getElementById('manual-summary');
+            if (!box) return;
+            const mat = document.getElementById('totalMaterielHT')?.textContent || '0.00 €';
+            const mo = document.getElementById('totalMOHT')?.textContent || '0.00 €';
+            const serv = document.getElementById('totalServicesHT')?.textContent || '0.00 €';
+            const depl = document.getElementById('totalDeplacement')?.textContent || '0.00 €';
+            const ttc = document.getElementById('totalTTC')?.textContent || '0.00 €';
+            const ht = document.getElementById('sousTotalHT')?.textContent || '0.00 €';
+            box.style.display = 'grid';
+            box.innerHTML = `
+                <div class=\"summary-kpi\"><div class=\"v\">${escapeHtml(ht)}</div><div class=\"l\">Sous-total HT (avant TVA)</div></div>
+                <div class=\"summary-kpi\"><div class=\"v\">${escapeHtml(ttc)}</div><div class=\"l\">Total TTC</div></div>
+                <div class=\"summary-kpi\"><div class=\"v\">${escapeHtml(mat)}</div><div class=\"l\">Matériel HT</div></div>
+                <div class=\"summary-kpi\"><div class=\"v\">${escapeHtml(mo)}</div><div class=\"l\">Main d’œuvre HT</div></div>
+                <div class=\"summary-kpi\"><div class=\"v\">${escapeHtml(serv)}</div><div class=\"l\">Services admin</div></div>
+                <div class=\"summary-kpi\"><div class=\"v\">${escapeHtml(depl)}</div><div class=\"l\">Déplacement</div></div>
+            `;
+        }
+
+        function escapeAttr(s) {
+            return String(s || '').replace(/&/g, '&amp;').replace(/\"/g, '&quot;');
+        }
+
+        // Inline tableau/admin embedding: move DOM nodes (no duplicate IDs)
+        const originalHosts = {};
+        function manualBindInlinePanels() {
+            const mT = document.getElementById('manualShowTableau');
+            const mA = document.getElementById('manualShowAdmin');
+            const fT = document.getElementById('forfaitShowTableau');
+            const fA = document.getElementById('forfaitShowAdmin');
+
+            function ensureOriginalHost(id, node) {
+                if (!node) return;
+                if (!originalHosts[id]) originalHosts[id] = node.parentElement;
+            }
+
+            function move(node, target) {
+                if (!node || !target) return;
+                target.appendChild(node);
+            }
+
+            function restore(node, id) {
+                const host = originalHosts[id];
+                if (node && host) host.appendChild(node);
+            }
+
+            const tableauNode = document.getElementById('tableau-form');
+            const adminNode = document.getElementById('admin-form');
+            ensureOriginalHost('tableau-form', tableauNode);
+            ensureOriginalHost('admin-form', adminNode);
+
+            const mInlineT = document.getElementById('manualInlineTableau');
+            const mInlineA = document.getElementById('manualInlineAdmin');
+            const fInlineT = document.getElementById('forfaitInlineTableau');
+            const fInlineA = document.getElementById('forfaitInlineAdmin');
+
+            function handle() {
+                // Manual tableau/admin
+                if (mT && mInlineT) {
+                    mInlineT.style.display = mT.checked ? 'block' : 'none';
+                    if (mT.checked) move(tableauNode, mInlineT); else restore(tableauNode, 'tableau-form');
+                }
+                if (mA && mInlineA) {
+                    mInlineA.style.display = mA.checked ? 'block' : 'none';
+                    if (mA.checked) move(adminNode, mInlineA); else restore(adminNode, 'admin-form');
+                }
+
+                // Forfait tableau/admin
+                if (fT && fInlineT) {
+                    fInlineT.style.display = fT.checked ? 'block' : 'none';
+                    if (fT.checked) move(tableauNode, fInlineT); else restore(tableauNode, 'tableau-form');
+                }
+                if (fA && fInlineA) {
+                    fInlineA.style.display = fA.checked ? 'block' : 'none';
+                    if (fA.checked) move(adminNode, fInlineA); else restore(adminNode, 'admin-form');
+                }
+
+                // If both off, ensure restored
+                const anyInline = (mT?.checked || mA?.checked || fT?.checked || fA?.checked);
+                if (!anyInline) {
+                    restore(tableauNode, 'tableau-form');
+                    restore(adminNode, 'admin-form');
+                }
+            }
+
+            [mT, mA, fT, fA].forEach(el => el && el.addEventListener('change', () => { handle(); calculateRecap(); manualRenderSummary(); }));
+            handle();
+        }
 
         async function loadEditDevis() {
             // Vérifier si on doit générer un PDF directement
@@ -2501,8 +2774,16 @@
                     y += 5;
                 });
                 
-                // Câblage intervention (câbles ajoutés via "Câblage intervention")
+                // Câblage (agrège câbles attachés aux articles + legacy room.cabling.cables)
+                const pdfCables = [];
+                room.articles.forEach(a => {
+                    if (a && Array.isArray(a.cables) && a.cables.length) pdfCables.push(...a.cables);
+                });
                 if (room.cabling.cables && room.cabling.cables.length > 0) {
+                    pdfCables.push(...room.cabling.cables);
+                }
+
+                if (pdfCables.length > 0) {
                     const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
                     const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
                     const tarif = parseFloat(document.getElementById('globalTarif').value) || 0;
@@ -2511,12 +2792,15 @@
                     let tempsCablagePiece = SETUP_TIRAGE;
 
                     let totalCablesMateriel = 0;
-                    room.cabling.cables.forEach(cable => {
+                    pdfCables.forEach(cable => {
                         const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
                         const lengthFactor = getLengthFactor(cable.length);
                         tempsCablagePiece += cable.length * minutesPerMeter * lengthFactor;
 
-                        const coutCable = cable.length * (cable.pricePerMeter || 0); // prix d'achat HT
+                        const pricePm = (typeof cable.pricePerMeter === 'number' && Number.isFinite(cable.pricePerMeter))
+                            ? cable.pricePerMeter
+                            : getCablePricePerMeter(cable.type);
+                        const coutCable = cable.length * pricePm; // prix d'achat HT
                         const coutAvecMarge = calculateSalePrice(coutCable, 'cables'); // HT avec marge
                         totalCablesMateriel += coutAvecMarge;
 
@@ -2555,65 +2839,65 @@
                 y += 4;
             });
             
-            // TABLEAU
-            y += 5;
-            if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
-            
-            pdf.setFillColor(25, 55, 109);
-            pdf.rect(20, y, pageWidth - 40, 8, 'F');
-            pdf.setTextColor(255, 255, 255);
-            pdf.setFontSize(11);
-            pdf.setFont(undefined, 'bold');
-            pdf.text('TABLEAU ÉLECTRIQUE', 22, y + 5.5);
-            pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
-            
-            y += 10;
-            pdf.setTextColor(220, 230, 255);
-            pdf.setFillColor(220, 230, 255);
-            pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
-            pdf.setTextColor(25, 55, 109);
-            pdf.setFont(undefined, 'bold');
-            pdf.setFontSize(10);
-            pdf.text('Tableau 1', 24, y + 2);
-            y += 8;
-            
-            pdf.setTextColor(0, 0, 0);
-            pdf.setFont(undefined, 'normal');
-            pdf.setFontSize(9);
-            
+            // TABLEAU (affiché uniquement si au moins un élément est renseigné)
             const coffret = parseFloat(document.getElementById('coffretType').value) || 0;
-            if (coffret > 0) {
-                pdf.text('  Coffret', 24, y);
-                pdf.text(coffret.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
-                y += 5;
-            }
-            
             const diffAC = parseInt(document.getElementById('diffAC').value) || 0;
-            if (diffAC > 0) {
-                pdf.text(`  ${diffAC}x Différentiel 40A Type AC`, 24, y);
-                pdf.text((diffAC * 35).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
-                y += 5;
-            }
-            
             const diffA = parseInt(document.getElementById('diffA').value) || 0;
-            if (diffA > 0) {
-                pdf.text(`  ${diffA}x Différentiel 40A Type A`, 24, y);
-                pdf.text((diffA * 45).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
-                y += 5;
-            }
-            
             const parafoudre = document.getElementById('parafoudre').value === 'oui' ? 120 : 0;
-            if (parafoudre > 0) {
-                pdf.text('  1x Parafoudre', 24, y);
-                pdf.text('120.00€', pageWidth - 22, y, { align: 'right' });
-                y += 5;
-            }
-            
             const contacteur = parseInt(document.getElementById('contacteur').value) || 0;
-            if (contacteur > 0) {
-                pdf.text(`  ${contacteur}x Contacteur jour/nuit`, 24, y);
-                pdf.text((contacteur * 28).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+            const hasTableau = coffret > 0 || diffAC > 0 || diffA > 0 || parafoudre > 0 || contacteur > 0;
+
+            if (hasTableau) {
                 y += 5;
+                if (y > pageHeight - 60) { pdf.addPage(); y = 20; }
+                
+                pdf.setFillColor(25, 55, 109);
+                pdf.rect(20, y, pageWidth - 40, 8, 'F');
+                pdf.setTextColor(255, 255, 255);
+                pdf.setFontSize(11);
+                pdf.setFont(undefined, 'bold');
+                pdf.text('TABLEAU ÉLECTRIQUE', 22, y + 5.5);
+                pdf.text('Montant HTVA', pageWidth - 22, y + 5.5, { align: 'right' });
+                
+                y += 10;
+                pdf.setTextColor(220, 230, 255);
+                pdf.setFillColor(220, 230, 255);
+                pdf.rect(22, y - 3, pageWidth - 44, 7, 'F');
+                pdf.setTextColor(25, 55, 109);
+                pdf.setFont(undefined, 'bold');
+                pdf.setFontSize(10);
+                pdf.text('Tableau 1', 24, y + 2);
+                y += 8;
+                
+                pdf.setTextColor(0, 0, 0);
+                pdf.setFont(undefined, 'normal');
+                pdf.setFontSize(9);
+                
+                if (coffret > 0) {
+                    pdf.text('  Coffret', 24, y);
+                    pdf.text(coffret.toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (diffAC > 0) {
+                    pdf.text(`  ${diffAC}x Différentiel 40A Type AC`, 24, y);
+                    pdf.text((diffAC * 35).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (diffA > 0) {
+                    pdf.text(`  ${diffA}x Différentiel 40A Type A`, 24, y);
+                    pdf.text((diffA * 45).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (parafoudre > 0) {
+                    pdf.text('  1x Parafoudre', 24, y);
+                    pdf.text('120.00€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
+                if (contacteur > 0) {
+                    pdf.text(`  ${contacteur}x Contacteur jour/nuit`, 24, y);
+                    pdf.text((contacteur * 28).toFixed(2) + '€', pageWidth - 22, y, { align: 'right' });
+                    y += 5;
+                }
             }
             
             // SERVICES
