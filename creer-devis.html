@@ -575,53 +575,219 @@
         <!-- PAGE TRAVAUX -->
         <div id="page-travaux" class="page">
             <h2 class="section-title">🔨 Configuration des Travaux</h2>
-            
-            <div style="background: #f0f4ff; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-                <h3>⚙️ Paramètres globaux</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label><strong>Tarif horaire</strong></label>
-                        <select id="globalTarif">
-                            <option value="50" selected>Modéré - 50€/h</option>
-                            <option value="65">Élevé - 65€/h</option>
-                            <option value="75">Urgent - 75€/h</option>
-                            <option value="90">Week-end - 90€/h</option>
-                        </select>
+
+            <div style="background:#ffffff;border:2px solid #e5e7eb;border-radius:12px;padding:12px;margin-bottom:16px;">
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;">
+                    <div style="font-weight:700;color:#334155;">Mode de chiffrage</div>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" class="btn btn-info" id="mode-btn-detailed" onclick="setQuoteMode('detailed')" style="padding:8px 12px;border-radius:999px;font-size:13px;">Détaillé (pièce par pièce)</button>
+                        <button type="button" class="btn btn-outline" id="mode-btn-manual" onclick="setQuoteMode('manual')" style="padding:8px 12px;border-radius:999px;font-size:13px;background:#eef2ff;color:#4338ca;">Manuel (quantités globales)</button>
+                        <button type="button" class="btn btn-outline" id="mode-btn-forfait" onclick="setQuoteMode('forfait')" style="padding:8px 12px;border-radius:999px;font-size:13px;background:#eef2ff;color:#4338ca;">Forfait (questionnaire)</button>
                     </div>
-                    <div class="form-group">
-                        <label><strong>Déplacement</strong></label>
-                        <select id="globalDeplacement">
-                            <option value="20">20€</option>
-                            <option value="25" selected>25€</option>
-                            <option value="35">35€</option>
-                            <option value="0">Gratuit</option>
-                        </select>
-                    </div>
+                </div>
+                <div style="margin-top:8px;color:#64748b;font-size:12px;line-height:1.45;">
+                    - <strong>Détaillé</strong> : précis, pièce par pièce, câblage au mètre.<br>
+                    - <strong>Manuel</strong> : rapide (ex: 14 prises, 4 interrupteurs) + main d’œuvre libre.<br>
+                    - <strong>Forfait</strong> : estimation au m² (rénovation/neuf) avec majorations.
                 </div>
             </div>
 
-            <div style="background: linear-gradient(135deg, #e7f3ff 0%, #d1e7ff 100%); border: 3px solid #667eea; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-                <h3 style="color: #667eea; margin-bottom: 15px;">🏠 Créer une nouvelle pièce</h3>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label><strong>Nom de la pièce</strong></label>
-                        <input type="text" id="newRoomName" placeholder="Ex: Salon, Cuisine, Chambre 1...">
+            <!-- MODE: DÉTAILLÉ -->
+            <div id="mode-detailed">
+                <div style="background: #f0f4ff; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                    <h3>⚙️ Paramètres globaux</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><strong>Tarif horaire</strong></label>
+                            <select id="globalTarif">
+                                <option value="50" selected>Modéré - 50€/h</option>
+                                <option value="65">Élevé - 65€/h</option>
+                                <option value="75">Urgent - 75€/h</option>
+                                <option value="90">Week-end - 90€/h</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Déplacement</strong></label>
+                            <select id="globalDeplacement">
+                                <option value="20">20€</option>
+                                <option value="25" selected>25€</option>
+                                <option value="35">35€</option>
+                                <option value="0">Gratuit</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <button class="btn btn-success" onclick="createRoom()" style="margin-top: 24px; width: 100%;">
-                            ➕ Créer cette pièce
-                        </button>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #e7f3ff 0%, #d1e7ff 100%); border: 3px solid #667eea; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                    <h3 style="color: #667eea; margin-bottom: 15px;">🏠 Créer une nouvelle pièce</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><strong>Nom de la pièce</strong></label>
+                            <input type="text" id="newRoomName" placeholder="Ex: Salon, Cuisine, Chambre 1...">
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-success" onclick="createRoom()" style="margin-top: 24px; width: 100%;">
+                                ➕ Créer cette pièce
+                            </button>
+                        </div>
                     </div>
+                </div>
+
+                <div id="roomsContainer">
+                    <div class="empty-state">Créez une pièce pour commencer</div>
+                </div>
+
+                <button class="btn btn-primary btn-block" onclick="switchPage('tableau')">
+                    Suivant : Tableau électrique →
+                </button>
+            </div>
+
+            <!-- MODE: MANUEL -->
+            <div id="mode-manual" style="display:none;">
+                <div style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <h3 style="margin:0 0 8px 0;">🧾 Saisie manuelle (rapide)</h3>
+                    <p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">
+                        Entrez des quantités globales. Le matériel est calculé depuis votre <strong>catalogue</strong> (prix personnalisés inclus).<br>
+                        La main d’œuvre peut être saisie directement (montant HT) ou calculée via heures × tarif.
+                    </p>
+                </div>
+
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><strong>Tarif horaire</strong></label>
+                            <select id="manualTarif">
+                                <option value="50" selected>50€/h</option>
+                                <option value="65">65€/h</option>
+                                <option value="75">75€/h</option>
+                                <option value="90">90€/h</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Main d’œuvre</strong></label>
+                            <select id="manualMoMode">
+                                <option value="amount" selected>Montant fixe (€ HT)</option>
+                                <option value="hours">Heures × tarif</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label id="manualMoLabel"><strong>Montant MO (€ HT)</strong></label>
+                            <input type="number" id="manualMoValue" value="0" min="0" step="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Déplacement</strong></label>
+                            <select id="manualDeplacement">
+                                <option value="20">20€</option>
+                                <option value="25" selected>25€</option>
+                                <option value="35">35€</option>
+                                <option value="0">Gratuit</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <h4 style="margin:0 0 10px 0;">Quantités</h4>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Prises simples 16A</label>
+                            <input type="number" id="m_pr_simple" value="0" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Prises doubles 16A</label>
+                            <input type="number" id="m_pr_double" value="0" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Prises USB</label>
+                            <input type="number" id="m_pr_usb" value="0" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Interrupteurs simples</label>
+                            <input type="number" id="m_int_simple" value="0" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Va-et-vient</label>
+                            <input type="number" id="m_vav" value="0" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Points lumineux / sorties</label>
+                            <input type="number" id="m_lumi" value="0" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Câble 3G1.5 (m)</label>
+                            <input type="number" id="m_c_3g15" value="0" min="0" step="0.5">
+                        </div>
+                        <div class="form-group">
+                            <label>Câble 3G2.5 (m)</label>
+                            <input type="number" id="m_c_3g25" value="0" min="0" step="0.5">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button type="button" class="btn btn-success" onclick="applyManualToDevis()" style="flex:1;min-width:220px;">✅ Générer le devis (manuel)</button>
+                    <button type="button" class="btn btn-primary" onclick="switchPage('tableau')" style="flex:1;min-width:220px;">Suivant : Tableau électrique →</button>
                 </div>
             </div>
 
-            <div id="roomsContainer">
-                <div class="empty-state">Créez une pièce pour commencer</div>
-            </div>
+            <!-- MODE: FORFAIT -->
+            <div id="mode-forfait" style="display:none;">
+                <div style="background:#fff;border:2px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <h3 style="margin:0 0 8px 0;">📐 Estimation forfaitaire au m²</h3>
+                    <p style="margin:0;color:#64748b;font-size:13px;line-height:1.5;">
+                        Estimation indicative (HTVA) basée sur des fourchettes courantes en Belgique pour une installation/rénovation électrique.<br>
+                        Elle produit un devis synthétique (matériel + main d’œuvre) que tu peux ensuite affiner en mode détaillé.
+                    </p>
+                </div>
 
-            <button class="btn btn-primary btn-block" onclick="switchPage('tableau')">
-                Suivant : Tableau électrique →
-            </button>
+                <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label><strong>Type de chantier</strong></label>
+                            <select id="f_type">
+                                <option value="renov" selected>Rénovation complète</option>
+                                <option value="neuf">Nouvelle installation</option>
+                                <option value="mise_secu">Mise en sécurité / partiel</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Surface totale (m²)</strong></label>
+                            <input type="number" id="f_m2" value="100" min="10" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Nombre de pièces</strong></label>
+                            <input type="number" id="f_pieces" value="6" min="1" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Étages</strong></label>
+                            <input type="number" id="f_etages" value="1" min="0" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Hauteur sous plafond</strong></label>
+                            <select id="f_hauteur">
+                                <option value="std" selected>Standard (2.4–2.6m)</option>
+                                <option value="haut">Haute (&gt; 2.6m)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><strong>Saignées / encastrement</strong></label>
+                            <select id="f_saignees">
+                                <option value="0" selected>Faible (0%)</option>
+                                <option value="10">Moyen (+10%)</option>
+                                <option value="20">Important (+20%)</option>
+                                <option value="30">Très important (+30%)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">
+                    <button type="button" class="btn btn-success" onclick="applyForfaitToDevis()" style="flex:1;min-width:220px;">✅ Calculer forfait</button>
+                    <button type="button" class="btn btn-primary" onclick="switchPage('tableau')" style="flex:1;min-width:220px;">Suivant : Tableau électrique →</button>
+                </div>
+
+                <div id="forfait-result" style="margin-top:14px;"></div>
+            </div>
         </div>
 
         <!-- PAGE TABLEAU -->
@@ -883,6 +1049,194 @@
 
         function ensureDraft(room) {
             if (!room._draftArticleCables) room._draftArticleCables = [];
+        }
+
+        // =========================
+        // MODES DE CHIFFRAGE
+        // =========================
+        let quoteMode = 'detailed';
+
+        window.setQuoteMode = function(mode) {
+            quoteMode = mode;
+            const detailed = document.getElementById('mode-detailed');
+            const manual = document.getElementById('mode-manual');
+            const forfait = document.getElementById('mode-forfait');
+            if (detailed) detailed.style.display = mode === 'detailed' ? 'block' : 'none';
+            if (manual) manual.style.display = mode === 'manual' ? 'block' : 'none';
+            if (forfait) forfait.style.display = mode === 'forfait' ? 'block' : 'none';
+
+            const btnD = document.getElementById('mode-btn-detailed');
+            const btnM = document.getElementById('mode-btn-manual');
+            const btnF = document.getElementById('mode-btn-forfait');
+            if (btnD) btnD.className = mode === 'detailed' ? 'btn btn-info' : 'btn btn-outline';
+            if (btnM) btnM.className = mode === 'manual' ? 'btn btn-info' : 'btn btn-outline';
+            if (btnF) btnF.className = mode === 'forfait' ? 'btn btn-info' : 'btn btn-outline';
+        }
+
+        function findProductByKeywords(keywords) {
+            const keys = keywords.map(normStr);
+            return (catalogueProduits || []).find(p => {
+                const name = normStr(p.name || '');
+                return keys.every(k => name.includes(k));
+            }) || null;
+        }
+
+        function buildArticleFromProduct(product, qty) {
+            const category = product.category || 'appareillage';
+            const tempsBase = product.tempsBase || 30;
+            const prixAchat = typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0;
+            const prixVente = calculateSalePrice(prixAchat, normStr(category).includes('cable') ? 'cables' : category);
+            const materiel = prixVente * qty;
+            return {
+                ref: product.ref,
+                name: product.name,
+                qty,
+                prixAchat,
+                category: normStr(category).includes('cable') ? 'cables' : category,
+                tempsBase,
+                materiel,
+                mo: 0,
+                rebouchage: 0,
+                total: 0,
+                cables: []
+            };
+        }
+
+        function ensureSyntheticRoom(name) {
+            devisState.rooms = [{
+                id: 1,
+                name,
+                articles: [],
+                cabling: { cables: [], internal: { cost: 0, length: 0 }, tableau: { cost: 0, length: 0 } },
+                coefficients: { installation: 'encastre', circuit: 'nouvelle-ligne' },
+                collapsed: false
+            }];
+            devisState.nextRoomId = 2;
+        }
+
+        function setGlobalTarifAndDeplacement(tarif, deplacement) {
+            const gT = document.getElementById('globalTarif');
+            const gD = document.getElementById('globalDeplacement');
+            if (gT) gT.value = String(tarif);
+            if (gD) gD.value = String(deplacement);
+        }
+
+        window.applyManualToDevis = function() {
+            // Construire un devis synthétique (1 pièce) à partir des quantités
+            ensureSyntheticRoom('Travaux (manuel)');
+
+            const qty = (id) => Math.max(0, parseInt(document.getElementById(id).value || '0', 10) || 0);
+            const meters = (id) => Math.max(0, parseFloat(document.getElementById(id).value || '0') || 0);
+
+            const qPrSimple = qty('m_pr_simple');
+            const qPrDouble = qty('m_pr_double');
+            const qPrUsb = qty('m_pr_usb');
+            const qIntSimple = qty('m_int_simple');
+            const qVav = qty('m_vav');
+            const qLumi = qty('m_lumi');
+
+            // Produits (best-effort par mots clés)
+            const items = [];
+            const pPrSimple = findProductByKeywords(['prise', 'simple']);
+            const pPrDouble = findProductByKeywords(['prise', 'double']);
+            const pPrUsb = findProductByKeywords(['usb']);
+            const pIntSimple = findProductByKeywords(['interrupteur', 'simple']);
+            const pVav = findProductByKeywords(['va-et-vient']);
+            const pLumi = findProductByKeywords(['spot']) || findProductByKeywords(['luminaire']) || null;
+
+            if (pPrSimple && qPrSimple) items.push(buildArticleFromProduct(pPrSimple, qPrSimple));
+            if (pPrDouble && qPrDouble) items.push(buildArticleFromProduct(pPrDouble, qPrDouble));
+            if (pPrUsb && qPrUsb) items.push(buildArticleFromProduct(pPrUsb, qPrUsb));
+            if (pIntSimple && qIntSimple) items.push(buildArticleFromProduct(pIntSimple, qIntSimple));
+            if (pVav && qVav) items.push(buildArticleFromProduct(pVav, qVav));
+            if (pLumi && qLumi) items.push(buildArticleFromProduct(pLumi, qLumi));
+
+            // Câbles en mètres (traités comme câbles attachés à un “article” synthétique)
+            const c15 = meters('m_c_3g15');
+            const c25 = meters('m_c_3g25');
+            if (c15 > 0) {
+                devisState.rooms[0].cabling.cables.push({ type: '3G1.5', length: c15, pricePerMeter: getCablePricePerMeter('3G1.5') });
+            }
+            if (c25 > 0) {
+                devisState.rooms[0].cabling.cables.push({ type: '3G2.5', length: c25, pricePerMeter: getCablePricePerMeter('3G2.5') });
+            }
+
+            devisState.rooms[0].articles = items;
+
+            // MO manuelle: on l'applique comme une “ligne” de main d’œuvre (sans marge matériel)
+            const tarif = parseFloat(document.getElementById('manualTarif').value) || 50;
+            const depl = parseFloat(document.getElementById('manualDeplacement').value) || 25;
+            setGlobalTarifAndDeplacement(tarif, depl);
+
+            const moMode = document.getElementById('manualMoMode').value;
+            const moValue = parseFloat(document.getElementById('manualMoValue').value) || 0;
+            devisState._manualMoOverride = moMode === 'hours' ? (moValue * tarif) : moValue;
+
+            calculateRecap();
+            alert('✅ Devis manuel généré. Passe au récapitulatif pour vérifier.');
+        }
+
+        window.applyForfaitToDevis = function() {
+            ensureSyntheticRoom('Travaux (forfait)');
+
+            const type = document.getElementById('f_type').value;
+            const m2 = Math.max(10, parseFloat(document.getElementById('f_m2').value) || 0);
+            const pieces = Math.max(1, parseInt(document.getElementById('f_pieces').value || '1', 10));
+            const etages = Math.max(0, parseInt(document.getElementById('f_etages').value || '0', 10));
+            const hauteur = document.getElementById('f_hauteur').value;
+            const saigneesPct = Math.max(0, parseInt(document.getElementById('f_saignees').value || '0', 10));
+
+            // Références (Belgique 2026, ordre de grandeur) :
+            // - Rénovation complète : 80–150 €/m² HTVA
+            // - Neuf : 80–120 €/m²
+            // - Mise en sécurité / partiel : 55–85 €/m² (approx)
+            let baseLow = 80, baseHigh = 150;
+            if (type === 'neuf') { baseLow = 80; baseHigh = 120; }
+            if (type === 'mise_secu') { baseLow = 55; baseHigh = 85; }
+
+            // Ajustements simples
+            let mult = 1;
+            mult *= 1 + (saigneesPct / 100);
+            if (hauteur === 'haut') mult *= 1.08;
+            if (etages >= 2) mult *= 1.06;
+            if (pieces >= 8) mult *= 1.05;
+
+            const low = m2 * baseLow * mult;
+            const high = m2 * baseHigh * mult;
+            const mid = (low + high) / 2;
+
+            // Répartition matériel / MO (heuristique) : rénovation plus de MO
+            const materialShare = type === 'neuf' ? 0.45 : 0.40;
+            const materielHT = mid * materialShare;
+            const moHT = mid - materielHT;
+
+            // On encode en 2 lignes synthétiques (prixAchat inversé pour obtenir le montant en HT avec marge)
+            const inv = (amountHT, cat) => amountHT / (1 + (MARGES_CATEGORIE[cat] || 0.25));
+            devisState.rooms[0].articles = [
+                { ref: 'FORFAIT-MAT', name: 'Forfait matériel (estimation)', qty: 1, prixAchat: inv(materielHT, 'appareillage'), category: 'appareillage', tempsBase: 0, materiel: materielHT, mo: 0, rebouchage: 0, total: 0, cables: [] },
+                { ref: 'FORFAIT-MO', name: 'Forfait main d’œuvre (estimation)', qty: 1, prixAchat: 0, category: 'appareillage', tempsBase: 0, materiel: 0, mo: moHT, rebouchage: 0, total: 0, cables: [] }
+            ];
+
+            // MO forfait: on force un override (sinon calculateRecap recalcule via temps)
+            devisState._manualMoOverride = moHT;
+
+            // Afficher résultat
+            const res = document.getElementById('forfait-result');
+            if (res) {
+                res.innerHTML = `
+                    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;">
+                        <div style="font-weight:700;margin-bottom:6px;">Résultat (HTVA)</div>
+                        <div style="color:#334155;font-size:14px;line-height:1.6;">
+                            Fourchette indicative : <strong>${low.toFixed(0)}€</strong> – <strong>${high.toFixed(0)}€</strong><br>
+                            Estimation centrale utilisée : <strong>${mid.toFixed(0)}€</strong><br>
+                            (Matériel ~ ${Math.round(materialShare*100)}% / MO ~ ${Math.round((1-materialShare)*100)}%)
+                        </div>
+                    </div>
+                `;
+            }
+
+            calculateRecap();
+            alert('✅ Forfait calculé. Passe au récapitulatif pour vérifier.');
         }
 
         const FACTEURS = {
@@ -1903,7 +2257,7 @@
                     
                     totalMateriel += materielTotal + (art.rebouchage || 0);
                     
-                    // MO calculée sur temps réel
+                    // MO calculée sur temps réel (sauf si une MO manuelle est imposée)
                     const mo = (tempsArticle / 60) * tarif;
                     totalMO += mo;
                     
@@ -1949,6 +2303,11 @@
                 // Ancien système câblage (conservé pour compatibilité)
                 totalMateriel += (room.cabling.internal?.cost || 0) + (room.cabling.tableau?.cost || 0);
             });
+
+            // Override MO (mode manuel/forfait)
+            if (typeof devisState._manualMoOverride === 'number' && devisState._manualMoOverride >= 0) {
+                totalMO = devisState._manualMoOverride;
+            }
 
             // Appliquer minimum facturable 60 min
             totalMinutes = applyMinimumBillable(totalMinutes);
