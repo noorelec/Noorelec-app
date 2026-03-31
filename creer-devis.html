@@ -159,7 +159,7 @@
             background: #f8f9fa;
             border: 3px solid #e0e0e0;
             border-radius: 12px;
-            padding: 15px;
+            padding: 10px;
             cursor: pointer;
             transition: all 0.3s;
             text-align: center;
@@ -182,25 +182,25 @@
         }
 
         .card-icon {
-            font-size: 32px;
-            margin-bottom: 8px;
+            font-size: 22px;
+            margin-bottom: 4px;
         }
 
         .card-title {
             font-weight: bold;
-            font-size: 14px;
-            margin-bottom: 5px;
+            font-size: 13px;
+            margin-bottom: 3px;
         }
 
         .card-subtitle {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
         }
 
         .room-card {
             background: #f8f9fa;
             border-radius: 12px;
-            padding: 25px;
+            padding: 16px;
             margin-bottom: 20px;
             border-left: 5px solid #667eea;
         }
@@ -209,14 +209,14 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #e0e0e0;
             cursor: pointer;
         }
 
         .room-title {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: bold;
             color: #333;
         }
@@ -235,15 +235,15 @@
             background: white;
             border: 2px solid #e0e0e0;
             border-radius: 12px;
-            padding: 20px;
+            padding: 14px;
             margin-bottom: 20px;
         }
 
         .btn {
-            padding: 14px 28px;
+            padding: 10px 16px;
             border: none;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
@@ -277,15 +277,23 @@
             background: white;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
+            padding: 10px;
+            margin-bottom: 10px;
         }
 
         .article-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
+        }
+
+        .mini-cabling {
+            margin-top: 10px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 10px;
+            padding: 10px;
         }
 
         .cabling-section {
@@ -830,6 +838,53 @@
             };
         }
 
+        function normStr(s) {
+            return String(s || '')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLowerCase();
+        }
+
+        function buildCableTypeOptions() {
+            // Types supportés par l'UI. Le prix affiché vient du catalogue (avec overrides), sinon fallback.
+            const types = ['3G1.5', '3G2.5', '5G6', '3G4', 'HDMI', 'RJ45'];
+            return types.map(t => {
+                const p = getCablePricePerMeter(t);
+                return `<option value="${t}">${t} (${p.toFixed(2)}€/m)</option>`;
+            }).join('');
+        }
+
+        function getCablePricePerMeter(cableType) {
+            const token = normStr(cableType);
+            const match = (catalogueProduits || []).find(p => {
+                if (!p) return false;
+                const name = normStr(p.name || '');
+                // accepter "cables", "câbles", "Câbles", etc.
+                const cat = normStr(p.category || '');
+                const isCable = cat.includes('cable');
+                return isCable && name.includes(token);
+            });
+            if (match && typeof match.price === 'number' && Number.isFinite(match.price)) return match.price;
+
+            const fallback = {
+                '3G1.5': 1.20,
+                '3G2.5': 1.80,
+                '5G6': 3.50,
+                '3G4': 2.50,
+                'HDMI': 2.00,
+                'RJ45': 1.50
+            };
+            return fallback[cableType] ?? 1.50;
+        }
+
+        function getRoom(roomId) {
+            return devisState.rooms.find(r => r.id === roomId);
+        }
+
+        function ensureDraft(room) {
+            if (!room._draftArticleCables) room._draftArticleCables = [];
+        }
+
         const FACTEURS = {
             installation: {
                 'apparent': 1.0,
@@ -966,6 +1021,25 @@
             }
             await loadCatalogue();
             await loadEditDevis();
+        });
+
+        // UI: afficher/masquer le panneau câblage par article
+        document.addEventListener('change', (e) => {
+            const id = e.target && e.target.id;
+            if (!id) return;
+            if (id.startsWith('art-cabling-enabled-')) {
+                const roomId = id.replace('art-cabling-enabled-', '');
+                const panel = document.getElementById(`art-cabling-panel-${roomId}`);
+                if (panel) panel.style.display = e.target.checked ? 'block' : 'none';
+                if (e.target.checked) {
+                    // init list
+                    const room = getRoom(parseInt(roomId, 10));
+                    if (room) {
+                        ensureDraft(room);
+                        renderDraftCables(parseInt(roomId, 10));
+                    }
+                }
+            }
         });
 
         async function loadEditDevis() {
@@ -1367,35 +1441,31 @@
                                 </label>
 
                                 <!-- CÂBLAGE DE CETTE INTERVENTION -->
-                                <div style="background: #f0f9ff; padding: 15px; border-radius: 10px; margin-top: 15px; border: 2px solid #0ea5e9;">
-                                    <h4 style="margin: 0 0 10px 0;">🔗 Câblage intervention</h4>
-                                    
-                                    <!-- Liste des câbles -->
-                                    <div id="cabling-list-${room.id}" style="margin-bottom: 10px;">
-                                        ${(room.cabling.cables || []).map((cable, idx) => `
-                                            <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                                                <div>
-                                                    <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
-                                                </div>
-                                                <button onclick="deleteCable(${room.id}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
-                                            </div>
-                                        `).join('') || '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>'}
+                                <div class="mini-cabling">
+                                    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                                        <h4 style="margin:0;">🔗 Câblage (optionnel)</h4>
+                                        <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#0f172a;">
+                                            <input type="checkbox" id="art-cabling-enabled-${room.id}">
+                                            Associer du câble à l’article
+                                        </label>
                                     </div>
-                                    
-                                    <!-- Formulaire rapide -->
-                                    <div style="display: flex; flex-direction: column; gap: 8px;">
-                                        <select id="cable-type-${room.id}" style="width: 100%; padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                            <option value="">Type câble</option>
-                                            <option value="3G1.5">3G1.5 (1.20€/m)</option>
-                                            <option value="3G2.5">3G2.5 (1.80€/m)</option>
-                                            <option value="5G6">5G6 (3.50€/m)</option>
-                                            <option value="HDMI">HDMI (2.00€/m)</option>
-                                            <option value="RJ45">RJ45 (1.50€/m)</option>
-                                        </select>
-                                        <div style="display: flex; gap: 8px;">
-                                            <input type="number" id="cable-length-${room.id}" value="10" min="1" step="0.5" placeholder="Mètres" style="flex: 1; padding: 8px; border: 2px solid #e0e0e0; border-radius: 5px; font-size: 13px;">
-                                            <button onclick="addCable(${room.id})" style="background: #0ea5e9; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-size: 13px; white-space: nowrap;">+ Câble</button>
+
+                                    <div id="art-cabling-panel-${room.id}" style="display:none;margin-top:10px;">
+                                        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                                            <select id="art-cable-type-${room.id}" style="min-width:170px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+                                                <option value="">Type câble</option>
+                                                ${buildCableTypeOptions()}
+                                            </select>
+                                            <input type="number" id="art-cable-meters-${room.id}" value="10" min="0.5" step="0.5" placeholder="Mètres" style="width:110px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+                                            <select id="art-cable-mode-${room.id}" style="min-width:160px; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px;">
+                                                <option value="total">mètres (total)</option>
+                                                <option value="per_unit">mètres (par unité)</option>
+                                            </select>
+                                            <button type="button" class="btn btn-info" onclick="addDraftCable(${room.id})" style="padding:8px 12px;border-radius:8px;font-size:13px;">+ Ajouter câble</button>
                                         </div>
+
+                                        <div id="draft-cables-list-${room.id}" style="margin-top:10px;"></div>
+                                        <div style="margin-top:6px;color:#64748b;font-size:12px;">Astuce : tu peux juste cocher et mettre un type + mètres, puis cliquer <strong>Ajouter</strong> (on l’ajoute automatiquement même sans « + Ajouter câble »).</div>
                                     </div>
                                 </div>
 
@@ -1608,6 +1678,7 @@
         window.addArticle = function(roomId) {
             const room = devisState.rooms.find(r => r.id === roomId);
             if (!room) return;
+            ensureDraft(room);
 
             const ref = document.getElementById(`article-${roomId}`).value;
             if (!ref) { alert('Sélectionnez un article'); return; }
@@ -1618,6 +1689,32 @@
             const qty = parseInt(document.getElementById(`qty-${roomId}`).value) || 1;
             const rebouchage = document.getElementById(`rebouchage-${roomId}`).checked;
             const rebouchagePrice = parseFloat(document.getElementById(`rebouchage-price-${roomId}`).value) || 20;
+
+            // Câblage (optionnel) attaché à l'article
+            const cablingEnabled = document.getElementById(`art-cabling-enabled-${roomId}`)?.checked;
+            let articleCables = [];
+            if (cablingEnabled) {
+                // Si l'utilisateur n'a pas cliqué sur "+ Ajouter câble", on prend le champ courant automatiquement
+                const type = document.getElementById(`art-cable-type-${roomId}`).value;
+                const meters = parseFloat(document.getElementById(`art-cable-meters-${roomId}`).value);
+                const mode = document.getElementById(`art-cable-mode-${roomId}`).value;
+
+                const draft = Array.isArray(room._draftArticleCables) ? room._draftArticleCables : [];
+                articleCables = [...draft];
+                if (type && meters && meters > 0) {
+                    articleCables.push({ type, meters, mode });
+                }
+                if (articleCables.length === 0) {
+                    alert('Câblage coché : ajoutez un type et des mètres.');
+                    return;
+                }
+
+                // Normaliser en mètres totaux selon la quantité
+                articleCables = articleCables.map(c => {
+                    const totalMeters = c.mode === 'per_unit' ? (c.meters * qty) : c.meters;
+                    return { type: c.type, length: totalMeters, pricePerMeter: getCablePricePerMeter(c.type) };
+                });
+            }
             
             // NOUVEAU : Utiliser category et tempsBase du produit
             const category = product.category || 'appareillage';
@@ -1642,8 +1739,16 @@
                 materiel: materielTotal,
                 mo: 0, // Sera calculé dans calculateRecap
                 rebouchage: rebouchage ? rebouchagePrice : 0,
-                total: 0 // Sera calculé dans calculateRecap
+                total: 0, // Sera calculé dans calculateRecap
+                cables: articleCables
             });
+
+            // Reset câblage UI
+            if (cablingEnabled) {
+                room._draftArticleCables = [];
+                const enabledEl = document.getElementById(`art-cabling-enabled-${roomId}`);
+                if (enabledEl) enabledEl.checked = false;
+            }
 
             renderRooms();
             calculateRecap();
@@ -1658,91 +1763,54 @@
             }
         }
 
-        // NOUVEAU : Gestion des câbles
-        window.addCable = function(roomId) {
-            const room = devisState.rooms.find(r => r.id === roomId);
+        // Câblage attaché à l'article : liste temporaire avant "Ajouter"
+        window.addDraftCable = function(roomId) {
+            const room = getRoom(roomId);
             if (!room) return;
+            ensureDraft(room);
 
-            const type = document.getElementById(`cable-type-${roomId}`).value;
-            const length = parseFloat(document.getElementById(`cable-length-${roomId}`).value);
+            const enabled = document.getElementById(`art-cabling-enabled-${roomId}`)?.checked;
+            if (!enabled) return;
 
-            if (!type) {
-                alert('Sélectionnez un type de câble');
-                return;
-            }
+            const type = document.getElementById(`art-cable-type-${roomId}`).value;
+            const meters = parseFloat(document.getElementById(`art-cable-meters-${roomId}`).value);
+            const mode = document.getElementById(`art-cable-mode-${roomId}`).value;
 
-            if (!length || length <= 0) {
-                alert('Longueur invalide');
-                return;
-            }
+            if (!type) { alert('Sélectionnez un type de câble'); return; }
+            if (!meters || meters <= 0) { alert('Mètres invalides'); return; }
 
-            // Prix selon type (priorité à la personnalisation catalogue via userProductOverrides)
-            const getCablePricePerMeter = (cableType) => {
-                // Le catalogue a des noms du style "Câble ... 3G1.5mm²", etc.
-                const token = String(cableType || '').toLowerCase();
-                const match = (catalogueProduits || []).find(p => {
-                    if (!p || p.category !== 'cables') return false;
-                    const name = String(p.name || '').toLowerCase();
-                    return name.includes(token);
-                });
-
-                if (match && typeof match.price === 'number' && Number.isFinite(match.price)) {
-                    return match.price; // prix d'achat HT
-                }
-
-                // Fallback si le catalogue ne contient pas ce câble
-                const fallback = {
-                    '3G1.5': 1.20,
-                    '3G2.5': 1.80,
-                    '5G6': 3.50,
-                    '3G4': 2.50,
-                    'HDMI': 2.00,
-                    'RJ45': 1.50
-                };
-                return fallback[cableType] ?? 1.50;
-            };
-
-            room.cabling.cables.push({
-                type: type,
-                length: length,
-                pricePerMeter: getCablePricePerMeter(type),
-                category: 'cables'
-            });
-
-            // Reset formulaire
-            document.getElementById(`cable-type-${roomId}`).value = '';
-            document.getElementById(`cable-length-${roomId}`).value = '10';
-
-            // Mettre à jour UNIQUEMENT la liste des câbles (pas tout renderRooms)
-            updateCablesList(roomId, room);
+            room._draftArticleCables.push({ type, meters, mode });
+            renderDraftCables(roomId);
         }
 
-        // Fonction pour mettre à jour la liste des câbles sans tout re-render
-        function updateCablesList(roomId, room) {
-            const container = document.querySelector(`#cabling-list-${roomId}`);
-            if (!container) return;
-            
-            if (!room.cabling.cables || room.cabling.cables.length === 0) {
-                container.innerHTML = '<div style="text-align: center; padding: 8px; color: #64748b; font-size: 12px;">Aucun câble</div>';
-            } else {
-                container.innerHTML = room.cabling.cables.map((cable, idx) => `
-                    <div style="background: white; padding: 8px; border-radius: 5px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
-                        <div>
-                            <strong>${cable.type}</strong> - ${cable.length}m @ ${cable.pricePerMeter.toFixed(2)}€/m
-                        </div>
-                        <button onclick="deleteCable(${roomId}, ${idx})" style="background: #ef4444; color: white; border: none; padding: 3px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">🗑️</button>
+        window.deleteDraftCable = function(roomId, idx) {
+            const room = getRoom(roomId);
+            if (!room || !room._draftArticleCables) return;
+            room._draftArticleCables.splice(idx, 1);
+            renderDraftCables(roomId);
+        }
+
+        function renderDraftCables(roomId) {
+            const room = getRoom(roomId);
+            if (!room) return;
+            ensureDraft(room);
+            const el = document.getElementById(`draft-cables-list-${roomId}`);
+            if (!el) return;
+
+            if (room._draftArticleCables.length === 0) {
+                el.innerHTML = '<div style="text-align:center;color:#64748b;font-size:12px;padding:6px;">Aucun câble ajouté</div>';
+                return;
+            }
+
+            el.innerHTML = room._draftArticleCables.map((c, idx) => {
+                const labelMode = c.mode === 'per_unit' ? 'par unité' : 'total';
+                return `
+                    <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:13px;">
+                        <div><strong>${c.type}</strong> — ${c.meters}m <span style="color:#64748b;">(${labelMode})</span></div>
+                        <button type="button" onclick="deleteDraftCable(${roomId}, ${idx})" style="background:#ef4444;color:white;border:none;padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px;">🗑️</button>
                     </div>
-                `).join('');
-            }
-        }
-
-        window.deleteCable = function(roomId, idx) {
-            const room = devisState.rooms.find(r => r.id === roomId);
-            if (room && confirm('Supprimer ce câble ?')) {
-                room.cabling.cables.splice(idx, 1);
-                renderRooms();
-                calculateRecap();
-            }
+                `;
+            }).join('');
         }
 
         window.calculateCabling = function(roomId) {
@@ -1813,18 +1881,10 @@
             devisState.rooms.forEach(room => {
                 const coeffInstall = FACTEURS.installation[room.coefficients?.installation || 'encastre'];
                 const coeffCircuit = FACTEURS.circuit[room.coefficients?.circuit || 'nouvelle-ligne'];
-                
-                // Calculer le temps de câblage UNE FOIS pour toute la pièce
-                let tempsCablagePiece = 0;
-                if (room.cabling.cables && room.cabling.cables.length > 0) {
-                    tempsCablagePiece += SETUP_TIRAGE;
-                    room.cabling.cables.forEach(cable => {
-                        const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
-                        const lengthFactor = getLengthFactor(cable.length);
-                        tempsCablagePiece += cable.length * minutesPerMeter * lengthFactor;
-                    });
-                    tempsCablagePiece = tempsCablagePiece * coeffInstall * coeffCircuit;
-                }
+                // Câblage : désormais attaché à l'article (et optionnellement legacy room.cabling.cables)
+                let tempsCablageRoom = 0;
+                let cablesMaterielHT = 0;
+                const allCables = [];
                 
                 room.articles.forEach(art => {
                     // Temps de base selon type (si disponible dans catalogue)
@@ -1851,21 +1911,40 @@
                     art.materiel = materielTotal;
                     art.mo = mo;
                     art.total = materielTotal + mo + (art.rebouchage || 0);
+
+                    // Câblage associé à l'article
+                    if (Array.isArray(art.cables) && art.cables.length > 0) {
+                        allCables.push(...art.cables);
+                    }
                 });
-                
-                // Ajouter le temps de câblage UNE FOIS pour la pièce
-                if (tempsCablagePiece > 0) {
-                    totalMinutes += tempsCablagePiece;
-                    const moCablage = (tempsCablagePiece / 60) * tarif;
-                    totalMO += moCablage;
+
+                // Legacy room.cabling.cables (si encore utilisé)
+                if (room.cabling?.cables?.length) {
+                    allCables.push(...room.cabling.cables);
                 }
-                
-                // Ajouter coût matériel des câbles (avec marge)
-                (room.cabling.cables || []).forEach(cable => {
-                    const coutCable = cable.length * cable.pricePerMeter;
-                    const coutAvecMarge = calculateSalePrice(coutCable, 'cables');
-                    totalMateriel += coutAvecMarge;
-                });
+
+                if (allCables.length > 0) {
+                    tempsCablageRoom += SETUP_TIRAGE;
+                    allCables.forEach(cable => {
+                        const minutesPerMeter = CABLE_TEMPS[cable.type] || CABLE_TEMPS['default'];
+                        const lengthFactor = getLengthFactor(cable.length);
+                        tempsCablageRoom += cable.length * minutesPerMeter * lengthFactor;
+
+                        const pricePm = (typeof cable.pricePerMeter === 'number' && Number.isFinite(cable.pricePerMeter))
+                            ? cable.pricePerMeter
+                            : getCablePricePerMeter(cable.type);
+                        const coutCable = cable.length * pricePm;
+                        const coutAvecMarge = calculateSalePrice(coutCable, 'cables');
+                        cablesMaterielHT += coutAvecMarge;
+                    });
+
+                    tempsCablageRoom = tempsCablageRoom * coeffInstall * coeffCircuit;
+                    if (tempsCablageRoom > 0) {
+                        totalMinutes += tempsCablageRoom;
+                        totalMO += (tempsCablageRoom / 60) * tarif;
+                    }
+                    totalMateriel += cablesMaterielHT;
+                }
                 
                 // Ancien système câblage (conservé pour compatibilité)
                 totalMateriel += (room.cabling.internal?.cost || 0) + (room.cabling.tableau?.cost || 0);
