@@ -75,7 +75,7 @@ Le header est géré par **Astra** (pas de template Header dans UAE — seulemen
 
 ---
 
-## Google Search Console — EN COURS (priorité 1)
+## Google Search Console — FAIT (juillet 2026)
 
 ### État technique vérifié (juillet 2026)
 
@@ -149,6 +149,58 @@ Pour chaque URL :
 
 ---
 
+## Google Business Profile — EN COURS (priorité 2)
+
+Indispensable pour « électricien Bruxelles » en recherche locale (carte Google, pack local).
+
+### Étape A — Créer ou récupérer la fiche (15 min)
+
+1. Ouvrir [Google Business Profile](https://business.google.com) (ou l'app « Google Business Profile »).
+2. Se connecter avec le **même compte Google** que Search Console si possible.
+3. **Ajouter votre établissement** → nom : **Noorelec**
+4. Catégorie principale : **Électricien** (pas « Entreprise générale »).
+5. Zone : **Bruxelles** + communes couvertes (pas d'adresse fixe si intervention à domicile — choisir « Je livre des biens et services à mes clients » / zone de service).
+
+### Étape B — Infos à remplir (cohérence NAP = site web)
+
+| Champ | Valeur |
+|-------|--------|
+| Nom | Noorelec |
+| Téléphone | +32 485 86 42 24 |
+| Site web | https://noorelec.be |
+| E-mail | contact@noorelec.be |
+| Zone | Bruxelles, Brabant wallon, Brabant flamand |
+| Horaires | Selon disponibilité réelle (ex. lun–ven 8h–18h) |
+| Description | Électricien à Bruxelles : rénovation, mise en conformité RGIE, dépannage, bornes de recharge. Devis rapide. |
+
+**Important :** nom, téléphone et site doivent être **identiques** partout (site, fiche Google, footer).
+
+### Étape C — Vérification Google
+
+Google envoie souvent une **carte postale**, un **appel** ou un **e-mail** pour valider l'entreprise. Suivre les instructions dans le tableau de bord GBP.
+
+### Étape D — Optimiser la fiche (30 min)
+
+- **Logo** : même que le site WordPress
+- **Photo de couverture** : chantier ou véhicule / tableau électrique (éviter stock générique si possible)
+- **Photos** : 5–10 minimum (tableau, chantier, outils, avant/après si dispo)
+- **Services** : Rénovation électrique, Mise en conformité RGIE, Dépannage, Borne de recharge, Installation
+- **Zone desservie** : Bruxelles + communes listées sur le site
+- **Lien vers le site** : page Devis `https://noorelec.be/devis-electricien/`
+
+### Étape E — Premiers avis (après premiers clients)
+
+- Demander un avis **après chantier terminé** (SMS ou e-mail avec lien direct)
+- Ne pas acheter de faux avis — risque de suspension
+- Répondre à chaque avis (positif ou négatif)
+
+### Contrôle
+
+- Recherche Google : **Noorelec Bruxelles** → la fiche apparaît à droite / sur la carte
+- Google Maps : même recherche → pin ou zone de service visible
+
+---
+
 ## Contact / NAP
 
 - Email : contact@noorelec.be
@@ -161,8 +213,8 @@ Formulaire WPForms sur `/devis-electricien/` (Nom, Email, Téléphone, Commune, 
 
 ## À faire (backlog)
 
-- [ ] **Search Console** : valider propriété + sitemap + indexation 7 pages ← **EN COURS**
-- [ ] Google Business Profile : créer / optimiser + demander avis clients réels
+- [x] **Search Console** : propriété validée + sitemap `sitemap_index.xml` soumis + indexation demandée pour les 7 pages
+- [ ] Google Business Profile : créer / optimiser + demander avis clients réels ← **EN COURS (priorité 2)**
 - [ ] Privacy Policy : rédiger, publier, lien footer
 - [ ] Confirmer **301** ancienne URL Services `-2-2` → slug propre
 - [ ] Footer : mettre à jour liens (Services, RGIE, Borne) si anciens libellés
@@ -181,4 +233,4 @@ Formulaire WPForms sur `/devis-electricien/` (Nom, Email, Téléphone, Commune, 
 
 ---
 
-*Dernière mise à jour : juillet 2026 — priorité Search Console*
+*Dernière mise à jour : juillet 2026 — Search Console fait, priorité Google Business Profile*
