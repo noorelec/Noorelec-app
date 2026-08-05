@@ -201,6 +201,51 @@ Google envoie souvent une **carte postale**, un **appel** ou un **e-mail** pour 
 
 ---
 
+## Bloquer le site test OVH (`www.test.noorelec.be`) — EN COURS
+
+Le sous-domaine test est public, en `index, follow`, et possède un sitemap → Google l'indexe. À bloquer.
+
+### Méthode A — `robots.txt` (rapide, 5 min)
+
+1. [OVH Manager](https://www.ovh.com/manager/) → **Web Cloud** → **Hébergements**
+2. Clique sur l'hébergement **noorelec.be**
+3. Onglet **Multisite** → repère le domaine `test.noorelec.be` / `www.test.noorelec.be` et le **dossier racine** (souvent `test` ou `www/test`)
+4. Onglet **FTP - SSH** → note le login FTP, ou utilise **Explorateur de fichiers** / FileZilla
+5. Ouvre le dossier du site test (ex. `/test` ou `/www/test`)
+6. Ouvre ou crée le fichier **`robots.txt`** à la racine du site test
+7. Remplace **tout** le contenu par :
+
+```txt
+User-agent: *
+Disallow: /
+```
+
+8. Enregistre. Vérifie : `https://www.test.noorelec.be/robots.txt` doit afficher uniquement ce bloc.
+
+### Méthode B — Mot de passe sur le dossier (recommandé, plus fort)
+
+1. OVH Manager → **Hébergements** → **noorelec.be**
+2. Onglet **Multisite** (ou **FTP**) → protection du dossier
+3. Ou via **`.htaccess`** + fichier `.htpasswd` dans le dossier test  
+   → le site test demande un login avant d'afficher quoi que ce soit
+
+Si tu ne trouves pas « Protection », utilise la méthode A + méthode C.
+
+### Méthode C — WordPress Rank Math (noindex)
+
+1. Connecte-toi à `https://www.test.noorelec.be/wp-admin/`
+2. **Rank Math** → **Réglages généraux** → **Webmaster Tools** / robots
+3. Ou **Réglages Rank Math** → activer **noindex** pour tout le site (si option « Discourage search engines » WordPress) :
+   - **Réglages** → **Lecture** → cocher **« Demander aux moteurs de recherche de ne pas indexer ce site »**
+4. Enregistrer
+
+### Après blocage
+
+- Dans quelques jours, `site:test.noorelec.be` devrait disparaître progressivement
+- Optionnel : Search Console (si propriété test) → **Suppressions** pour accélérer
+
+---
+
 ## Contact / NAP
 
 - Email : contact@noorelec.be
@@ -214,7 +259,9 @@ Formulaire WPForms sur `/devis-electricien/` (Nom, Email, Téléphone, Commune, 
 ## À faire (backlog)
 
 - [x] **Search Console** : propriété validée + sitemap `sitemap_index.xml` soumis + indexation demandée pour les 7 pages
-- [ ] Google Business Profile : créer / optimiser + demander avis clients réels ← **EN COURS (priorité 2)**
+- [ ] **Bloquer site test** `www.test.noorelec.be` (OVH `/test`) ← **EN COURS**
+- [ ] Supprimer article WordPress « Hello world »
+- [ ] Google Business Profile : créer / optimiser + demander avis clients réels
 - [ ] Privacy Policy : rédiger, publier, lien footer
 - [ ] Confirmer **301** ancienne URL Services `-2-2` → slug propre
 - [ ] Footer : mettre à jour liens (Services, RGIE, Borne) si anciens libellés
