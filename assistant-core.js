@@ -577,8 +577,12 @@ export function robotReply(session, userText, choiceId) {
         session.step = "draw";
         session.dimensions = { width: 0, depth: 0, height: 2.5, polygon: [], source: "drawn", chimney: null };
         return {
-          text: "Mode dessin : clique les coins dans l'ordre, puis « Terminer le contour ». Ensuite clique chaque mur pour sa cote exacte.",
-          actions: [{ id: "draw:done", label: "Terminer le contour" }],
+          text: "Mode dessin smartphone : tape un coin, glisse à 1 doigt pour déplacer, pince pour zoomer. Bouton ↶ pour annuler un coin. Puis « Terminer le contour ».",
+          actions: [
+            { id: "draw:done", label: "Terminer le contour" },
+            { id: "draw:undo", label: "Annuler dernier coin" },
+            { id: "draw:clear", label: "Effacer tout" },
+          ],
           showSketch: true, sketchMode: "draw", speak: true,
         };
       }
@@ -603,11 +607,42 @@ export function robotReply(session, userText, choiceId) {
       };
     }
     case "draw": {
+      if (choiceId === "draw:undo") {
+        const poly = session.dimensions?.polygon;
+        if (poly?.length) poly.pop();
+        return {
+          text: poly?.length
+            ? `Coin annulé — il reste ${poly.length} coin${poly.length > 1 ? "s" : ""}.`
+            : "Dessin vide. Tape les coins dans l'ordre.",
+          actions: [
+            { id: "draw:done", label: "Terminer le contour" },
+            { id: "draw:undo", label: "Annuler dernier coin" },
+            { id: "draw:clear", label: "Effacer tout" },
+          ],
+          showSketch: true, sketchMode: "draw", speak: true,
+        };
+      }
+      if (choiceId === "draw:clear") {
+        if (session.dimensions) session.dimensions.polygon = [];
+        return {
+          text: "Dessin effacé. Repars des coins, dans l'ordre.",
+          actions: [
+            { id: "draw:done", label: "Terminer le contour" },
+            { id: "draw:undo", label: "Annuler dernier coin" },
+            { id: "draw:clear", label: "Effacer tout" },
+          ],
+          showSketch: true, sketchMode: "draw", speak: true,
+        };
+      }
       if (choiceId === "draw:done") {
         if (!session.dimensions?.polygon || session.dimensions.polygon.length < 3) {
           return {
             text: "Il faut au moins 3 coins. Continue, puis Terminer.",
-            actions: [{ id: "draw:done", label: "Terminer le contour" }],
+            actions: [
+              { id: "draw:done", label: "Terminer le contour" },
+              { id: "draw:undo", label: "Annuler dernier coin" },
+              { id: "draw:clear", label: "Effacer tout" },
+            ],
             showSketch: true, sketchMode: "draw", speak: true,
           };
         }
@@ -623,8 +658,12 @@ export function robotReply(session, userText, choiceId) {
         };
       }
       return {
-        text: "Clique les coins dans l'ordre, puis Terminer.",
-        actions: [{ id: "draw:done", label: "Terminer le contour" }],
+        text: "Tape un coin, glisse pour déplacer le plan, pince pour zoomer. Puis Terminer.",
+        actions: [
+          { id: "draw:done", label: "Terminer le contour" },
+          { id: "draw:undo", label: "Annuler dernier coin" },
+          { id: "draw:clear", label: "Effacer tout" },
+        ],
         showSketch: true, sketchMode: "draw", speak: true,
       };
     }
