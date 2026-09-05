@@ -12,10 +12,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { checkElectricianAccess, paywallMessage } from "./devtech-access.js";
 import {
+  alignLightPlacement,
+  buildPlacePlan,
   buildQuote,
   createOpening,
   createPoint,
   createSession,
+  formatPlacePlan,
   isCeilingType,
   nearestEdgePoint,
   OPENING_TOOLS,
@@ -24,6 +27,7 @@ import {
   polygonEdges,
   pointOnEdge,
   robotReply,
+  setEdgeLength,
   speakFrench,
   strokeToPolygon,
 } from "./assistant-core.js";
@@ -48,6 +52,9 @@ let sketchMode = "idle";
 let placeType = POINT_TOOLS[0]?.id || "prise-simple";
 let openingTool = "porte"; // porte | fenetre | baie
 let selectedOpeningId = null;
+let activeMark = null; // placePlan mark number
+let keypadValue = "";
+
 let selectedPointId = null;
 let voiceOn = true;
 let settings = { tarif: 50, deplacement: 25, tva: 0.06, rebouchage: 18 };
@@ -86,6 +93,13 @@ const els = {
   legend: $("legend"),
   quote: $("quote"),
   toast: $("toast"),
+  placeBar: $("placeBar"),
+  keypad: $("keypad"),
+  keypadTitle: $("keypadTitle"),
+  keypadSub: $("keypadSub"),
+  keypadDisplay: $("keypadDisplay"),
+  keypadQuick: $("keypadQuick"),
+  keypadGrid: $("keypadGrid"),
   paywall: $("paywall"),
   shell: $("shell"),
   sketchBar: $("sketchBar"),
@@ -194,6 +208,150 @@ function buildToolButtons() {
   }
 }
 
+
+function buildPlaceBar() {
+  if (!els.placeBar) return;
+  els.placeBar.innerHTML = "";
+  const plan = session.placePlan || [];
+  const show = sketchMode === "points" && plan.length > 0;
+  els.placeBar.classList.toggle("on", show);
+  if (!show) return;
+
+  plan.forEach((item) => {
+    const done = item.group ? item.placed >= item.qty : item.placed >= 1;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "place-chip" + (activeMark === item.mark ? " active" : "") + (done ? " done" : "");
+    const remain = item.group ? Math.max(0, item.qty - item.placed) : (done ? 0 : 1);
+    btn.textContent = item.group
+      ? `n°${item.mark} ${shortLabel(item)} ${item.placed}/${item.qty}`
+      : `n°${item.mark} ${shortLabel(item)}`;
+    btn.title = item.label;
+    btn.disabled = done;
+    btn.addEventListener("click", () => {
+      if (done) return;
+      activeMark = item.mark;
+      placeType = item.type;
+      openingTool = null;
+      buildPlaceBar();
+      buildToolButtons();
+      toast(item.group
+        ? `n°${item.mark} — encore ${remain} à placer (alignement auto)`
+        : `n°${item.mark} — tape un mur pour placer`);
+    });
+    els.placeBar.appendChild(btn);
+  });
+}
+
+function shortLabel(item) {
+  const t = item.type || "";
+  if (t === "prise-double") return "Double";
+  if (t === "prise-simple") return "Prise";
+  if (t === "va-et-vient") return "VEV";
+  if (t === "inter-prise") return "Inter+prise";
+  if (t === "eclairage-spot") return "Spots";
+  if (t === "eclairage-applique") return "Appliques";
+  if (t === "eclairage") return "Lumières";
+  return (item.label || t).split(" ")[0];
+}
+
+function syncPlacePlanFromPlacements() {
+  if (!session.placePlan?.length) return;
+  for (const item of session.placePlan) {
+    item.placed = session.placements.filter((p) => p.mark === item.mark).length;
+  }
+}
+
+function openLengthKeypad(edgeIndex) {
+  session._selectedEdge = edgeIndex;
+  keypadValue = "";
+  if (els.keypadTitle) els.keypadTitle.textContent = `Mur ${edgeIndex + 1} — longueur`;
+  if (els.keypadSub) els.keypadSub.textContent = "Tape les chiffres ci-dessous (pas le clavier du téléphone)";
+  renderKeypadDisplay();
+  buildKeypadOnce();
+  els.keypad.classList.add("on");
+  els.keypad.setAttribute("aria-hidden", "false");
+  try { els.input?.blur(); } catch (_) {}
+  drawRoom();
+}
+
+function closeLengthKeypad() {
+  els.keypad?.classList.remove("on");
+  els.keypad?.setAttribute("aria-hidden", "true");
+}
+
+function renderKeypadDisplay() {
+  if (!els.keypadDisplay) return;
+  const shown = keypadValue || "0";
+  els.keypadDisplay.innerHTML = `${shown}<span>m</span>`;
+}
+
+let keypadBuilt = false;
+function buildKeypadOnce() {
+  if (keypadBuilt || !els.keypadGrid) return;
+  keypadBuilt = true;
+
+  const quick = [1, 2, 2.5, 3, 3.5, 4, 5, 6];
+  els.keypadQuick.innerHTML = "";
+  quick.forEach((n) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = `${n} m`;
+    b.addEventListener("click", () => {
+      keypadValue = String(n);
+      renderKeypadDisplay();
+      confirmKeypadLength();
+    });
+    els.keypadQuick.appendChild(b);
+  });
+
+  const keys = ["1","2","3","4","5","6","7","8","9",".","0","⌫","OK","Annuler"];
+  els.keypadGrid.innerHTML = "";
+  keys.forEach((k) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = k === "⌫" ? "⌫" : k;
+    if (k === "OK") b.className = "ok";
+    if (k === "Annuler") b.className = "ghost";
+    if (k === "OK") b.style.gridColumn = "span 2";
+    b.addEventListener("click", () => {
+      if (k === "Annuler") { closeLengthKeypad(); return; }
+      if (k === "OK") { confirmKeypadLength(); return; }
+      if (k === "⌫") {
+        keypadValue = keypadValue.slice(0, -1);
+        renderKeypadDisplay();
+        return;
+      }
+      if (k === "." && keypadValue.includes(".")) return;
+      if (keypadValue.length >= 6) return;
+      keypadValue += k;
+      renderKeypadDisplay();
+    });
+    els.keypadGrid.appendChild(b);
+  });
+
+  els.keypad.addEventListener("click", (e) => {
+    if (e.target === els.keypad) closeLengthKeypad();
+  });
+}
+
+function confirmKeypadLength() {
+  const n = parseFloat(String(keypadValue).replace(",", "."));
+  if (!(n > 0) || !Number.isFinite(n)) {
+    toast("Entre une longueur valide");
+    return;
+  }
+  if (session._selectedEdge == null) {
+    closeLengthKeypad();
+    return;
+  }
+  closeLengthKeypad();
+  // Envoie la cote au moteur sans ouvrir le clavier AZERTY
+  handleUser(String(n).replace(".", ","), null);
+}
+
+
+
 // ─── Chat ───────────────────────────────────────────────────────────────────
 
 function addBubble(text, who) {
@@ -238,7 +396,21 @@ function applyReply(reply) {
     const prevMode = sketchMode;
     sketchMode = reply.sketchMode || "idle";
     if (reply.activeOpeningTool) openingTool = reply.activeOpeningTool;
+    if (reply.placePlan) session.placePlan = reply.placePlan;
+    if (sketchMode === "points" && session.equipment?.length && !session.placePlan?.length) {
+      buildPlacePlan(session);
+    }
     if (sketchMode === "openings" || sketchMode === "points") buildToolButtons();
+    if (sketchMode === "points") {
+      syncPlacePlanFromPlacements();
+      if (activeMark == null) {
+        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+        if (next) { activeMark = next.mark; placeType = next.type; }
+      }
+      buildPlaceBar();
+    } else if (els.placeBar) {
+      els.placeBar.classList.remove("on");
+    }
     sketchVisible = true;
     if (
       (sketchMode === "draw" && prevMode !== "draw") ||
@@ -471,10 +643,10 @@ function showSketchPanel() {
   const d = session.dimensions;
   const modeHints = {
     draw: "1 doigt = dessiner · 2 doigts = zoom/déplacer · Effacer = recommencer",
-    measure: "Tape un mur → envoie la longueur · la forme est conservée",
+    measure: "Tape un mur → pavé numérique (chiffres) · forme conservée",
     openings: "Outils Porte/Fenêtre · tape un mur pour placer",
     arrival: "Place l'arrivée sur un mur",
-    points: "Place prises/inters · portes déjà sur le plan",
+    points: "Choisis n°1, n°2… puis place · spots = même n° multi-tap",
     "review-shape": "Aperçu de la pièce",
     review: "Revue finale",
     idle: "Croquis",
@@ -774,10 +946,11 @@ function drawRoom() {
   session.placements.forEach((p, i) => {
     const c = worldToScreen(p.x, p.y);
     const sel = p.id === selectedPointId;
+    const num = p.mark ?? (i + 1);
     if (p.mode === "ceiling" || isCeilingType(p.type)) {
-      drawCeilingLight(c.sx, c.sy, sel, p.existing);
+      drawCeilingLight(c.sx, c.sy, sel, p.existing, num);
     } else {
-      drawWallPoint(c.sx, c.sy, sel, p.existing, i + 1);
+      drawWallPoint(c.sx, c.sy, sel, p.existing, num);
     }
   });
 
@@ -802,10 +975,10 @@ function drawRoom() {
 
   const hints = {
     draw: "Glisse = tracer la pièce · 2 doigts = zoom · Effacer = recommencer",
-    measure: "Tape un mur · envoie la longueur · la forme reste correcte",
+    measure: "Tape un mur · pavé numérique pour la longueur",
     openings: "Porte / Fenêtre / Baie · tape le mur pour l’ouvrir",
     arrival: "Tape un mur pour l'arrivée électrique",
-    points: "Place prises & va-et-vient · idéalement à côté des portes",
+    points: "Choisis un n° puis tape le plan · lumières = multi-tap aligné",
   };
   if (hints[sketchMode]) ctx.fillText(hints[sketchMode], W / 2, 22);
 }
@@ -942,7 +1115,7 @@ function drawWallPoint(sx, sy, selected, existing, label) {
   ctx.restore();
 }
 
-function drawCeilingLight(sx, sy, selected, existing) {
+function drawCeilingLight(sx, sy, selected, existing, label) {
   ctx.save();
   const color = existing ? "rgba(255,224,138,0.5)" : "#ffe08a";
   if (selected) {
@@ -965,6 +1138,13 @@ function drawCeilingLight(sx, sy, selected, existing) {
     ctx.lineTo(sx + Math.cos(ang) * r, sy + Math.sin(ang) * r);
     ctx.stroke();
   }
+  if (label != null) {
+    ctx.fillStyle = "#1a1405";
+    ctx.font = "800 11px Outfit, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(label), sx, sy + 0.5);
+  }
   ctx.restore();
 }
 
@@ -985,9 +1165,8 @@ function handleCanvasClick(mx, my) {
   if (sketchMode === "measure") {
     const hit = nearestEdgePoint(poly, x, y);
     if (hit) {
-      session._selectedEdge = hit.edgeIndex;
-      drawRoom();
-      toast(`Mur ${hit.edgeIndex + 1} sélectionné — saisis la longueur`);
+      openLengthKeypad(hit.edgeIndex);
+      toast(`Mur ${hit.edgeIndex + 1} — entre la longueur sur le pavé`);
     }
     return;
   }
@@ -1063,28 +1242,63 @@ function handleCanvasClick(mx, my) {
       return;
     }
 
+    const planItem = (session.placePlan || []).find((it) => it.mark === activeMark) || null;
+    if (planItem && planItem.placed >= planItem.qty) {
+      toast(`n°${planItem.mark} déjà complet`);
+      return;
+    }
+
     const ceilingTool = isCeilingType(placeType);
     if (ceilingTool && poly.length >= 3 && pointInPolygon(poly, x, y)) {
-      const pt = createPoint(placeType, round3(x), round3(y));
+      let px = x, py = y;
+      if (planItem?.group) {
+        const existing = session.placements.filter((p) => p.mark === planItem.mark);
+        const snapped = alignLightPlacement(existing, x, y);
+        px = snapped.x; py = snapped.y;
+      }
+      const pt = createPoint(placeType, round3(px), round3(py), { mark: planItem?.mark ?? activeMark });
       session.placements.push(pt);
       selectedPointId = pt.id;
+      if (planItem) planItem.placed = session.placements.filter((p) => p.mark === planItem.mark).length;
       syncEquipmentQty(placeType);
       updatePropsPanel();
+      buildPlaceBar();
       drawRoom();
-      toast(`${pt.label} placé au plafond`);
+      const left = planItem ? Math.max(0, planItem.qty - planItem.placed) : 0;
+      toast(planItem?.group
+        ? `n°${planItem.mark} placé (${planItem.placed}/${planItem.qty})` + (left ? ` — encore ${left}` : " ✓")
+        : `${pt.label} placé au plafond`);
+      if (planItem && planItem.placed >= planItem.qty) {
+        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+        activeMark = next?.mark ?? null;
+        placeType = next?.type ?? placeType;
+        buildPlaceBar();
+      }
       return;
     }
 
     if (!ceilingTool) {
       const hit = nearestEdgePoint(poly, x, y);
       if (!hit) return;
-      const pt = createPoint(placeType, hit.x, hit.y, { edgeIndex: hit.edgeIndex, t: hit.t });
+      const pt = createPoint(placeType, hit.x, hit.y, {
+        edgeIndex: hit.edgeIndex,
+        t: hit.t,
+        mark: planItem?.mark ?? activeMark,
+      });
       session.placements.push(pt);
       selectedPointId = pt.id;
+      if (planItem) planItem.placed = session.placements.filter((p) => p.mark === planItem.mark).length;
       syncEquipmentQty(placeType);
       updatePropsPanel();
+      buildPlaceBar();
       drawRoom();
-      toast(`${pt.label} placé`);
+      toast(planItem ? `n°${planItem.mark} ${pt.label} placé` : `${pt.label} placé`);
+      if (planItem && planItem.placed >= planItem.qty) {
+        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+        activeMark = next?.mark ?? null;
+        placeType = next?.type ?? placeType;
+        buildPlaceBar();
+      }
     }
   }
 }
