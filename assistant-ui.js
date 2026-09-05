@@ -18,6 +18,7 @@ import {
   createOpening,
   createPoint,
   createSession,
+  floorPlanRooms,
   formatPlacePlan,
   isCeilingType,
   nearestEdgePoint,
@@ -27,6 +28,7 @@ import {
   polygonEdges,
   pointOnEdge,
   robotReply,
+  roomWorldPolygon,
   setEdgeLength,
   speakFrench,
   strokeToPolygon,
@@ -423,6 +425,7 @@ function applyReply(reply) {
     renderChips(els.actions, reply.actions, [
       "save", "next", "draw:done", "walls:done", "draw:clear", "draw:restart",
       "equip:ok", "room:next", "guide:done", "floor:done", "openings:done",
+      "plan:view", "plan:pdf",
     ]);
   }
 
@@ -454,7 +457,9 @@ function applyReply(reply) {
     if (
       (sketchMode === "draw" && prevMode !== "draw") ||
       (prevMode === "draw" && sketchMode !== "draw") ||
-      sketchMode === "measure"
+      sketchMode === "measure" ||
+      sketchMode === "floor" ||
+      sketchMode === "review"
     ) {
       fitToView();
     } else {
@@ -463,6 +468,9 @@ function applyReply(reply) {
     }
   }
   if (reply.quote) showQuote(reply.quote);
+  if (reply.exportPlanPdf) {
+    setTimeout(() => exportFloorPlanPdf(), 80);
+  }
   if (reply.save) {
     saveDevis();
     return;
@@ -531,15 +539,32 @@ function fitToView() {
   drawRoom();
 }
 
+function isFloorView() {
+  return sketchMode === "floor" || sketchMode === "review";
+}
+
 function getPoly() {
   return session.dimensions?.polygon || [];
 }
 
+function getFloorPolys() {
+  const rooms = floorPlanRooms(session);
+  return rooms.map((r) => ({
+    room: r,
+    poly: roomWorldPolygon(r),
+    active: r.id === session.currentRoomId,
+  })).filter((x) => x.poly.length >= 3);
+}
+
 function computeBaseLayout() {
-  const poly = getPoly();
   const W = els.canvas.width;
   const H = els.canvas.height;
   const pad = 52;
+  let poly = getPoly();
+  if (isFloorView()) {
+    const parts = getFloorPolys().flatMap((x) => x.poly);
+    if (parts.length) poly = parts;
+  }
   // Stable world during freehand draw so adding corners doesn't jump the view
   if (sketchMode === "draw" || !poly.length) {
     const span = 10;
@@ -682,15 +707,19 @@ function showSketchPanel() {
   const d = session.dimensions;
   const modeHints = {
     draw: "1 doigt = dessiner · 2 doigts = zoom/déplacer · Effacer = recommencer",
-    measure: "Tape un mur → pavé numérique (chiffres) · forme conservée",
+    measure: "Tape un mur → pavé numérique (chiffres) · forme redressée",
     openings: "Outils Porte/Fenêtre · tape un mur pour placer",
     arrival: "Place l'arrivée sur un mur",
     points: "Choisis n°1, n°2… puis place · spots = même n° multi-tap",
     "review-shape": "Aperçu de la pièce",
-    review: "Revue finale",
+    review: "Plan d'étage",
+    floor: "Plan d'étage — pièces emboîtées",
     idle: "Croquis",
   };
-  if (d?.polygon?.length >= 3) {
+  if (isFloorView()) {
+    const n = getFloorPolys().length;
+    els.meta.textContent = `Plan d'étage · ${n} pièce${n > 1 ? "s" : ""} · consultable / PDF`;
+  } else if (d?.polygon?.length >= 3) {
     els.meta.textContent = `${session.roomName || "Pièce"} · ${d.width || "—"} × ${d.depth || "—"} × ${d.height || 2.5} m · ${modeHints[sketchMode] || ""}`;
   } else {
     els.meta.textContent = `${session.roomName || "Pièce"} · ${modeHints[sketchMode] || "Croquis"}`;
@@ -868,6 +897,72 @@ bindZoomButton(els.zoomReset, () => {
 
 // ─── Drawing ────────────────────────────────────────────────────────────────
 
+
+function drawFloorPlanRooms(ctx) {
+  const items = getFloorPolys();
+  const colors = ["rgba(62,224,197,0.14)", "rgba(245,166,35,0.14)", "rgba(110,168,254,0.14)", "rgba(232,121,249,0.12)"];
+  items.forEach((item, idx) => {
+    const poly = item.poly;
+    const first = worldToScreen(poly[0].x, poly[0].y);
+    ctx.beginPath();
+    ctx.moveTo(first.sx, first.sy);
+    for (let i = 1; i < poly.length; i++) {
+      const p = worldToScreen(poly[i].x, poly[i].y);
+      ctx.lineTo(p.sx, p.sy);
+    }
+    ctx.closePath();
+    ctx.fillStyle = colors[idx % colors.length];
+    ctx.fill();
+    ctx.strokeStyle = item.active ? "#f5a623" : "rgba(62,224,197,0.85)";
+    ctx.lineWidth = item.active ? 3.5 : 2.5;
+    ctx.stroke();
+    // label
+    let cx = 0, cy = 0;
+    for (const p of poly) { cx += p.x; cy += p.y; }
+    cx /= poly.length; cy /= poly.length;
+    const c = worldToScreen(cx, cy);
+    ctx.fillStyle = "rgba(236,244,255,0.95)";
+    ctx.font = "700 13px Outfit, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(item.room.name || "Pièce", c.sx, c.sy);
+  });
+}
+
+function exportFloorPlanPdf() {
+  try {
+    sketchMode = "floor";
+    fitToView();
+    drawRoom();
+    const data = els.canvas.toDataURL("image/png");
+    const names = (session.rooms || []).filter((r) => r.status === "done").map((r) => r.name).join(", ");
+    const w = window.open("", "_blank", "noopener,noreferrer");
+    if (!w) {
+      toast("Autorise les pop-ups pour le PDF");
+      return;
+    }
+    w.document.write(`<!doctype html><html><head><title>Plan Volt</title>
+      <style>
+        body{font-family:system-ui,sans-serif;margin:24px;color:#111}
+        h1{font-size:18px;margin:0 0 8px}
+        p{margin:0 0 16px;color:#444;font-size:13px}
+        img{max-width:100%;border:1px solid #ddd;border-radius:8px}
+        @media print{button{display:none}}
+      </style></head><body>
+      <h1>Plan électrique Volt</h1>
+      <p>${names || "Plan d'étage"}</p>
+      <img src="${data}" alt="Plan d'étage" />
+      <p style="margin-top:16px"><button onclick="print()">Imprimer / Enregistrer en PDF</button></p>
+      <script>setTimeout(()=>window.print(),400)</script>
+      </body></html>`);
+    w.document.close();
+    toast("Plan prêt à imprimer / PDF");
+  } catch (err) {
+    console.error(err);
+    toast("Impossible d'exporter le PDF");
+  }
+}
+
 function drawRoom() {
   if (!sketchVisible) return;
   showSketchPanel();
@@ -897,7 +992,9 @@ function drawRoom() {
     ctx.stroke();
   }
 
-  if (poly.length >= 1) {
+  if (isFloorView() && getFloorPolys().length) {
+    drawFloorPlanRooms(ctx);
+  } else if (poly.length >= 1) {
     ctx.beginPath();
     const first = worldToScreen(poly[0].x, poly[0].y);
     ctx.moveTo(first.sx, first.sy);
