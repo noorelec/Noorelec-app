@@ -71,11 +71,15 @@
     .tools { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
     .tool { font-size: .76rem; padding: 8px 11px; border-radius: 999px; border: 1px solid var(--stroke); background: transparent; color: var(--muted); cursor: pointer; font-weight: 600; font-family: inherit; min-height: 36px; }
     .tool.active { color: #04201a; background: var(--cyan); border-color: var(--cyan); }
-    .zoom-group { display: flex; gap: 4px; margin-left: auto; }
-    .zoom-btn, .danger-btn {
+    .zoom-group { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; }
+    .zoom-btn, .danger-btn, .edit-btn {
       font-size: .82rem; padding: 8px 11px; border-radius: 10px; border: 1px solid var(--stroke);
-      background: rgba(255,255,255,.04); color: var(--text); cursor: pointer; font-weight: 700; font-family: var(--fd); min-width: 36px; min-height: 36px;
+      background: rgba(255,255,255,.06); color: var(--text); cursor: pointer; font-weight: 700; font-family: var(--fd); min-width: 40px; min-height: 40px;
+      -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none;
     }
+    .zoom-btn:active, .danger-btn:active, .edit-btn:active { background: rgba(62,224,197,.18); }
+    .edit-btn { display: none; color: var(--amber); border-color: rgba(245,166,35,.4); }
+    .edit-btn.on { display: inline-block; }
     .danger-btn { color: #ffb4b4; border-color: rgba(255,120,120,.35); display: none; }
     .danger-btn.on { display: inline-block; }
     .cwrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 280px; position: relative; overflow: hidden; }
@@ -171,9 +175,11 @@
         <div class="sketch-bar" id="sketchBar">
           <div class="tools" id="tools" aria-label="Outils de placement"></div>
           <div class="zoom-group">
-            <button type="button" class="zoom-btn" id="zoomOut" title="Zoom arrière">−</button>
-            <button type="button" class="zoom-btn" id="zoomReset" title="Réinitialiser">⟲</button>
-            <button type="button" class="zoom-btn" id="zoomIn" title="Zoom avant">+</button>
+            <button type="button" class="edit-btn" id="btnUndo" title="Annuler le dernier coin">↶</button>
+            <button type="button" class="edit-btn" id="btnClearDraw" title="Effacer le dessin">Effacer</button>
+            <button type="button" class="zoom-btn" id="zoomOut" title="Zoom arrière" aria-label="Zoom arrière">−</button>
+            <button type="button" class="zoom-btn" id="zoomReset" title="Recadrer" aria-label="Recadrer">⟲</button>
+            <button type="button" class="zoom-btn" id="zoomIn" title="Zoom avant" aria-label="Zoom avant">+</button>
             <button type="button" class="danger-btn" id="btnDelete" title="Supprimer le point">🗑️</button>
           </div>
         </div>
