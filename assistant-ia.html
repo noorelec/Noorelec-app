@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Volt — Assistant devis · DevTech</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg0: #071018; --bg1: #0d1f2d; --panel: rgba(14,34,50,.92);
+      --stroke: rgba(125,211,252,.16); --text: #e7f3fb; --muted: #8aa3b5;
+      --amber: #f5a623; --amber-soft: rgba(245,166,35,.14);
+      --cyan: #3ee0c5; --cyan-soft: rgba(62,224,197,.12);
+      --radius: 18px; --fd: "Outfit", sans-serif; --fb: "IBM Plex Sans", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--fb); color: var(--text); min-height: 100dvh;
+      background:
+        radial-gradient(1100px 520px at 8% -8%, rgba(62,224,197,.13), transparent 55%),
+        radial-gradient(900px 480px at 100% 0%, rgba(245,166,35,.11), transparent 50%),
+        linear-gradient(165deg, var(--bg0), var(--bg1) 55%, #091520);
+    }
+    .shell { max-width: 1280px; margin: 0 auto; padding: 14px; min-height: 100dvh; display: flex; flex-direction: column; gap: 12px; }
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .mark { width: 42px; height: 42px; border-radius: 14px; background: linear-gradient(145deg, var(--cyan), #1a9e8a); display: grid; place-items: center; font-size: 20px; box-shadow: 0 0 22px rgba(62,224,197,.35); }
+    .brand h1 { font-family: var(--fd); font-size: 1.3rem; font-weight: 800; letter-spacing: -.02em; }
+    .brand p { font-size: .78rem; color: var(--muted); }
+    .back { color: var(--text); text-decoration: none; font-weight: 600; font-size: .9rem; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--stroke); background: rgba(255,255,255,.03); }
+    .layout { flex: 1; display: grid; grid-template-columns: 1fr; gap: 12px; min-height: 0; }
+    @media (min-width: 960px) { .layout { grid-template-columns: 1.05fr .95fr; } }
+    .panel { background: var(--panel); border: 1px solid var(--stroke); border-radius: var(--radius); backdrop-filter: blur(12px); overflow: hidden; display: flex; flex-direction: column; min-height: 420px; }
+    .head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--stroke); background: linear-gradient(180deg, rgba(62,224,197,.08), transparent); }
+    .robot { width: 58px; height: 58px; position: relative; flex-shrink: 0; }
+    .ant { position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 3px; height: 9px; background: var(--amber); border-radius: 2px; }
+    .ant::after { content: ""; position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+    .robot.speaking .ant::after { animation: pulse .5s ease-in-out infinite alternate; }
+    .rb { width: 100%; height: 100%; border-radius: 20px; background: linear-gradient(160deg, #243b50, #183246); border: 2px solid rgba(62,224,197,.45); position: relative; overflow: hidden; }
+    .robot.speaking .rb { box-shadow: 0 0 0 3px rgba(245,166,35,.3); animation: bounce .9s ease-in-out infinite; }
+    .face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; }
+    .eyes { display: flex; gap: 11px; }
+    .eye { width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); animation: blink 5s infinite; }
+    .robot.speaking .eye { animation: wink .35s ease-in-out infinite alternate; }
+    .mouth { width: 16px; height: 5px; border-radius: 0 0 9px 9px; border: 2px solid var(--amber); border-top: none; }
+    .robot.speaking .mouth { height: 9px; background: rgba(245,166,35,.25); animation: talk .28s ease-in-out infinite alternate; }
+    .head h2 { font-family: var(--fd); font-size: 1.1rem; }
+    .sub { font-size: .8rem; color: var(--muted); }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--cyan); margin-right: 5px; box-shadow: 0 0 7px var(--cyan); }
+    .mute { margin-left: auto; background: transparent; border: 1px solid var(--stroke); color: var(--muted); border-radius: 10px; padding: 8px 10px; cursor: pointer; font-size: .78rem; font-weight: 600; }
+    .mute.off { color: var(--amber); border-color: var(--amber); background: var(--amber-soft); }
+    .msgs { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .bubble { max-width: 92%; padding: 11px 13px; border-radius: 15px; font-size: .94rem; line-height: 1.45; white-space: pre-wrap; animation: fadeUp .3s ease both; }
+    .bubble.bot { align-self: flex-start; background: rgba(62,224,197,.1); border: 1px solid rgba(62,224,197,.22); border-bottom-left-radius: 4px; }
+    .bubble.user { align-self: flex-end; background: rgba(245,166,35,.13); border: 1px solid rgba(245,166,35,.32); border-bottom-right-radius: 4px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 14px 8px; }
+    .chip { border: 1px solid var(--stroke); background: rgba(255,255,255,.04); color: var(--text); padding: 9px 13px; border-radius: 999px; cursor: pointer; font-size: .86rem; font-weight: 600; font-family: inherit; }
+    .chip:hover { border-color: var(--cyan); background: var(--cyan-soft); }
+    .chip.primary { background: linear-gradient(135deg, var(--amber), #e08a10); border-color: transparent; color: #1a1205; font-weight: 700; }
+    .composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--stroke); background: rgba(0,0,0,.18); }
+    .composer input { flex: 1; border: 1px solid var(--stroke); background: rgba(255,255,255,.04); color: var(--text); border-radius: 13px; padding: 11px 13px; font-size: .94rem; font-family: inherit; outline: none; }
+    .composer input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(62,224,197,.14); }
+    .composer button { border: none; border-radius: 13px; padding: 0 16px; font-weight: 700; font-family: var(--fd); cursor: pointer; background: linear-gradient(135deg, var(--cyan), #1fad97); color: #04201a; }
+    .skh { padding: 13px 15px; border-bottom: 1px solid var(--stroke); }
+    .skh h3 { font-family: var(--fd); font-size: 1.02rem; }
+    .meta { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+    .tools { display: none; flex-wrap: wrap; gap: 6px; padding: 9px 13px; border-bottom: 1px solid var(--stroke); }
+    .tools.on { display: flex; }
+    .tool { font-size: .76rem; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--stroke); background: transparent; color: var(--muted); cursor: pointer; font-weight: 600; font-family: inherit; }
+    .tool.active { color: #04201a; background: var(--cyan); border-color: var(--cyan); }
+    .cwrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 280px; position: relative; }
+    .cwrap.empty::after { content: "Le croquis apparaîtra quand Volt aura les dimensions"; position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 28px; color: var(--muted); font-size: .9rem; line-height: 1.5; }
+    #canvas { width: 100%; max-width: 520px; aspect-ratio: 1; border-radius: 14px; border: 1px solid var(--stroke); cursor: crosshair; touch-action: none; opacity: 0; transform: scale(.96); transition: .4s ease; background: #0a1520; }
+    #canvas.on { opacity: 1; transform: scale(1); }
+    .legend { display: none; padding: 9px 14px 12px; gap: 12px; flex-wrap: wrap; font-size: .76rem; color: var(--muted); border-top: 1px solid var(--stroke); }
+    .legend.on { display: flex; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .sw { width: 9px; height: 9px; border-radius: 50%; }
+    .sw.a { background: var(--amber); box-shadow: 0 0 7px var(--amber); }
+    .sw.o { background: var(--cyan); }
+    .sw.c { background: #7dd3fc; }
+    .quote { display: none; margin: 0 13px 13px; padding: 13px; border-radius: 13px; background: var(--amber-soft); border: 1px solid rgba(245,166,35,.32); font-size: .86rem; line-height: 1.45; }
+    .quote.on { display: block; }
+    .quote strong { font-family: var(--fd); font-size: 1.2rem; color: var(--amber); display: block; margin-top: 4px; }
+    .toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(16px); background: #123; border: 1px solid var(--cyan); color: var(--text); padding: 11px 16px; border-radius: 11px; opacity: 0; pointer-events: none; transition: .28s; z-index: 40; font-weight: 600; }
+    .toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .paywall { display: none; position: fixed; inset: 0; z-index: 50; background: rgba(7,16,24,.92); align-items: center; justify-content: center; padding: 22px; }
+    .paywall-in { background: var(--panel); border: 1px solid var(--stroke); border-radius: 18px; padding: 32px; max-width: 420px; text-align: center; }
+    .paywall-in h2 { font-family: var(--fd); margin-bottom: 8px; }
+    .paywall-in p { color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
+    .paywall-in a { display: inline-block; background: var(--cyan); color: #04201a; padding: 11px 18px; border-radius: 11px; text-decoration: none; font-weight: 700; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes pulse { from { opacity: .45; } to { opacity: 1; } }
+    @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    @keyframes blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+    @keyframes wink { from { transform: scaleY(1); } to { transform: scaleY(.8); } }
+    @keyframes talk { from { height: 5px; } to { height: 11px; } }
+  </style>
+</head>
+<body>
+  <div id="paywall" class="paywall">
+    <div class="paywall-in">
+      <h2 id="pw-title">Accès restreint</h2>
+      <p id="pw-text"></p>
+      <a href="app.html">Retour au tableau de bord</a>
+    </div>
+  </div>
+
+  <div class="shell" id="shell">
+    <header class="top">
+      <div class="brand">
+        <div class="mark" aria-hidden="true">⚡</div>
+        <div>
+          <h1>Volt</h1>
+          <p>Assistant devis · DevTech</p>
+        </div>
+      </div>
+      <a class="back" href="app.html">← Dashboard</a>
+    </header>
+
+    <div class="layout">
+      <section class="panel" aria-label="Conversation">
+        <div class="head">
+          <div class="robot" id="robot" aria-hidden="true">
+            <div class="ant"></div>
+            <div class="rb"><div class="face"><div class="eyes"><span class="eye"></span><span class="eye"></span></div><div class="mouth"></div></div></div>
+          </div>
+          <div>
+            <h2>Volt</h2>
+            <p class="sub"><span class="dot"></span><span id="status">En ligne</span></p>
+          </div>
+          <button type="button" class="mute" id="mute">🔊 Voix</button>
+        </div>
+        <div class="msgs" id="messages" role="log" aria-live="polite"></div>
+        <div class="chips" id="choices"></div>
+        <div class="chips" id="suggestions"></div>
+        <div class="chips" id="actions"></div>
+        <form class="composer" id="composer">
+          <input id="input" type="text" placeholder="Écris à Volt… ex. 4 prises doubles et une taque" autocomplete="off" />
+          <button type="submit">Envoyer</button>
+        </form>
+      </section>
+
+      <section class="panel" aria-label="Croquis">
+        <div class="skh">
+          <h3>Croquis interactif</h3>
+          <p class="meta" id="meta">En attente des dimensions…</p>
+        </div>
+        <div class="tools" id="tools">
+          <button type="button" class="tool active" data-type="prise-simple">Prise</button>
+          <button type="button" class="tool" data-type="prise-double">Double</button>
+          <button type="button" class="tool" data-type="prise-four">Four</button>
+          <button type="button" class="tool" data-type="prise-plaque">Taque</button>
+          <button type="button" class="tool" data-type="interrupteur">Inter</button>
+          <button type="button" class="tool" data-type="eclairage">Lumière</button>
+        </div>
+        <div class="cwrap empty" id="wrap">
+          <canvas id="canvas" width="640" height="640"></canvas>
+        </div>
+        <div class="legend" id="legend">
+          <span><i class="sw a"></i> Arrivée</span>
+          <span><i class="sw o"></i> Points</span>
+          <span><i class="sw c"></i> Câble</span>
+        </div>
+        <div class="quote" id="quote"></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script type="module" src="./assistant-ui.js"></script>
+</body>
+</html>
