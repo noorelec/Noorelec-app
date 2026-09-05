@@ -13,10 +13,12 @@ import {
 import { checkElectricianAccess, paywallMessage } from "./devtech-access.js";
 import {
   buildQuote,
+  createOpening,
   createPoint,
   createSession,
   isCeilingType,
   nearestEdgePoint,
+  OPENING_TOOLS,
   POINT_TOOLS,
   polygonBounds,
   polygonEdges,
@@ -44,6 +46,8 @@ let currentUser = null;
 let session = createSession();
 let sketchMode = "idle";
 let placeType = POINT_TOOLS[0]?.id || "prise-simple";
+let openingTool = "porte"; // porte | fenetre | baie
+let selectedOpeningId = null;
 let selectedPointId = null;
 let voiceOn = true;
 let settings = { tarif: 50, deplacement: 25, tva: 0.06, rebouchage: 18 };
@@ -143,20 +147,51 @@ function boot() {
 
 function buildToolButtons() {
   els.tools.innerHTML = "";
-  POINT_TOOLS.forEach((tool, i) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tool" + (i === 0 ? " active" : "");
-    btn.dataset.type = tool.id;
-    btn.textContent = tool.label;
-    btn.title = tool.ceiling ? "Plafond" : "Mur";
-    btn.addEventListener("click", () => {
-      els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      placeType = tool.id;
+  const showOpenings = sketchMode === "openings" || sketchMode === "points";
+  const showPoints = sketchMode === "points";
+
+  if (showOpenings) {
+    OPENING_TOOLS.forEach((tool) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const openingActive =
+        openingTool === tool.id &&
+        (sketchMode === "openings" || (sketchMode === "points" && !placeType));
+      btn.className = "tool" + (openingActive ? " active" : "");
+      btn.textContent = tool.label;
+      btn.title = tool.label;
+      btn.addEventListener("click", () => {
+        openingTool = tool.id;
+        if (sketchMode !== "openings" && sketchMode !== "points") return;
+        // In points mode, switch to placing openings until next electrical tool click
+        placeType = null;
+        selectedPointId = null;
+        updatePropsPanel();
+        els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        toast(`${tool.label} — tape un mur`);
+      });
+      els.tools.appendChild(btn);
     });
-    els.tools.appendChild(btn);
-  });
+  }
+
+  if (showPoints) {
+    POINT_TOOLS.forEach((tool) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const active = placeType === tool.id;
+      btn.className = "tool" + (active ? " active" : "");
+      btn.textContent = tool.label;
+      btn.title = tool.ceiling ? "Plafond" : "Mur";
+      btn.addEventListener("click", () => {
+        placeType = tool.id;
+        selectedOpeningId = null;
+        els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+      els.tools.appendChild(btn);
+    });
+  }
 }
 
 // ─── Chat ───────────────────────────────────────────────────────────────────
@@ -202,6 +237,8 @@ function applyReply(reply) {
   if (reply.showSketch) {
     const prevMode = sketchMode;
     sketchMode = reply.sketchMode || "idle";
+    if (reply.activeOpeningTool) openingTool = reply.activeOpeningTool;
+    if (sketchMode === "openings" || sketchMode === "points") buildToolButtons();
     sketchVisible = true;
     if (
       (sketchMode === "draw" && prevMode !== "draw") ||
@@ -435,8 +472,9 @@ function showSketchPanel() {
   const modeHints = {
     draw: "1 doigt = dessiner · 2 doigts = zoom/déplacer · Effacer = recommencer",
     measure: "Tape un mur → envoie la longueur · la forme est conservée",
+    openings: "Outils Porte/Fenêtre · tape un mur pour placer",
     arrival: "Place l'arrivée sur un mur",
-    points: "Place les points · glisser pour déplacer",
+    points: "Place prises/inters · portes déjà sur le plan",
     "review-shape": "Aperçu de la pièce",
     review: "Revue finale",
     idle: "Croquis",
@@ -447,12 +485,12 @@ function showSketchPanel() {
     els.meta.textContent = `${session.roomName || "Pièce"} · ${modeHints[sketchMode] || "Croquis"}`;
   }
 
-  const showTools = sketchMode === "points";
+  const showTools = sketchMode === "points" || sketchMode === "openings";
   const showDrawEdit = sketchMode === "draw" || sketchMode === "measure";
   els.tools.style.display = showTools ? "flex" : "none";
+  if (showTools) buildToolButtons();
   els.btnUndo.classList.toggle("on", sketchMode === "draw");
   els.btnClearDraw.classList.toggle("on", showDrawEdit);
-  els.btnDelete.classList.toggle("on", showTools && !!selectedPointId);
   if (els.btnClearDraw) els.btnClearDraw.textContent = sketchMode === "measure" ? "Recommencer" : "Effacer";
   updatePropsPanel();
 }
@@ -466,9 +504,14 @@ function showQuote(quote) {
 
 function updatePropsPanel() {
   const p = session.placements.find((x) => x.id === selectedPointId);
-  const show = sketchMode === "points" && p;
-  els.props.classList.toggle("on", show);
-  els.btnDelete.classList.toggle("on", show);
+  const o = (session.openings || []).find((x) => x.id === selectedOpeningId);
+  const showPoint = sketchMode === "points" && p;
+  const showDelete =
+    !!(p && (sketchMode === "points")) ||
+    !!(o && (sketchMode === "openings" || sketchMode === "points"));
+  els.props.classList.toggle("on", !!showPoint);
+  els.btnDelete.classList.toggle("on", showDelete);
+  els.btnDelete.title = o && !p ? "Supprimer l'ouverture" : "Supprimer le point";
   if (!p) return;
   els.chkExisting.checked = !!p.existing;
   els.chkSaignee.checked = p.saignee === true;
@@ -501,6 +544,14 @@ els.chkBlochet.addEventListener("change", () => {
 els.btnDelete.addEventListener("click", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  if (selectedOpeningId && session.openings?.some((o) => o.id === selectedOpeningId)) {
+    session.openings = session.openings.filter((o) => o.id !== selectedOpeningId);
+    selectedOpeningId = null;
+    updatePropsPanel();
+    drawRoom();
+    toast("Ouverture supprimée");
+    return;
+  }
   const p = selectedPoint();
   if (!p) return;
   session.placements = session.placements.filter((x) => x.id !== p.id);
@@ -508,6 +559,29 @@ els.btnDelete.addEventListener("click", (e) => {
   updatePropsPanel();
   drawRoom();
   toast("Point supprimé");
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Backspace" && e.key !== "Delete") return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (selectedOpeningId && session.openings?.some((o) => o.id === selectedOpeningId)) {
+    e.preventDefault();
+    session.openings = session.openings.filter((o) => o.id !== selectedOpeningId);
+    selectedOpeningId = null;
+    updatePropsPanel();
+    drawRoom();
+    toast("Ouverture supprimée");
+    return;
+  }
+  if (selectedPointId && session.placements.some((p) => p.id === selectedPointId)) {
+    e.preventDefault();
+    session.placements = session.placements.filter((p) => p.id !== selectedPointId);
+    selectedPointId = null;
+    updatePropsPanel();
+    drawRoom();
+    toast("Point supprimé");
+  }
 });
 
 function undoLastCorner() {
@@ -695,6 +769,8 @@ function drawRoom() {
     drawArrival(a.sx, a.sy);
   }
 
+  drawOpenings(poly);
+
   session.placements.forEach((p, i) => {
     const c = worldToScreen(p.x, p.y);
     const sel = p.id === selectedPointId;
@@ -727,10 +803,84 @@ function drawRoom() {
   const hints = {
     draw: "Glisse = tracer la pièce · 2 doigts = zoom · Effacer = recommencer",
     measure: "Tape un mur · envoie la longueur · la forme reste correcte",
+    openings: "Porte / Fenêtre / Baie · tape le mur pour l’ouvrir",
     arrival: "Tape un mur pour l'arrivée électrique",
-    points: "Tape pour placer · glisse un point pour le bouger",
+    points: "Place prises & va-et-vient · idéalement à côté des portes",
   };
   if (hints[sketchMode]) ctx.fillText(hints[sketchMode], W / 2, 22);
+}
+
+
+function drawOpenings(poly) {
+  if (!session.openings?.length || !poly?.length) return;
+  const edges = polygonEdges(poly);
+  for (const o of session.openings) {
+    const edge = edges[o.edgeIndex];
+    if (!edge) continue;
+    const mid = pointOnEdge(edge, o.t ?? 0.5);
+    const dx = edge.b.x - edge.a.x;
+    const dy = edge.b.y - edge.a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const px = -uy; // outward-ish normal
+    const py = ux;
+    const half = Math.min(o.width || 0.9, len * 0.45) / 2;
+    const a = { x: mid.x - ux * half, y: mid.y - uy * half };
+    const b = { x: mid.x + ux * half, y: mid.y + uy * half };
+    const sa = worldToScreen(a.x, a.y);
+    const sb = worldToScreen(b.x, b.y);
+    const sm = worldToScreen(mid.x, mid.y);
+    ctx.save();
+    if (o.kind === "door") {
+      // gap in wall + swing arc
+      ctx.strokeStyle = "#f5a623";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(sa.sx, sa.sy);
+      ctx.lineTo(sb.sx, sb.sy);
+      ctx.stroke();
+      const swing = worldToScreen(mid.x + px * (o.width || 0.9) * 0.7, mid.y + py * (o.width || 0.9) * 0.7);
+      ctx.strokeStyle = "rgba(245,166,35,0.7)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(sa.sx, sa.sy);
+      ctx.lineTo(swing.sx, swing.sy);
+      ctx.arc(sa.sx, sa.sy, Math.hypot(sb.sx - sa.sx, sb.sy - sa.sy), 0, Math.PI / 2, false);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#f5a623";
+      ctx.font = "700 11px Outfit, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Porte", sm.sx, sm.sy - 14);
+    } else {
+      // window / bay: double line
+      ctx.strokeStyle = "#7dd3fc";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sa.sx, sa.sy);
+      ctx.lineTo(sb.sx, sb.sy);
+      ctx.stroke();
+      const o1 = worldToScreen(a.x + px * 0.08, a.y + py * 0.08);
+      const o2 = worldToScreen(b.x + px * 0.08, b.y + py * 0.08);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(o1.sx, o1.sy);
+      ctx.lineTo(o2.sx, o2.sy);
+      ctx.stroke();
+      ctx.fillStyle = "#7dd3fc";
+      ctx.font = "700 11px Outfit, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(o.kind === "bay" ? "Baie" : "Fenêtre", sm.sx, sm.sy - 14);
+    }
+    if (o.id === selectedOpeningId) {
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sm.sx - 18, sm.sy - 18, 36, 36);
+    }
+    ctx.restore();
+  }
 }
 
 function drawCable(from, to, pathMode) {
@@ -842,6 +992,29 @@ function handleCanvasClick(mx, my) {
     return;
   }
 
+  if (sketchMode === "openings") {
+    const hitOpen = findOpeningAt(x, y, poly);
+    if (hitOpen) {
+      selectedOpeningId = hitOpen.id;
+      selectedPointId = null;
+      updatePropsPanel();
+      drawRoom();
+      toast(`${hitOpen.label} — Suppr pour enlever`);
+      return;
+    }
+    const hit = nearestEdgePoint(poly, x, y);
+    if (!hit) return;
+    const tool = OPENING_TOOLS.find((o) => o.id === openingTool) || OPENING_TOOLS[0];
+    const o = createOpening(tool.id, hit.edgeIndex, hit.t, { width: tool.defaultWidth });
+    if (!session.openings) session.openings = [];
+    session.openings.push(o);
+    selectedOpeningId = o.id;
+    updatePropsPanel();
+    drawRoom();
+    toast(`${o.label} placée sur le mur ${hit.edgeIndex + 1}`);
+    return;
+  }
+
   if (sketchMode === "arrival") {
     const hit = nearestEdgePoint(poly, x, y);
     if (!hit) return;
@@ -852,11 +1025,41 @@ function handleCanvasClick(mx, my) {
   }
 
   if (sketchMode === "points") {
+    const hitOpen = findOpeningAt(x, y, poly);
+    if (hitOpen && !placeType) {
+      selectedOpeningId = hitOpen.id;
+      selectedPointId = null;
+      drawRoom();
+      return;
+    }
+
+    // Place opening if an opening tool is active (placeType null)
+    if (!placeType && openingTool) {
+      const hit = nearestEdgePoint(poly, x, y);
+      if (hit) {
+        const tool = OPENING_TOOLS.find((o) => o.id === openingTool) || OPENING_TOOLS[0];
+        const o = createOpening(tool.id, hit.edgeIndex, hit.t, { width: tool.defaultWidth });
+        if (!session.openings) session.openings = [];
+        session.openings.push(o);
+        selectedOpeningId = o.id;
+        updatePropsPanel();
+        drawRoom();
+        toast(`${o.label} placée`);
+        return;
+      }
+    }
+
     const existing = findPointAt(x, y);
     if (existing) {
       selectedPointId = existing.id;
+      selectedOpeningId = null;
       updatePropsPanel();
       drawRoom();
+      return;
+    }
+
+    if (!placeType) {
+      toast("Choisis un outil (prise, va-et-vient, porte…)");
       return;
     }
 
@@ -884,6 +1087,21 @@ function handleCanvasClick(mx, my) {
       toast(`${pt.label} placé`);
     }
   }
+}
+
+
+function findOpeningAt(x, y, poly) {
+  if (!session.openings?.length) return null;
+  const edges = polygonEdges(poly);
+  let best = null;
+  for (const o of session.openings) {
+    const edge = edges[o.edgeIndex];
+    if (!edge) continue;
+    const mid = pointOnEdge(edge, o.t ?? 0.5);
+    const d = Math.hypot(mid.x - x, mid.y - y);
+    if (d < 0.45 && (!best || d < best.d)) best = { o, d };
+  }
+  return best?.o || null;
 }
 
 function syncEquipmentQty(type) {
