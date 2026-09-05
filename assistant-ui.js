@@ -23,6 +23,7 @@ import {
   pointOnEdge,
   robotReply,
   speakFrench,
+  strokeToPolygon,
 } from "./assistant-core.js";
 
 const firebaseConfig = {
@@ -58,6 +59,10 @@ const pointers = new Map();
 let gesture = null; // { type: 'pan'|'pinch'|'drag'|'tap', ... }
 const TAP_MOVE_PX = 12;
 let suppressClickUntil = 0;
+let freehandStroke = null; // [{x,y}] world points while drawing
+let lastTapTs = 0;
+let lastTapMx = 0;
+let lastTapMy = 0;
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -192,7 +197,7 @@ function applyReply(reply) {
   }
   if (reply.choices) renderChips(els.choices, reply.choices);
   if (reply.suggestions) renderChips(els.suggestions, reply.suggestions);
-  if (reply.actions) renderChips(els.actions, reply.actions, ["save", "next", "draw:done", "walls:done"]);
+  if (reply.actions) renderChips(els.actions, reply.actions, ["save", "next", "draw:done", "walls:done", "draw:clear", "draw:restart"]);
 
   if (reply.showSketch) {
     const prevMode = sketchMode;
@@ -200,7 +205,8 @@ function applyReply(reply) {
     sketchVisible = true;
     if (
       (sketchMode === "draw" && prevMode !== "draw") ||
-      (prevMode === "draw" && sketchMode !== "draw")
+      (prevMode === "draw" && sketchMode !== "draw") ||
+      sketchMode === "measure"
     ) {
       fitToView();
     } else {
@@ -427,8 +433,8 @@ function showSketchPanel() {
 
   const d = session.dimensions;
   const modeHints = {
-    draw: "Tape un coin · glisse = déplacer · pince = zoomer",
-    measure: "Mode cotes — tape un mur puis saisis la longueur",
+    draw: "1 doigt = dessiner · 2 doigts = zoom/déplacer · Effacer = recommencer",
+    measure: "Tape un mur → envoie la longueur · la forme est conservée",
     arrival: "Place l'arrivée sur un mur",
     points: "Place les points · glisser pour déplacer",
     "review-shape": "Aperçu de la pièce",
@@ -442,11 +448,12 @@ function showSketchPanel() {
   }
 
   const showTools = sketchMode === "points";
-  const showDrawEdit = sketchMode === "draw";
+  const showDrawEdit = sketchMode === "draw" || sketchMode === "measure";
   els.tools.style.display = showTools ? "flex" : "none";
-  els.btnUndo.classList.toggle("on", showDrawEdit);
+  els.btnUndo.classList.toggle("on", sketchMode === "draw");
   els.btnClearDraw.classList.toggle("on", showDrawEdit);
   els.btnDelete.classList.toggle("on", showTools && !!selectedPointId);
+  if (els.btnClearDraw) els.btnClearDraw.textContent = sketchMode === "measure" ? "Recommencer" : "Effacer";
   updatePropsPanel();
 }
 
@@ -504,20 +511,33 @@ els.btnDelete.addEventListener("click", (e) => {
 });
 
 function undoLastCorner() {
+  freehandStroke = null;
   const poly = session.dimensions?.polygon;
   if (!poly?.length) {
     toast("Rien à annuler");
     return;
   }
-  poly.pop();
+  // Freehand = one whole shape: undo clears it
+  session.dimensions.polygon = [];
+  session.dimensions.templatePolygon = null;
+  session.dimensions.edgeLengths = null;
   fitToView();
-  toast(poly.length ? `Coin annulé (${poly.length} restant${poly.length > 1 ? "s" : ""})` : "Dessin vide");
+  toast("Dessin annulé");
 }
 
 function clearDrawing() {
-  if (session.dimensions) session.dimensions.polygon = [];
+  freehandStroke = null;
+  if (sketchMode === "measure") {
+    handleUser("Recommencer le dessin", "draw:restart");
+    return;
+  }
+  if (session.dimensions) {
+    session.dimensions.polygon = [];
+    session.dimensions.templatePolygon = null;
+    session.dimensions.edgeLengths = null;
+  }
   fitToView();
-  toast("Dessin effacé");
+  toast("Dessin effacé — tu peux redessiner");
 }
 
 els.btnUndo.addEventListener("click", (e) => {
@@ -532,20 +552,31 @@ els.btnClearDraw.addEventListener("click", (e) => {
 });
 
 function bindZoomButton(el, fn) {
-  el.addEventListener("click", (ev) => {
+  if (!el) return;
+  const run = (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
     fn();
+  };
+  el.addEventListener("pointerdown", (ev) => {
+    if (ev.pointerType === "touch") run(ev);
   });
+  el.addEventListener("click", run);
 }
 
 bindZoomButton(els.zoomIn, () => {
-  zoomAt(1.25, els.canvas.width / 2, els.canvas.height / 2);
+  zoomAt(1.35, els.canvas.width / 2, els.canvas.height / 2);
+  toast("Zoom +");
 });
 bindZoomButton(els.zoomOut, () => {
-  zoomAt(1 / 1.25, els.canvas.width / 2, els.canvas.height / 2);
+  zoomAt(1 / 1.35, els.canvas.width / 2, els.canvas.height / 2);
+  toast("Zoom −");
 });
 bindZoomButton(els.zoomReset, () => {
+  if (sketchMode === "draw") {
+    clearDrawing();
+    return;
+  }
   fitToView();
   toast("Vue recadrée");
 });
@@ -633,9 +664,10 @@ function drawRoom() {
       edges.forEach((e) => {
         const mid = pointOnEdge(e, 0.5);
         const c = worldToScreen(mid.x, mid.y);
-        const len = e.length;
+        const target = session.dimensions?.edgeLengths?.[e.i];
+        const len = target > 0 ? target : e.length;
         if (len < 0.05) return;
-        const label = `${len.toFixed(2)} m`;
+        const label = target > 0 ? `${len.toFixed(2)} m ✓` : `${len.toFixed(2)} m`;
         if (session._selectedEdge === e.i) {
           const a = worldToScreen(e.a.x, e.a.y);
           const b = worldToScreen(e.b.x, e.b.y);
@@ -676,9 +708,25 @@ function drawRoom() {
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(139,163,181,0.9)";
   ctx.font = "500 13px IBM Plex Sans, sans-serif";
+  // Live freehand stroke
+  if (freehandStroke && freehandStroke.length >= 2) {
+    ctx.beginPath();
+    const s0 = worldToScreen(freehandStroke[0].x, freehandStroke[0].y);
+    ctx.moveTo(s0.sx, s0.sy);
+    for (let i = 1; i < freehandStroke.length; i++) {
+      const s = worldToScreen(freehandStroke[i].x, freehandStroke[i].y);
+      ctx.lineTo(s.sx, s.sy);
+    }
+    ctx.strokeStyle = "#f5a623";
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   const hints = {
-    draw: "Tape = coin · Glisse = déplacer · Pince = zoom · ↶ annule",
-    measure: "Tape un mur puis saisis sa longueur dans le chat",
+    draw: "Glisse = tracer la pièce · 2 doigts = zoom · Effacer = recommencer",
+    measure: "Tape un mur · envoie la longueur · la forme reste correcte",
     arrival: "Tape un mur pour l'arrivée électrique",
     points: "Tape pour placer · glisse un point pour le bouger",
   };
@@ -777,12 +825,8 @@ function handleCanvasClick(mx, my) {
   const poly = getPoly();
 
   if (sketchMode === "draw") {
-    if (!session.dimensions) {
-      session.dimensions = { width: 0, depth: 0, height: 2.5, polygon: [], source: "drawn", chimney: null };
-    }
-    session.dimensions.polygon.push({ x: round3(x), y: round3(y) });
-    drawRoom();
-    toast(`Coin ${session.dimensions.polygon.length} placé`);
+    // Drawing is freehand (drag). A tap alone does nothing.
+    toast("Glisse le doigt pour tracer la pièce d’un trait");
     return;
   }
 
@@ -877,33 +921,38 @@ function round3(n) {
   return Math.round(n * 1000) / 1000;
 }
 
-// ─── Pointer / touch (smartphone: tap, pan, pinch) ───────────────────────────
+// ─── Pointer / touch (freehand draw + stable pinch/pan) ───────────────────────
 
 function pointerList() {
   return [...pointers.values()];
 }
 
-function beginPan(p) {
-  gesture = {
-    type: "pan",
-    startMx: p.mx,
-    startMy: p.my,
-    panX: viewPanX,
-    panY: viewPanY,
-  };
-  els.canvas.classList.add("panning", "active");
-}
-
-function beginPinch(a, b) {
-  const dx = b.mx - a.mx;
-  const dy = b.my - a.my;
-  gesture = {
-    type: "pinch",
-    dist: Math.hypot(dx, dy) || 1,
-    midX: (a.mx + b.mx) / 2,
-    midY: (a.my + b.my) / 2,
-  };
-  els.canvas.classList.add("panning", "active");
+function finishFreehand() {
+  if (!freehandStroke || freehandStroke.length < 6) {
+    freehandStroke = null;
+    drawRoom();
+    toast("Trait trop court — redessine la pièce d’un geste continu");
+    return;
+  }
+  const poly = strokeToPolygon(freehandStroke);
+  freehandStroke = null;
+  if (!poly.length) {
+    toast("Forme illisible — réessaie plus lentement, en fermant le contour");
+    drawRoom();
+    return;
+  }
+  if (!session.dimensions) {
+    session.dimensions = {
+      width: 0, depth: 0, height: 2.5,
+      polygon: [], templatePolygon: null, edgeLengths: null,
+      source: "drawn", chimney: null,
+    };
+  }
+  session.dimensions.polygon = poly;
+  session.dimensions.templatePolygon = null;
+  session.dimensions.edgeLengths = null;
+  fitToView();
+  toast(`Contour capturé (${poly.length} coins) — appuie sur Terminer le contour`);
 }
 
 function onCanvasPointerDown(e) {
@@ -912,28 +961,34 @@ function onCanvasPointerDown(e) {
 
   const { mx, my } = canvasCoords(e.clientX, e.clientY);
   pointers.set(e.pointerId, { id: e.pointerId, mx, my, cx: e.clientX, cy: e.clientY });
-  try {
-    els.canvas.setPointerCapture(e.pointerId);
-  } catch {
-    /* ignore */
-  }
+  try { els.canvas.setPointerCapture(e.pointerId); } catch { /* ignore */ }
 
   const pts = pointerList();
+
+  // Two fingers: cancel freehand, prepare pinch (no move until armed)
   if (pts.length >= 2) {
+    freehandStroke = null;
     dragPoint = null;
-    beginPinch(pts[0], pts[1]);
+    const [a, b] = pts;
+    gesture = {
+      type: "pinch",
+      dist: Math.hypot(b.mx - a.mx, b.my - a.my) || 1,
+      midX: (a.mx + b.mx) / 2,
+      midY: (a.my + b.my) / 2,
+      armed: false,
+    };
+    els.canvas.classList.add("panning", "active");
     e.preventDefault();
     return;
   }
 
-  // Middle mouse = pan
   if (e.pointerType === "mouse" && e.button === 1) {
-    beginPan(pts[0]);
+    gesture = { type: "pan", startMx: mx, startMy: my, panX: viewPanX, panY: viewPanY, moved: true };
+    els.canvas.classList.add("panning", "active");
     e.preventDefault();
     return;
   }
 
-  // Drag electrical point
   if (sketchMode === "points") {
     const { x, y } = screenToWorld(mx, my);
     const hit = findPointAt(x, y);
@@ -948,15 +1003,27 @@ function onCanvasPointerDown(e) {
     }
   }
 
-  // Pending tap-or-pan (1 finger / left click)
+  // Draw mode: one finger starts freehand stroke
+  if (sketchMode === "draw") {
+    const { x, y } = screenToWorld(mx, my);
+    freehandStroke = [{ x, y }];
+    gesture = {
+      type: "draw",
+      startMx: mx, startMy: my,
+      startCx: e.clientX, startCy: e.clientY,
+      moved: false,
+    };
+    drawRoom();
+    e.preventDefault();
+    return;
+  }
+
+  // Other modes: tap or pan
   gesture = {
     type: "tap",
-    startMx: mx,
-    startMy: my,
-    startCx: e.clientX,
-    startCy: e.clientY,
-    panX: viewPanX,
-    panY: viewPanY,
+    startMx: mx, startMy: my,
+    startCx: e.clientX, startCy: e.clientY,
+    panX: viewPanX, panY: viewPanY,
     moved: false,
   };
   e.preventDefault();
@@ -966,7 +1033,6 @@ function onCanvasPointerMove(e) {
   if (!pointers.has(e.pointerId)) return;
   const { mx, my } = canvasCoords(e.clientX, e.clientY);
   pointers.set(e.pointerId, { id: e.pointerId, mx, my, cx: e.clientX, cy: e.clientY });
-
   const pts = pointerList();
 
   if (pts.length >= 2) {
@@ -975,16 +1041,42 @@ function onCanvasPointerMove(e) {
     const midX = (a.mx + b.mx) / 2;
     const midY = (a.my + b.my) / 2;
     if (!gesture || gesture.type !== "pinch") {
-      beginPinch(a, b);
-    } else {
-      const factor = dist / (gesture.dist || 1);
-      // Pan with the pinch midpoint (finger direction = content direction)
-      viewPanX += midX - gesture.midX;
-      viewPanY += midY - gesture.midY;
-      zoomAt(factor, midX, midY);
-      gesture.dist = dist;
-      gesture.midX = midX;
-      gesture.midY = midY;
+      gesture = { type: "pinch", dist, midX, midY, armed: false };
+      e.preventDefault();
+      return;
+    }
+    // Ignore finger-down jump: wait until real movement
+    if (!gesture.armed) {
+      const midJump = Math.hypot(midX - gesture.midX, midY - gesture.midY);
+      const distJump = Math.abs(dist - gesture.dist);
+      if (midJump > 16 || distJump > 14) {
+        gesture.armed = true;
+        gesture.dist = dist;
+        gesture.midX = midX;
+        gesture.midY = midY;
+      }
+      e.preventDefault();
+      return;
+    }
+    const factor = dist / (gesture.dist || 1);
+    viewPanX += midX - gesture.midX;
+    viewPanY += midY - gesture.midY;
+    zoomAt(factor, midX, midY);
+    gesture.dist = dist;
+    gesture.midX = midX;
+    gesture.midY = midY;
+    e.preventDefault();
+    return;
+  }
+
+  if (gesture?.type === "draw" && freehandStroke) {
+    const clientDist = Math.hypot(e.clientX - gesture.startCx, e.clientY - gesture.startCy);
+    if (clientDist > 4) gesture.moved = true;
+    const { x, y } = screenToWorld(mx, my);
+    const last = freehandStroke[freehandStroke.length - 1];
+    if (!last || Math.hypot(x - last.x, y - last.y) > 0.03) {
+      freehandStroke.push({ x, y });
+      drawRoom();
     }
     e.preventDefault();
     return;
@@ -1002,14 +1094,16 @@ function onCanvasPointerMove(e) {
   if (gesture?.type === "pan" || gesture?.type === "tap") {
     const dx = mx - gesture.startMx;
     const dy = my - gesture.startMy;
-    const clientDist = Math.hypot(e.clientX - (gesture.startCx ?? e.clientX), e.clientY - (gesture.startCy ?? e.clientY));
+    const clientDist = Math.hypot(
+      e.clientX - (gesture.startCx ?? e.clientX),
+      e.clientY - (gesture.startCy ?? e.clientY)
+    );
     if (gesture.type === "tap" && clientDist > TAP_MOVE_PX) {
       gesture.type = "pan";
       gesture.moved = true;
       els.canvas.classList.add("panning", "active");
     }
     if (gesture.type === "pan") {
-      // Content follows the finger (grab / map style)
       viewPanX = gesture.panX + dx;
       viewPanY = gesture.panY + dy;
       drawRoom();
@@ -1022,29 +1116,50 @@ function onCanvasPointerUp(e) {
   if (!pointers.has(e.pointerId)) return;
   const was = gesture;
   pointers.delete(e.pointerId);
-
-  try {
-    els.canvas.releasePointerCapture(e.pointerId);
-  } catch {
-    /* ignore */
-  }
+  try { els.canvas.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
 
   if (pointers.size >= 2) {
     const pts = pointerList();
-    beginPinch(pts[0], pts[1]);
+    const [a, b] = pts;
+    gesture = {
+      type: "pinch",
+      dist: Math.hypot(b.mx - a.mx, b.my - a.my) || 1,
+      midX: (a.mx + b.mx) / 2,
+      midY: (a.my + b.my) / 2,
+      armed: false,
+    };
     return;
   }
 
+  // End of pinch: remaining finger must NOT keep panning (prevents drift)
   if (pointers.size === 1) {
-    // End of pinch → continue as pan with remaining finger
-    const p = pointerList()[0];
-    beginPan(p);
     dragPoint = null;
+    freehandStroke = null;
+    const p = pointerList()[0];
+    gesture = {
+      type: "tap",
+      startMx: p.mx, startMy: p.my,
+      startCx: p.cx, startCy: p.cy,
+      panX: viewPanX, panY: viewPanY,
+      moved: false,
+    };
+    els.canvas.classList.remove("panning", "active");
     return;
   }
 
-  // All pointers up
   els.canvas.classList.remove("panning", "active");
+
+  if (was?.type === "draw") {
+    if (was.moved) finishFreehand();
+    else {
+      freehandStroke = null;
+      toast("Glisse le doigt pour tracer la pièce d’un trait");
+      drawRoom();
+    }
+    gesture = null;
+    suppressClickUntil = performance.now() + 450;
+    return;
+  }
 
   if (was?.type === "drag") {
     dragPoint = null;
@@ -1053,8 +1168,26 @@ function onCanvasPointerUp(e) {
     return;
   }
 
+  if (was?.type === "pinch") {
+    gesture = null;
+    suppressClickUntil = performance.now() + 400;
+    return;
+  }
+
   if (was?.type === "tap" && !was.moved) {
-    handleCanvasClick(was.startMx, was.startMy);
+    // Double-tap = zoom in (one-finger zoom)
+    const now = performance.now();
+    const near = Math.hypot(was.startMx - lastTapMx, was.startMy - lastTapMy) < 40;
+    if (now - lastTapTs < 320 && near) {
+      zoomAt(1.4, was.startMx, was.startMy);
+      toast("Zoom + (double tap)");
+      lastTapTs = 0;
+    } else {
+      lastTapTs = now;
+      lastTapMx = was.startMx;
+      lastTapMy = was.startMy;
+      handleCanvasClick(was.startMx, was.startMy);
+    }
     suppressClickUntil = performance.now() + 400;
   }
 
@@ -1066,8 +1199,10 @@ function onCanvasPointerCancel(e) {
   pointers.delete(e.pointerId);
   if (pointers.size === 0) {
     dragPoint = null;
+    freehandStroke = null;
     gesture = null;
     els.canvas.classList.remove("panning", "active");
+    drawRoom();
   }
 }
 
@@ -1075,17 +1210,15 @@ els.canvas.addEventListener("pointerdown", onCanvasPointerDown);
 els.canvas.addEventListener("pointermove", onCanvasPointerMove);
 els.canvas.addEventListener("pointerup", onCanvasPointerUp);
 els.canvas.addEventListener("pointercancel", onCanvasPointerCancel);
-els.canvas.addEventListener("lostpointercapture", onCanvasPointerCancel);
+els.canvas.addEventListener("lostpointercapture", (e) => {
+  if (pointers.has(e.pointerId)) onCanvasPointerCancel(e);
+});
 
-// Ignore legacy click after touch (prevents double corners on mobile)
 els.canvas.addEventListener("click", (e) => {
   if (performance.now() < suppressClickUntil) {
     e.preventDefault();
     e.stopPropagation();
-    return;
   }
-  // Mouse fallback if pointer events somehow skipped tap
-  if (e.pointerType && e.pointerType !== "mouse") return;
 });
 
 els.canvas.addEventListener("wheel", (e) => {
