@@ -951,24 +951,74 @@ export function finalizeDrawnPolygon(dimensions) {
 }
 
 /**
- * Rebuild polygon from template edge directions + target lengths.
- * Preserves chimney notches / angles from the freehand sketch.
+ * Snap near-cardinal edge directions to exact H/V (house plans).
+ * A freehand "almost square" becomes a real square once cotes are set.
+ */
+function snapDirOrtho(dx, dy, tolDeg = 28) {
+  const len = Math.hypot(dx, dy) || 1;
+  let ang = Math.atan2(dy, dx);
+  const snap = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
+  const tol = (tolDeg * Math.PI) / 180;
+  if (Math.abs(angleDiff(ang, snap)) <= tol) {
+    return { x: Math.cos(snap), y: Math.sin(snap), ang: snap, ortho: true };
+  }
+  return { x: dx / len, y: dy / len, ang, ortho: false };
+}
+
+/**
+ * Rebuild polygon from template directions + target lengths.
+ * Near-orthogonal freehand sketches are snapped to true right angles so
+ * 4× 5 m becomes a real square (not a skewed rhombus).
  */
 export function rebuildPolygonFromTemplate(dimensions) {
   const template = dimensions.templatePolygon || dimensions.polygon;
   if (!template || template.length < 3) return;
   const n = template.length;
   const dirs = [];
+  const lens = [];
+  let allOrtho = true;
   for (let i = 0; i < n; i++) {
     const a = template[i];
     const b = template[(i + 1) % n];
-    const d = dist(a, b) || 1;
-    dirs.push({ x: (b.x - a.x) / d, y: (b.y - a.y) / d });
-  }
-  const lens = [];
-  for (let i = 0; i < n; i++) {
+    const d0 = dist(a, b) || 1;
+    const snapped = snapDirOrtho(b.x - a.x, b.y - a.y);
+    dirs.push(snapped);
+    if (!snapped.ortho) allOrtho = false;
     const L = dimensions.edgeLengths?.[i];
-    lens.push(L > 0 ? L : dist(template[i], template[(i + 1) % n]));
+    lens.push(L > 0 ? L : d0);
+  }
+
+  // Clean rectangle: only when all 4 cotes are set (avoid averaging too early)
+  const allCotesSet = (dimensions.edgeLengths || []).length === n
+    && (dimensions.edgeLengths || []).every((L) => L > 0);
+  if (n === 4 && allOrtho && allCotesSet) {
+    const a0 = dirs[0].ang;
+    const a1 = dirs[1].ang;
+    const turn = angleDiff(a1, a0);
+    // Expect ~±90° turns
+    if (Math.abs(Math.abs(turn) - Math.PI / 2) < 0.2) {
+      // Prefer each entered length; opposite walls should match — use average
+      const w = round2((lens[0] + lens[2]) / 2);
+      const d = round2((lens[1] + lens[3]) / 2);
+      const x0 = template[0].x;
+      const y0 = template[0].y;
+      const ux = dirs[0].x;
+      const uy = dirs[0].y;
+      const vx = dirs[1].x;
+      const vy = dirs[1].y;
+      const out = [
+        { x: round2(x0), y: round2(y0) },
+        { x: round2(x0 + ux * w), y: round2(y0 + uy * w) },
+        { x: round2(x0 + ux * w + vx * d), y: round2(y0 + uy * w + vy * d) },
+        { x: round2(x0 + vx * d), y: round2(y0 + vy * d) },
+      ];
+      dimensions.polygon = out;
+      dimensions.templatePolygon = out.map((p) => ({ x: p.x, y: p.y }));
+      dimensions.edgeLengths = [w, d, w, d];
+      dimensions.width = w;
+      dimensions.depth = d;
+      return;
+    }
   }
 
   let x = template[0].x;
@@ -990,12 +1040,16 @@ export function rebuildPolygonFromTemplate(dimensions) {
     });
   }
   dimensions.polygon = out;
+  // Once ortho-snapped, refresh template so the skew does not come back
+  if (allOrtho) {
+    dimensions.templatePolygon = out.map((p) => ({ x: p.x, y: p.y }));
+  }
   const b = polygonBounds(out);
   dimensions.width = round2(b.width);
   dimensions.depth = round2(b.depth);
 }
 
-/** Set one wall length then rebuild the whole room (keeps sketch angles). */
+/** Set one wall length then rebuild (snaps near-right angles). */
 export function setEdgeLength(dimensions, edgeIndex, targetLen) {
   if (!dimensions?.polygon || edgeIndex == null || !(targetLen > 0)) return;
   if (!dimensions.templatePolygon) {
@@ -1321,6 +1375,12 @@ function emptyRoomState(type, name, floorId, floorName) {
     arrival: null,
     placePlan: [],
     notes: [],
+    // Floor-plan assembly (world coords)
+    offsetX: 0,
+    offsetY: 0,
+    rotation: 0,
+    attach: null, // { roomId, targetEdge, myEdge }
+    worldPolygon: null,
   };
 }
 
@@ -1380,7 +1440,10 @@ function startRoomWorkflow(session, room) {
 function finishCurrentRoom(session) {
   saveCurrentRoom(session);
   const room = session.rooms.find((r) => r.id === session.currentRoomId);
-  if (room) room.status = "done";
+  if (room) {
+    applyRoomPlacement(session, room);
+    room.status = "done";
+  }
 }
 
 function buildRoomsFromFloors(session) {
@@ -1425,15 +1488,164 @@ function floorRoomsChoices(session) {
   ]) };
 }
 
+
+function roomLocalPolygon(room) {
+  return room?.dimensions?.polygon || [];
+}
+
+/** Polygon in floor-plan world coordinates. */
+export function roomWorldPolygon(room) {
+  if (room?.worldPolygon?.length) return room.worldPolygon.map((p) => ({ x: p.x, y: p.y }));
+  const poly = roomLocalPolygon(room);
+  const ox = room?.offsetX || 0;
+  const oy = room?.offsetY || 0;
+  return poly.map((p) => ({ x: p.x + ox, y: p.y + oy }));
+}
+
+function edgeCardinalLabel(poly, edgeIndex) {
+  if (!poly?.length) return `mur ${edgeIndex + 1}`;
+  const a = poly[edgeIndex];
+  const b = poly[(edgeIndex + 1) % poly.length];
+  const mx = (a.x + b.x) / 2;
+  const my = (a.y + b.y) / 2;
+  const c = polygonCentroid(poly);
+  const dx = mx - c.x;
+  const dy = my - c.y;
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "Est" : "Ouest";
+  return dy >= 0 ? "Sud" : "Nord";
+}
+
+/** Choices to glue the next room onto a finished room of the same floor. */
+export function attachRoomChoices(session, nextRoom) {
+  const done = (session.rooms || []).filter(
+    (r) => r.status === "done" && r.floorId === nextRoom.floorId && r.dimensions?.polygon?.length >= 3
+  );
+  const choices = [];
+  for (const room of done) {
+    const poly = roomWorldPolygon(room);
+    const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i];
+      const b = poly[(i + 1) % n];
+      const len = round2(dist(a, b));
+      const card = edgeCardinalLabel(poly, i);
+      choices.push({
+        id: `attach:${room.id}:${i}`,
+        label: `${room.name} — mur ${card} (${len} m)`,
+      });
+    }
+  }
+  choices.push({ id: "attach:none", label: "Pièce séparée (pas collée)" });
+  return choices;
+}
+
+function rotatePoint(p, origin, ang) {
+  const c = Math.cos(ang);
+  const s = Math.sin(ang);
+  const dx = p.x - origin.x;
+  const dy = p.y - origin.y;
+  return { x: origin.x + dx * c - dy * s, y: origin.y + dx * s + dy * c };
+}
+
+/**
+ * Place room in world coords: first on floor at origin, or glued to a target wall.
+ * Shared wall: my edge is reversed onto the target edge so interiors don't overlap.
+ */
+export function applyRoomPlacement(session, room) {
+  if (!room?.dimensions?.polygon?.length) return;
+  const local = room.dimensions.polygon.map((p) => ({ x: p.x, y: p.y }));
+  const sameFloorDone = (session.rooms || []).filter(
+    (r) => r.id !== room.id && r.status === "done" && r.floorId === room.floorId && r.worldPolygon?.length
+  );
+
+  if (!room.attach || !sameFloorDone.length) {
+    // First room on this floor (or isolated): keep local coords as world
+    if (!sameFloorDone.length) {
+      room.offsetX = 0;
+      room.offsetY = 0;
+      room.rotation = 0;
+      room.worldPolygon = local;
+      return;
+    }
+    // Isolated but other rooms exist: place to the right of bbox
+    let maxX = 0;
+    for (const r of sameFloorDone) {
+      for (const p of r.worldPolygon) maxX = Math.max(maxX, p.x);
+    }
+    const gap = 0.5;
+    const minX = Math.min(...local.map((p) => p.x));
+    const ox = maxX + gap - minX;
+    room.offsetX = ox;
+    room.offsetY = 0;
+    room.rotation = 0;
+    room.worldPolygon = local.map((p) => ({ x: round2(p.x + ox), y: round2(p.y) }));
+    return;
+  }
+
+  const target = session.rooms.find((r) => r.id === room.attach.roomId);
+  if (!target?.worldPolygon?.length) {
+    room.worldPolygon = local;
+    return;
+  }
+  const tPoly = target.worldPolygon;
+  const ti = room.attach.targetEdge ?? 0;
+  const tA = tPoly[ti];
+  const tB = tPoly[(ti + 1) % tPoly.length];
+  const tLen = dist(tA, tB);
+  // Auto-pick my wall closest in length to the target wall
+  let mi = room.attach.myEdge;
+  if (mi == null || mi < 0) {
+    let best = 0;
+    let bestDiff = Infinity;
+    for (let i = 0; i < local.length; i++) {
+      const len = dist(local[i], local[(i + 1) % local.length]);
+      const d = Math.abs(len - tLen);
+      if (d < bestDiff) {
+        bestDiff = d;
+        best = i;
+      }
+    }
+    mi = best;
+    room.attach.myEdge = mi;
+  }
+  const mA = local[mi];
+  const mB = local[(mi + 1) % local.length];
+  // Align my edge onto target edge reversed (B→A)
+  const tAng = Math.atan2(tA.y - tB.y, tA.x - tB.x);
+  const mAng = Math.atan2(mB.y - mA.y, mB.x - mA.x);
+  const rot = tAng - mAng;
+  const mMid = { x: (mA.x + mB.x) / 2, y: (mA.y + mB.y) / 2 };
+  const tMid = { x: (tA.x + tB.x) / 2, y: (tA.y + tB.y) / 2 };
+  const rotated = local.map((p) => rotatePoint(p, mMid, rot));
+  const rMid = rotatePoint(mMid, mMid, rot);
+  const dx = tMid.x - rMid.x;
+  const dy = tMid.y - rMid.y;
+  room.rotation = rot;
+  room.offsetX = dx;
+  room.offsetY = dy;
+  room.worldPolygon = rotated.map((p) => ({ x: round2(p.x + dx), y: round2(p.y + dy) }));
+}
+
+/** All rooms of a floor for floor-plan view. */
+export function floorPlanRooms(session, floorId) {
+  const fid = floorId || session.rooms.find((r) => r.id === session.currentRoomId)?.floorId;
+  return (session.rooms || []).filter(
+    (r) => (!fid || r.floorId === fid) && (r.worldPolygon?.length || r.dimensions?.polygon?.length)
+  );
+}
+
+
 function afterRoomComplete(session) {
   finishCurrentRoom(session);
   const next = nextPendingRoom(session);
   if (next) {
     session.step = "room-ready";
     return {
-      text: `« ${session.roomName} » est terminée.\n\nPièces :\n${roomChecklist(session)}\n\nOn passe à « ${next.name} » ?`,
+      text: `« ${session.roomName} » est terminée.\n\nPièces :\n${roomChecklist(session)}\n\nOn passe à « ${next.name} » ? Tu pourras la coller contre un mur déjà dessiné.`,
       actions: [{ id: "room:next", label: `Continuer → ${next.name}` }],
       choices: [{ id: "room:next", label: `Oui, ${next.name}` }],
+      showSketch: true,
+      sketchMode: "floor",
       speak: true,
     };
   }
@@ -1637,11 +1849,51 @@ export function robotReply(session, userText, choiceId) {
           session.step = "tech-murs";
           return { text: "Plus de pièce en attente. Les murs sont-ils à nu ?", choices: [{ id: "yes", label: "Oui" }, { id: "no", label: "Non" }], speak: true };
         }
+        const attachChoices = attachRoomChoices(session, next);
+        const canAttach = attachChoices.some((c) => c.id !== "attach:none");
+        if (canAttach) {
+          session.pendingAttachRoomId = next.id;
+          session.step = "attach-room";
+          return {
+            text: `Où coller « ${next.name} » sur le plan de l'étage ?\nChoisis un mur déjà dessiné — les pièces s'emboîteront.`,
+            choices: attachChoices,
+            showSketch: true,
+            sketchMode: "floor",
+            speak: true,
+          };
+        }
         return startRoomWorkflow(session, next);
       }
       return {
         text: `Pièces :\n${roomChecklist(session)}\nOn continue ?`,
         actions: [{ id: "room:next", label: "Continuer →" }],
+        showSketch: true,
+        sketchMode: "floor",
+        speak: true,
+      };
+    }
+    case "attach-room": {
+      const next = session.rooms.find((r) => r.id === session.pendingAttachRoomId) || nextPendingRoom(session);
+      if (!next) {
+        session.step = "tech-murs";
+        return { text: "Plus de pièce en attente. Les murs sont-ils à nu ?", choices: [{ id: "yes", label: "Oui" }, { id: "no", label: "Non" }], speak: true };
+      }
+      if (choiceId === "attach:none" || /separe|seule|isole|pas\s*colle/.test(t)) {
+        next.attach = null;
+        session.pendingAttachRoomId = null;
+        return startRoomWorkflow(session, next);
+      }
+      if (choiceId?.startsWith("attach:")) {
+        const parts = choiceId.split(":");
+        next.attach = { roomId: parts[1], targetEdge: parseInt(parts[2], 10), myEdge: null };
+        session.pendingAttachRoomId = null;
+        return startRoomWorkflow(session, next);
+      }
+      return {
+        text: `Où coller « ${next.name} » ?`,
+        choices: attachRoomChoices(session, next),
+        showSketch: true,
+        sketchMode: "floor",
         speak: true,
       };
     }
@@ -1779,7 +2031,17 @@ export function robotReply(session, userText, choiceId) {
         if (session.dimensions?.polygon) {
           session.dimensions.polygon = cleanRoomPolygon(session.dimensions.polygon);
           finalizeDrawnPolygon(session.dimensions);
-          // Prefer already entered lengths when still matching edge count
+          const poly = session.dimensions.polygon;
+          const n = poly.length;
+          if (!session.dimensions.edgeLengths || session.dimensions.edgeLengths.length !== n) {
+            session.dimensions.edgeLengths = poly.map(() => null);
+          }
+          // Fill any missing cote from current edge length so ortho rebuild can lock a clean rectangle
+          for (let i = 0; i < n; i++) {
+            if (!(session.dimensions.edgeLengths[i] > 0)) {
+              session.dimensions.edgeLengths[i] = round2(dist(poly[i], poly[(i + 1) % n]));
+            }
+          }
           rebuildPolygonFromTemplate(session.dimensions);
         }
         session.step = "openings";
@@ -2045,8 +2307,13 @@ export function robotReply(session, userText, choiceId) {
       const quote = buildQuote(session);
       return {
         text: formatQuoteSpeech(session, quote), quote,
-        showSketch: true, sketchMode: "review",
-        actions: [{ id: "save", label: "💾 Enregistrer le devis" }, { id: "restart", label: "↻ Recommencer" }],
+        showSketch: true, sketchMode: "floor",
+        actions: [
+          { id: "plan:view", label: "📐 Voir le plan" },
+          { id: "plan:pdf", label: "📄 PDF du plan" },
+          { id: "save", label: "💾 Enregistrer le devis" },
+          { id: "restart", label: "↻ Recommencer" },
+        ],
         speak: true,
       };
     }
@@ -2058,11 +2325,47 @@ export function robotReply(session, userText, choiceId) {
         return { text: "Nouveau devis. Périmètre ?", choices: SCOPE_OPTIONS, speak: true };
       }
       if (choiceId === "save" || /enregistr|sauv/.test(t)) return { text: "Je prépare l'enregistrement…", save: true, speak: true };
+      if (choiceId === "plan:view" || /voir\s+le\s+plan|consulter\s+le\s+plan|modifier\s+le\s+plan/.test(t)) {
+        const quote = buildQuote(session);
+        return {
+          text: "Voici le plan de l'étage (toutes les pièces). Tu peux encore l'imprimer en PDF, ou enregistrer le devis.",
+          quote,
+          showSketch: true,
+          sketchMode: "floor",
+          actions: [
+            { id: "plan:pdf", label: "📄 PDF du plan" },
+            { id: "save", label: "💾 Enregistrer le devis" },
+            { id: "restart", label: "↻ Recommencer" },
+          ],
+          speak: true,
+        };
+      }
+      if (choiceId === "plan:pdf" || /pdf|imprim/.test(t)) {
+        const quote = buildQuote(session);
+        return {
+          text: "J'ouvre le plan pour impression / PDF…",
+          quote,
+          showSketch: true,
+          sketchMode: "floor",
+          exportPlanPdf: true,
+          actions: [
+            { id: "plan:view", label: "📐 Voir le plan" },
+            { id: "save", label: "💾 Enregistrer le devis" },
+            { id: "restart", label: "↻ Recommencer" },
+          ],
+          speak: true,
+        };
+      }
       const quote = buildQuote(session);
       return {
         text: formatQuoteSpeech(session, quote), quote,
-        showSketch: true, sketchMode: "review",
-        actions: [{ id: "save", label: "💾 Enregistrer le devis" }, { id: "restart", label: "↻ Recommencer" }],
+        showSketch: true, sketchMode: "floor",
+        actions: [
+          { id: "plan:view", label: "📐 Voir le plan" },
+          { id: "plan:pdf", label: "📄 PDF du plan" },
+          { id: "save", label: "💾 Enregistrer le devis" },
+          { id: "restart", label: "↻ Recommencer" },
+        ],
         speak: true,
       };
     }
