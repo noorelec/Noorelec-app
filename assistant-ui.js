@@ -1,5 +1,5 @@
 /**
- * Volt UI — branche Firebase + croquis + chat
+ * Volt UI — Firebase + croquis interactif + chat
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
@@ -12,13 +12,17 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { checkElectricianAccess, paywallMessage } from "./devtech-access.js";
 import {
+  buildQuote,
+  createPoint,
   createSession,
+  isCeilingType,
+  nearestEdgePoint,
+  POINT_TOOLS,
+  polygonBounds,
+  polygonEdges,
+  pointOnEdge,
   robotReply,
   speakFrench,
-  nearestWallPoint,
-  FALLBACK_PRICES,
-  PROJECT_TYPES,
-  buildQuote,
 } from "./assistant-core.js";
 
 const firebaseConfig = {
@@ -37,10 +41,22 @@ const db = getFirestore(app);
 
 let currentUser = null;
 let session = createSession();
-let sketchMode = null; // 'arrival' | 'outlets' | 'review' | null
-let placeType = "prise-simple";
+let sketchMode = "idle";
+let placeType = POINT_TOOLS[0]?.id || "prise-simple";
+let selectedPointId = null;
 let voiceOn = true;
 let settings = { tarif: 50, deplacement: 25, tva: 0.06, rebouchage: 18 };
+
+let viewZoom = 1;
+let viewPanX = 0;
+let viewPanY = 0;
+let spaceHeld = false;
+let isPanning = false;
+let panStart = null;
+let dragPoint = null;
+let lastPinchDist = null;
+let sketchVisible = false;
+let pointerMoved = false;
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -62,8 +78,19 @@ const els = {
   toast: $("toast"),
   paywall: $("paywall"),
   shell: $("shell"),
+  sketchBar: $("sketchBar"),
+  props: $("props"),
+  zoomIn: $("zoomIn"),
+  zoomOut: $("zoomOut"),
+  zoomReset: $("zoomReset"),
+  btnDelete: $("btnDelete"),
+  chkExisting: $("chkExisting"),
+  chkSaignee: $("chkSaignee"),
+  chkBlochet: $("chkBlochet"),
 };
 const ctx = els.canvas.getContext("2d");
+
+// ─── Auth ───────────────────────────────────────────────────────────────────
 
 onAuthStateChanged(auth, async (user) => {
   if (!user || !user.emailVerified) {
@@ -97,15 +124,34 @@ onAuthStateChanged(auth, async (user) => {
 
 function boot() {
   session = createSession();
+  selectedPointId = null;
+  resetView();
   els.messages.innerHTML = "";
+  els.quote.classList.remove("on");
   clearChips();
-  applyReply({
-    text:
-      "Salut ! Je suis Volt. On construit le devis ensemble — tu me parles comme sur le chantier, je gère le croquis et les métrés.\n\nC'est quoi comme projet ?",
-    choices: PROJECT_TYPES,
-    speak: true,
+  buildToolButtons();
+  applyReply(robotReply(session, "", null));
+}
+
+function buildToolButtons() {
+  els.tools.innerHTML = "";
+  POINT_TOOLS.forEach((tool, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tool" + (i === 0 ? " active" : "");
+    btn.dataset.type = tool.id;
+    btn.textContent = tool.label;
+    btn.title = tool.ceiling ? "Plafond" : "Mur";
+    btn.addEventListener("click", () => {
+      els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      placeType = tool.id;
+    });
+    els.tools.appendChild(btn);
   });
 }
+
+// ─── Chat ───────────────────────────────────────────────────────────────────
 
 function addBubble(text, who) {
   const div = document.createElement("div");
@@ -143,11 +189,12 @@ function applyReply(reply) {
   }
   if (reply.choices) renderChips(els.choices, reply.choices);
   if (reply.suggestions) renderChips(els.suggestions, reply.suggestions);
-  if (reply.actions) renderChips(els.actions, reply.actions, ["save", "next"]);
+  if (reply.actions) renderChips(els.actions, reply.actions, ["save", "next", "draw:done", "walls:done"]);
 
-  if (reply.showSketch && session.dimensions) {
-    sketchMode = reply.sketchMode || "outlets";
-    showSketch();
+  if (reply.showSketch) {
+    sketchMode = reply.sketchMode || "idle";
+    sketchVisible = true;
+    showSketchPanel();
     drawRoom();
   }
   if (reply.quote) showQuote(reply.quote);
@@ -178,10 +225,11 @@ async function handleUser(text, choiceId = null) {
   }
   clearChips();
   els.status.textContent = "Volt réfléchit…";
-  await wait(180 + Math.random() * 160);
+  await wait(140 + Math.random() * 120);
   const reply = robotReply(session, text || "", choiceId);
   applyReply(reply);
-  if (session.dimensions) drawRoom();
+  updatePropsPanel();
+  drawRoom();
 }
 
 els.composer.addEventListener("submit", (e) => {
@@ -205,21 +253,181 @@ if (window.speechSynthesis) {
   window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
 
-els.tools.querySelectorAll(".tool").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
-    btn.classList.add("active");
-    placeType = btn.dataset.type;
-  });
-});
+// ─── View transform ─────────────────────────────────────────────────────────
 
-function showSketch() {
+function resetView() {
+  viewZoom = 1;
+  viewPanX = 0;
+  viewPanY = 0;
+}
+
+function getPoly() {
+  return session.dimensions?.polygon || [];
+}
+
+function computeBaseLayout() {
+  const poly = getPoly();
+  const W = els.canvas.width;
+  const H = els.canvas.height;
+  const pad = 52;
+  if (!poly.length) {
+    const span = 8;
+    const scale = Math.min((W - pad * 2) / span, (H - pad * 2) / span);
+    return { minX: 0, minY: 0, maxX: span, maxY: span, scale, ox: pad, oy: pad, width: span, depth: span };
+  }
+  const b = polygonBounds(poly);
+  const w = b.width || 1;
+  const d = b.depth || 1;
+  const scale = Math.min((W - pad * 2) / w, (H - pad * 2) / d);
+  const roomW = w * scale;
+  const roomH = d * scale;
+  const ox = (W - roomW) / 2;
+  const oy = (H - roomH) / 2;
+  return { minX: b.minX, minY: b.minY, maxX: b.maxX, maxY: b.maxY, scale, ox, oy, width: w, depth: d, roomW, roomH };
+}
+
+function worldToScreen(x, y) {
+  const L = computeBaseLayout();
+  const s = L.scale * viewZoom;
+  return {
+    sx: viewPanX + L.ox + (x - L.minX) * s,
+    sy: viewPanY + L.oy + (L.maxY - y) * s,
+  };
+}
+
+function screenToWorld(sx, sy) {
+  const L = computeBaseLayout();
+  const s = L.scale * viewZoom;
+  return {
+    x: L.minX + (sx - viewPanX - L.ox) / s,
+    y: L.maxY - (sy - viewPanY - L.oy) / s,
+  };
+}
+
+function zoomAt(factor, cx, cy) {
+  const before = screenToWorld(cx, cy);
+  viewZoom = Math.max(0.35, Math.min(4, viewZoom * factor));
+  const after = worldToScreen(before.x, before.y);
+  viewPanX += cx - after.sx;
+  viewPanY += cy - after.sy;
+  drawRoom();
+}
+
+function canvasCoords(clientX, clientY) {
+  const rect = els.canvas.getBoundingClientRect();
+  const mx = ((clientX - rect.left) / rect.width) * els.canvas.width;
+  const my = ((clientY - rect.top) / rect.height) * els.canvas.height;
+  return { mx, my };
+}
+
+// ─── Geometry helpers ───────────────────────────────────────────────────────
+
+function pointInPolygon(poly, px, py) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x;
+    const yi = poly[i].y;
+    const xj = poly[j].x;
+    const yj = poly[j].y;
+    if ((yi > py) !== (yj > py) && px < ((xj - xi) * (py - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+function findPointAt(wx, wy) {
+  const hitPx = 18 / (computeBaseLayout().scale * viewZoom);
+  let best = null;
+  for (const p of session.placements) {
+    const d = Math.hypot(p.x - wx, p.y - wy);
+    if (d < hitPx && (!best || d < best.dist)) best = { point: p, dist: d };
+  }
+  return best?.point || null;
+}
+
+function pointAtPerimeter(edges, s, P) {
+  let acc = 0;
+  const pos = ((s % P) + P) % P;
+  for (let ei = 0; ei < edges.length; ei++) {
+    if (pos <= acc + edges[ei].length || ei === edges.length - 1) {
+      const localT = (pos - acc) / (edges[ei].length || 1);
+      return pointOnEdge(edges[ei], Math.min(1, Math.max(0, localT)));
+    }
+    acc += edges[ei].length;
+  }
+  return edges[0].a;
+}
+
+function perimeterPath(poly, fromRef, toRef) {
+  const edges = polygonEdges(poly);
+  const P = edges.reduce((s, e) => s + e.length, 0) || 1;
+  function pos(ref) {
+    let s = 0;
+    for (let i = 0; i < ref.edgeIndex; i++) s += edges[i].length;
+    s += edges[ref.edgeIndex].length * (ref.t || 0);
+    return s;
+  }
+  const pFrom = pos(fromRef);
+  const pTo = pos(toRef);
+  const cw = (pTo - pFrom + P) % P;
+  const ccw = (pFrom - pTo + P) % P;
+  const forward = cw <= ccw;
+  const dist = forward ? cw : ccw;
+  const steps = Math.max(4, Math.ceil(dist * 6));
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const s = forward ? pFrom + dist * t : pFrom - dist * t;
+    pts.push(pointAtPerimeter(edges, s, P));
+  }
+  return pts;
+}
+
+function cableRoute(from, to, pathMode) {
+  const poly = getPoly();
+  if (!poly.length) return [from, to];
+  if (pathMode !== "murs" || from.edgeIndex == null) {
+    return [{ x: from.x, y: from.y }, { x: to.x, y: to.y }];
+  }
+  const toRef = to.edgeIndex != null
+    ? { edgeIndex: to.edgeIndex, t: to.t || 0 }
+    : nearestEdgePoint(poly, to.x, to.y);
+  if (!toRef) return [{ x: from.x, y: from.y }, { x: to.x, y: to.y }];
+  try {
+    return perimeterPath(poly, from, toRef);
+  } catch {
+    return [{ x: from.x, y: from.y }, { x: to.x, y: to.y }];
+  }
+}
+
+// ─── Sketch panel ───────────────────────────────────────────────────────────
+
+function showSketchPanel() {
   els.wrap.classList.remove("empty");
+  els.wrap.classList.add("has-sketch");
   els.canvas.classList.add("on");
   els.legend.classList.add("on");
+  els.sketchBar.classList.add("on");
+
   const d = session.dimensions;
-  els.meta.textContent = `${session.roomName || "Pièce"} · ${d.width} × ${d.depth} × ${d.height} m`;
-  els.tools.classList.toggle("on", sketchMode === "outlets");
+  const modeHints = {
+    draw: "Mode dessin — clique les coins",
+    measure: "Mode cotes — clique un mur puis saisis la longueur",
+    arrival: "Place l'arrivée sur un mur",
+    points: "Place les points · glisser pour déplacer",
+    "review-shape": "Aperçu de la pièce",
+    review: "Revue finale",
+    idle: "Croquis",
+  };
+  if (d?.polygon?.length >= 3) {
+    els.meta.textContent = `${session.roomName || "Pièce"} · ${d.width || "—"} × ${d.depth || "—"} × ${d.height || 2.5} m · ${modeHints[sketchMode] || ""}`;
+  } else {
+    els.meta.textContent = `${session.roomName || "Pièce"} · ${modeHints[sketchMode] || "Croquis"}`;
+  }
+
+  const showTools = sketchMode === "points";
+  els.tools.style.display = showTools ? "flex" : "none";
+  els.btnDelete.classList.toggle("on", showTools && !!selectedPointId);
+  updatePropsPanel();
 }
 
 function showQuote(quote) {
@@ -229,215 +437,557 @@ function showQuote(quote) {
     `Câble ~${quote.totalCableM} m · MO ~${quote.totaux.moHours} h · HT ${quote.totaux.totalHT.toFixed(2)} €`;
 }
 
-function layout() {
-  const d = session.dimensions;
-  const pad = 56;
-  const scale = Math.min(
-    (els.canvas.width - pad * 2) / d.width,
-    (els.canvas.height - pad * 2) / d.depth
-  );
-  const roomW = d.width * scale;
-  const roomH = d.depth * scale;
-  return {
-    scale,
-    ox: (els.canvas.width - roomW) / 2,
-    oy: (els.canvas.height - roomH) / 2,
-    roomW,
-    roomH,
-  };
+function updatePropsPanel() {
+  const p = session.placements.find((x) => x.id === selectedPointId);
+  const show = sketchMode === "points" && p;
+  els.props.classList.toggle("on", show);
+  els.btnDelete.classList.toggle("on", show);
+  if (!p) return;
+  els.chkExisting.checked = !!p.existing;
+  els.chkSaignee.checked = p.saignee === true;
+  els.chkBlochet.checked = !!p.blochet;
 }
 
-function toCanvas(x, y, L) {
-  return {
-    cx: L.ox + x * L.scale,
-    cy: L.oy + (L.roomH / L.scale - y) * L.scale,
-  };
+function selectedPoint() {
+  return session.placements.find((p) => p.id === selectedPointId) || null;
 }
 
-function toRoom(clientX, clientY) {
-  const rect = els.canvas.getBoundingClientRect();
-  const mx = ((clientX - rect.left) / rect.width) * els.canvas.width;
-  const my = ((clientY - rect.top) / rect.height) * els.canvas.height;
-  const L = layout();
-  return {
-    x: (mx - L.ox) / L.scale,
-    y: L.roomH / L.scale - (my - L.oy) / L.scale,
-  };
-}
+els.chkExisting.addEventListener("change", () => {
+  const p = selectedPoint();
+  if (!p) return;
+  p.existing = els.chkExisting.checked;
+  drawRoom();
+});
+
+els.chkSaignee.addEventListener("change", () => {
+  const p = selectedPoint();
+  if (!p) return;
+  p.saignee = els.chkSaignee.checked;
+});
+
+els.chkBlochet.addEventListener("change", () => {
+  const p = selectedPoint();
+  if (!p) return;
+  p.blochet = els.chkBlochet.checked;
+});
+
+els.btnDelete.addEventListener("click", () => {
+  const p = selectedPoint();
+  if (!p) return;
+  session.placements = session.placements.filter((x) => x.id !== p.id);
+  selectedPointId = null;
+  updatePropsPanel();
+  drawRoom();
+  toast("Point supprimé");
+});
+
+els.zoomIn.addEventListener("click", () => {
+  zoomAt(1.2, els.canvas.width / 2, els.canvas.height / 2);
+});
+els.zoomOut.addEventListener("click", () => {
+  zoomAt(1 / 1.2, els.canvas.width / 2, els.canvas.height / 2);
+});
+els.zoomReset.addEventListener("click", () => {
+  resetView();
+  drawRoom();
+});
+
+// ─── Drawing ────────────────────────────────────────────────────────────────
 
 function drawRoom() {
-  if (!session.dimensions) return;
-  showSketch();
-  const d = session.dimensions;
-  const L = layout();
+  if (!sketchVisible) return;
+  showSketchPanel();
+
   const W = els.canvas.width;
   const H = els.canvas.height;
+  const poly = getPoly();
+  const d = session.dimensions;
 
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#0a1520";
   ctx.fillRect(0, 0, W, H);
 
-  ctx.strokeStyle = "rgba(62,224,197,0.06)";
+  ctx.strokeStyle = "rgba(62,224,197,0.05)";
   ctx.lineWidth = 1;
-  for (let i = 0; i < W; i += 24) {
+  const gridStep = 24 * viewZoom;
+  for (let i = -viewPanX % gridStep; i < W; i += gridStep) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
     ctx.lineTo(i, H);
     ctx.stroke();
   }
-  for (let j = 0; j < H; j += 24) {
+  for (let j = -viewPanY % gridStep; j < H; j += gridStep) {
     ctx.beginPath();
     ctx.moveTo(0, j);
     ctx.lineTo(W, j);
     ctx.stroke();
   }
 
-  ctx.fillStyle = "rgba(62,224,197,0.06)";
-  ctx.strokeStyle = "rgba(62,224,197,0.65)";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.rect(L.ox, L.oy, L.roomW, L.roomH);
-  ctx.fill();
-  ctx.stroke();
+  if (poly.length >= 1) {
+    ctx.beginPath();
+    const first = worldToScreen(poly[0].x, poly[0].y);
+    ctx.moveTo(first.sx, first.sy);
+    for (let i = 1; i < poly.length; i++) {
+      const p = worldToScreen(poly[i].x, poly[i].y);
+      ctx.lineTo(p.sx, p.sy);
+    }
+    if (poly.length >= 3 && sketchMode !== "draw") {
+      ctx.closePath();
+      ctx.fillStyle = "rgba(62,224,197,0.07)";
+      ctx.fill();
+    }
+    ctx.strokeStyle = "rgba(62,224,197,0.7)";
+    ctx.lineWidth = 3;
+    ctx.stroke();
 
-  ctx.fillStyle = "#8ba3b5";
-  ctx.font = "600 14px Outfit, sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(`${d.width} m`, L.ox + L.roomW / 2, L.oy + L.roomH + 28);
-  ctx.save();
-  ctx.translate(L.ox - 28, L.oy + L.roomH / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(`${d.depth} m`, 0, 0);
-  ctx.restore();
+    if (sketchMode === "draw" && poly.length >= 3) {
+      const last = worldToScreen(poly[poly.length - 1].x, poly[poly.length - 1].y);
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = "rgba(62,224,197,0.35)";
+      ctx.beginPath();
+      ctx.moveTo(last.sx, last.sy);
+      ctx.lineTo(first.sx, first.sy);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
-  const path = session.tech.cablePath || "murs";
-  if (session.arrival) {
-    for (const p of session.placements) drawCable(session.arrival, p, path, L);
-    const a = toCanvas(session.arrival.x, session.arrival.y, L);
-    drawMarker(a.cx, a.cy, "#f5a623", "A");
+    poly.forEach((v, i) => {
+      const c = worldToScreen(v.x, v.y);
+      ctx.beginPath();
+      ctx.fillStyle = i === 0 ? "#f5a623" : "#3ee0c5";
+      ctx.arc(c.sx, c.sy, 6, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    if (poly.length >= 2) {
+      const edges = polygonEdges(poly);
+      ctx.font = "600 12px Outfit, sans-serif";
+      ctx.fillStyle = "rgba(139,163,181,0.95)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      edges.forEach((e) => {
+        const mid = pointOnEdge(e, 0.5);
+        const c = worldToScreen(mid.x, mid.y);
+        const len = e.length;
+        if (len < 0.05) return;
+        const label = `${len.toFixed(2)} m`;
+        if (session._selectedEdge === e.i) {
+          const a = worldToScreen(e.a.x, e.a.y);
+          const b = worldToScreen(e.b.x, e.b.y);
+          ctx.save();
+          ctx.strokeStyle = "#f5a623";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(a.sx, a.sy);
+          ctx.lineTo(b.sx, b.sy);
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.fillText(label, c.sx, c.sy - 10);
+      });
+    }
   }
+
+  const path = session.tech?.cablePath || "murs";
+  if (session.arrival && poly.length >= 3) {
+    for (const p of session.placements) {
+      if (p.existing) continue;
+      drawCable(session.arrival, p, path);
+    }
+    const a = worldToScreen(session.arrival.x, session.arrival.y);
+    drawArrival(a.sx, a.sy);
+  }
+
   session.placements.forEach((p, i) => {
-    const c = toCanvas(p.x, p.y, L);
-    drawMarker(c.cx, c.cy, "#3ee0c5", String(i + 1));
+    const c = worldToScreen(p.x, p.y);
+    const sel = p.id === selectedPointId;
+    if (p.mode === "ceiling" || isCeilingType(p.type)) {
+      drawCeilingLight(c.sx, c.sy, sel, p.existing);
+    } else {
+      drawWallPoint(c.sx, c.sy, sel, p.existing, i + 1);
+    }
   });
 
   ctx.textAlign = "center";
   ctx.fillStyle = "rgba(139,163,181,0.9)";
   ctx.font = "500 13px IBM Plex Sans, sans-serif";
-  if (sketchMode === "arrival") {
-    ctx.fillText("Clique un mur pour placer l'arrivée électrique", W / 2, 28);
-  } else if (sketchMode === "outlets") {
-    ctx.fillText("Clique les murs pour placer les prises", W / 2, 28);
-  }
+  const hints = {
+    draw: "Clique les coins · Terminer via le bouton chat",
+    measure: "Clique un mur puis saisis sa longueur dans le chat",
+    arrival: "Clique un mur pour l'arrivée électrique",
+    points: "Outil actif puis clic mur ou plafond · glisser pour déplacer",
+  };
+  if (hints[sketchMode]) ctx.fillText(hints[sketchMode], W / 2, 22);
 }
 
-function drawCable(from, to, pathMode, L) {
-  const a = toCanvas(from.x, from.y, L);
-  const b = toCanvas(to.x, to.y, L);
+function drawCable(from, to, pathMode) {
+  const route = cableRoute(from, to, pathMode);
   ctx.save();
   ctx.strokeStyle = "rgba(125,211,252,0.55)";
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 5]);
   ctx.beginPath();
-  if (pathMode === "murs" && from.wall !== to.wall) {
-    const corners = [
-      { x: 0, y: 0 },
-      { x: session.dimensions.width, y: 0 },
-      { x: session.dimensions.width, y: session.dimensions.depth },
-      { x: 0, y: session.dimensions.depth },
-    ];
-    let best = corners[0];
-    let bestScore = Infinity;
-    for (const c of corners) {
-      const score =
-        Math.hypot(c.x - from.x, c.y - from.y) + Math.hypot(c.x - to.x, c.y - to.y);
-      if (score < bestScore) {
-        bestScore = score;
-        best = c;
-      }
-    }
-    const mid = toCanvas(best.x, best.y, L);
-    ctx.moveTo(a.cx, a.cy);
-    ctx.lineTo(mid.cx, mid.cy);
-    ctx.lineTo(b.cx, b.cy);
-  } else {
-    ctx.moveTo(a.cx, a.cy);
-    ctx.lineTo(b.cx, b.cy);
-  }
+  route.forEach((pt, i) => {
+    const c = worldToScreen(pt.x, pt.y);
+    if (i === 0) ctx.moveTo(c.sx, c.sy);
+    else ctx.lineTo(c.sx, c.sy);
+  });
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.restore();
 }
 
-function drawMarker(cx, cy, color, label) {
+function drawArrival(sx, sy) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.fillStyle = "#f5a623";
+  ctx.shadowColor = "#f5a623";
+  ctx.shadowBlur = 14;
+  ctx.arc(sx, sy, 12, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#1a1205";
+  ctx.font = "700 12px Outfit, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("A", sx, sy + 0.5);
+  ctx.restore();
+}
+
+function drawWallPoint(sx, sy, selected, existing, label) {
+  ctx.save();
+  const color = existing ? "rgba(139,163,181,0.7)" : "#3ee0c5";
+  if (selected) {
+    ctx.strokeStyle = "#f5a623";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 16, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   ctx.beginPath();
   ctx.fillStyle = color;
   ctx.shadowColor = color;
-  ctx.shadowBlur = 12;
-  ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+  ctx.shadowBlur = selected ? 14 : 8;
+  ctx.arc(sx, sy, 11, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
   ctx.fillStyle = "#071018";
   ctx.font = "700 11px Outfit, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(label, cx, cy + 0.5);
+  ctx.fillText(String(label), sx, sy + 0.5);
+  ctx.restore();
 }
 
-function onPointer(clientX, clientY) {
-  if (!session.dimensions) return;
-  if (sketchMode !== "arrival" && sketchMode !== "outlets") return;
+function drawCeilingLight(sx, sy, selected, existing) {
+  ctx.save();
+  const color = existing ? "rgba(255,224,138,0.5)" : "#ffe08a";
+  if (selected) {
+    ctx.strokeStyle = "#f5a623";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(sx - 14, sy - 14, 28, 28);
+  }
+  ctx.fillStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 10;
+  ctx.fillRect(sx - 9, sy - 9, 18, 18);
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  const r = 10;
+  for (let a = 0; a < 8; a++) {
+    const ang = (a / 8) * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(sx + Math.cos(ang) * 4, sy + Math.sin(ang) * 4);
+    ctx.lineTo(sx + Math.cos(ang) * r, sy + Math.sin(ang) * r);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
 
-  const { x, y } = toRoom(clientX, clientY);
-  const snapped = nearestWallPoint(session.dimensions, x, y);
+// ─── Pointer handling ─────────────────────────────────────────────────────────
 
-  if (sketchMode === "arrival") {
-    session.arrival = {
-      wall: snapped.wall,
-      t: snapped.t,
-      x: snapped.x,
-      y: snapped.y,
-    };
+function handleCanvasClick(mx, my) {
+  if (isPanning || pointerMoved) return;
+  const { x, y } = screenToWorld(mx, my);
+  const poly = getPoly();
+
+  if (sketchMode === "draw") {
+    if (!session.dimensions) {
+      session.dimensions = { width: 0, depth: 0, height: 2.5, polygon: [], source: "drawn", chimney: null };
+    }
+    session.dimensions.polygon.push({ x: round3(x), y: round3(y) });
     drawRoom();
-    handleUser(`Arrivée placée (${snapped.wall})`, `wall:${snapped.wall}`);
     return;
   }
 
-  const meta = FALLBACK_PRICES[placeType];
-  session.placements.push({
-    id: `p${Date.now()}`,
-    type: placeType,
-    wall: snapped.wall,
-    t: snapped.t,
-    x: snapped.x,
-    y: snapped.y,
-    label: meta?.name || placeType,
-  });
-  const eq = session.equipment.find((e) => e.type === placeType);
-  const count = session.placements.filter((p) => p.type === placeType).length;
+  if (!poly.length) return;
+
+  if (sketchMode === "measure") {
+    const hit = nearestEdgePoint(poly, x, y);
+    if (hit) {
+      session._selectedEdge = hit.edgeIndex;
+      drawRoom();
+      toast(`Mur ${hit.edgeIndex + 1} sélectionné — saisis la longueur`);
+    }
+    return;
+  }
+
+  if (sketchMode === "arrival") {
+    const hit = nearestEdgePoint(poly, x, y);
+    if (!hit) return;
+    session.arrival = { x: hit.x, y: hit.y, edgeIndex: hit.edgeIndex, t: hit.t };
+    drawRoom();
+    handleUser("Arrivée placée", `wall:${hit.edgeIndex}`);
+    return;
+  }
+
+  if (sketchMode === "points") {
+    const existing = findPointAt(x, y);
+    if (existing) {
+      selectedPointId = existing.id;
+      updatePropsPanel();
+      drawRoom();
+      return;
+    }
+
+    const ceilingTool = isCeilingType(placeType);
+    if (ceilingTool && poly.length >= 3 && pointInPolygon(poly, x, y)) {
+      const pt = createPoint(placeType, round3(x), round3(y));
+      session.placements.push(pt);
+      selectedPointId = pt.id;
+      syncEquipmentQty(placeType);
+      updatePropsPanel();
+      drawRoom();
+      toast(`${pt.label} placé au plafond`);
+      return;
+    }
+
+    if (!ceilingTool) {
+      const hit = nearestEdgePoint(poly, x, y);
+      if (!hit) return;
+      const pt = createPoint(placeType, hit.x, hit.y, { edgeIndex: hit.edgeIndex, t: hit.t });
+      session.placements.push(pt);
+      selectedPointId = pt.id;
+      syncEquipmentQty(placeType);
+      updatePropsPanel();
+      drawRoom();
+      toast(`${pt.label} placé`);
+    }
+  }
+}
+
+function syncEquipmentQty(type) {
+  const eq = session.equipment.find((e) => e.type === type);
+  const count = session.placements.filter((p) => p.type === type).length;
   if (eq) {
     if (count > eq.qty) eq.qty = count;
   } else {
-    session.equipment.push({
-      type: placeType,
-      qty: 1,
-      label: meta?.name || placeType,
-    });
+    const meta = POINT_TOOLS.find((t) => t.id === type);
+    session.equipment.push({ type, qty: 1, label: meta?.label || type });
   }
-  drawRoom();
-  toast(`${meta?.name || "Point"} placé · ${session.placements.length} au total`);
 }
 
-els.canvas.addEventListener("click", (e) => onPointer(e.clientX, e.clientY));
-els.canvas.addEventListener(
-  "touchend",
-  (e) => {
-    if (!e.changedTouches[0]) return;
+function movePoint(p, wx, wy) {
+  const poly = getPoly();
+  if (p.mode === "ceiling" || isCeilingType(p.type)) {
+    if (poly.length >= 3 && pointInPolygon(poly, wx, wy)) {
+      p.x = round3(wx);
+      p.y = round3(wy);
+      p.edgeIndex = null;
+      p.t = null;
+    }
+  } else if (poly.length) {
+    const hit = nearestEdgePoint(poly, wx, wy);
+    if (hit) {
+      p.x = hit.x;
+      p.y = hit.y;
+      p.edgeIndex = hit.edgeIndex;
+      p.t = hit.t;
+    }
+  }
+}
+
+function round3(n) {
+  return Math.round(n * 1000) / 1000;
+}
+
+function onPointerDown(e) {
+  pointerMoved = false;
+  if (e.button === 1 || (e.button === 0 && spaceHeld)) {
+    isPanning = true;
+    panStart = { x: e.clientX, y: e.clientY, panX: viewPanX, panY: viewPanY };
+    els.canvas.classList.add("panning", "active");
     e.preventDefault();
-    onPointer(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-  },
-  { passive: false }
-);
+    return;
+  }
+  if (e.button !== 0) return;
+
+  const { mx, my } = canvasCoords(e.clientX, e.clientY);
+  if (sketchMode === "points") {
+    const { x, y } = screenToWorld(mx, my);
+    const hit = findPointAt(x, y);
+    if (hit) {
+      dragPoint = hit;
+      selectedPointId = hit.id;
+      updatePropsPanel();
+      drawRoom();
+      e.preventDefault();
+    }
+  }
+}
+
+function onPointerMove(e) {
+  if (isPanning && panStart) {
+    pointerMoved = true;
+    viewPanX = panStart.panX + (e.clientX - panStart.x);
+    viewPanY = panStart.panY + (e.clientY - panStart.y);
+    drawRoom();
+    return;
+  }
+  if (dragPoint) {
+    pointerMoved = true;
+    const { mx, my } = canvasCoords(e.clientX, e.clientY);
+    const { x, y } = screenToWorld(mx, my);
+    movePoint(dragPoint, x, y);
+    drawRoom();
+  }
+}
+
+function onPointerUp() {
+  if (dragPoint) dragPoint = null;
+  if (isPanning) {
+    isPanning = false;
+    panStart = null;
+    els.canvas.classList.remove("panning", "active");
+  }
+}
+
+els.canvas.addEventListener("mousedown", onPointerDown);
+window.addEventListener("mousemove", onPointerMove);
+window.addEventListener("mouseup", onPointerUp);
+
+els.canvas.addEventListener("click", (e) => {
+  if (e.button !== 0 || spaceHeld || pointerMoved) return;
+  const { mx, my } = canvasCoords(e.clientX, e.clientY);
+  handleCanvasClick(mx, my);
+});
+
+els.canvas.addEventListener("wheel", (e) => {
+  e.preventDefault();
+  const { mx, my } = canvasCoords(e.clientX, e.clientY);
+  const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  zoomAt(factor, mx, my);
+}, { passive: false });
+
+els.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+window.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !e.repeat) {
+    spaceHeld = true;
+    els.canvas.classList.add("panning");
+    e.preventDefault();
+  }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.code === "Space") {
+    spaceHeld = false;
+    if (!isPanning) els.canvas.classList.remove("panning", "active");
+  }
+});
+
+els.canvas.addEventListener("touchstart", (e) => {
+  pointerMoved = false;
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastPinchDist = Math.hypot(dx, dy);
+    e.preventDefault();
+    return;
+  }
+  if (e.touches.length === 1 && sketchMode === "points") {
+    const t = e.touches[0];
+    const { mx, my } = canvasCoords(t.clientX, t.clientY);
+    const { x, y } = screenToWorld(mx, my);
+    const hit = findPointAt(x, y);
+    if (hit) {
+      dragPoint = hit;
+      selectedPointId = hit.id;
+      updatePropsPanel();
+      e.preventDefault();
+    }
+  }
+}, { passive: false });
+
+els.canvas.addEventListener("touchmove", (e) => {
+  if (e.touches.length === 2 && lastPinchDist) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    const { mx, my } = canvasCoords(cx, cy);
+    zoomAt(dist / lastPinchDist, mx, my);
+    lastPinchDist = dist;
+
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    if (e.touches[0].identifier < e.touches[1].identifier) {
+      viewPanX += (e.touches[0].clientX - e.touches[1].clientX) * 0.02;
+      viewPanY += (e.touches[0].clientY - e.touches[1].clientY) * 0.02;
+    }
+    drawRoom();
+    e.preventDefault();
+    return;
+  }
+  if (dragPoint && e.touches.length === 1) {
+    pointerMoved = true;
+    const t = e.touches[0];
+    const { mx, my } = canvasCoords(t.clientX, t.clientY);
+    const { x, y } = screenToWorld(mx, my);
+    movePoint(dragPoint, x, y);
+    drawRoom();
+    e.preventDefault();
+  } else if (e.touches.length === 2) {
+    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+    if (!panStart) panStart = { x: midX, y: midY, panX: viewPanX, panY: viewPanY };
+    viewPanX = panStart.panX + (midX - panStart.x);
+    viewPanY = panStart.panY + (midY - panStart.y);
+    drawRoom();
+    e.preventDefault();
+  }
+}, { passive: false });
+
+els.canvas.addEventListener("touchend", (e) => {
+  if (e.touches.length < 2) {
+    lastPinchDist = null;
+    panStart = null;
+  }
+  if (dragPoint) {
+    dragPoint = null;
+    return;
+  }
+  if (!e.changedTouches[0] || e.touches.length > 0 || pointerMoved) return;
+  const t = e.changedTouches[0];
+  const { mx, my } = canvasCoords(t.clientX, t.clientY);
+  handleCanvasClick(mx, my);
+  e.preventDefault();
+}, { passive: false });
+
+function resizeCanvas() {
+  const rect = els.wrap.getBoundingClientRect();
+  const size = Math.min(640, Math.max(280, rect.width - 24));
+  if (els.canvas.width !== size) {
+    els.canvas.width = size;
+    els.canvas.height = size;
+    drawRoom();
+  }
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+// ─── Save ───────────────────────────────────────────────────────────────────
 
 async function saveDevis() {
   if (!currentUser) return;
@@ -470,6 +1020,7 @@ async function saveDevis() {
           arrival: session.arrival,
           placements: session.placements,
           path: session.tech.cablePath,
+          polygon: session.dimensions?.polygon,
         },
       },
     ],
