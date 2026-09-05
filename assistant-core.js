@@ -294,18 +294,138 @@ export function createPoint(type, x, y, extra = {}) {
   };
 }
 
-export function scaleEdge(dimensions, edgeIndex, targetLen) {
-  const poly = dimensions.polygon;
-  if (!poly || edgeIndex == null) return;
-  const a = poly[edgeIndex];
-  const b = poly[(edgeIndex + 1) % poly.length];
-  const cur = dist(a, b) || 1;
-  b.x = a.x + ((b.x - a.x) / cur) * targetLen;
-  b.y = a.y + ((b.y - a.y) / cur) * targetLen;
-  const bounds = polygonBounds(poly);
-  dimensions.width = round2(bounds.width);
-  dimensions.depth = round2(bounds.depth);
+/** Ramer–Douglas–Peucker simplification (world meters). */
+export function simplifyStroke(points, epsilon = 0.12) {
+  if (!points || points.length < 3) return points ? points.map((p) => ({ x: p.x, y: p.y })) : [];
+  const sq = (epsilon) => epsilon * epsilon;
+  const segDist2 = (p, a, b) => {
+    let dx = b.x - a.x;
+    let dy = b.y - a.y;
+    if (dx === 0 && dy === 0) return (p.x - a.x) ** 2 + (p.y - a.y) ** 2;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)));
+    const x = a.x + t * dx;
+    const y = a.y + t * dy;
+    return (p.x - x) ** 2 + (p.y - y) ** 2;
+  };
+  const rdp = (pts) => {
+    if (pts.length < 3) return pts;
+    let maxD = 0;
+    let idx = 0;
+    const a = pts[0];
+    const b = pts[pts.length - 1];
+    for (let i = 1; i < pts.length - 1; i++) {
+      const d = segDist2(pts[i], a, b);
+      if (d > maxD) {
+        maxD = d;
+        idx = i;
+      }
+    }
+    if (maxD > sq(epsilon)) {
+      const left = rdp(pts.slice(0, idx + 1));
+      const right = rdp(pts.slice(idx));
+      return left.slice(0, -1).concat(right);
+    }
+    return [a, b];
+  };
+  return rdp(points.map((p) => ({ x: p.x, y: p.y })));
+}
+
+/** Convert a freehand stroke into a closed room polygon. */
+export function strokeToPolygon(stroke) {
+  if (!stroke || stroke.length < 4) return [];
+  const bbox = polygonBounds(stroke);
+  const span = Math.max(bbox.width, bbox.depth, 1);
+  let poly = simplifyStroke(stroke, Math.max(0.08, span * 0.03));
+  if (poly.length < 3) poly = simplifyStroke(stroke, Math.max(0.05, span * 0.02));
+  if (poly.length < 3) return [];
+
+  // Close shape if ends are near
+  const first = poly[0];
+  const last = poly[poly.length - 1];
+  if (dist(first, last) < span * 0.12) poly.pop();
+  // Drop near-duplicate consecutive points
+  const cleaned = [];
+  for (const p of poly) {
+    if (!cleaned.length || dist(cleaned[cleaned.length - 1], p) > 0.05) cleaned.push(p);
+  }
+  if (cleaned.length >= 3 && dist(cleaned[0], cleaned[cleaned.length - 1]) < 0.05) cleaned.pop();
+  return cleaned.length >= 3 ? cleaned.map((p) => ({ x: round2(p.x), y: round2(p.y) })) : [];
+}
+
+/** Freeze sketch angles as a template before measuring walls. */
+export function finalizeDrawnPolygon(dimensions) {
+  if (!dimensions?.polygon || dimensions.polygon.length < 3) return false;
+  dimensions.templatePolygon = dimensions.polygon.map((p) => ({ x: p.x, y: p.y }));
+  dimensions.edgeLengths = dimensions.polygon.map(() => null);
+  const b = polygonBounds(dimensions.polygon);
+  dimensions.width = round2(b.width);
+  dimensions.depth = round2(b.depth);
+  dimensions.source = "drawn";
+  return true;
+}
+
+/**
+ * Rebuild polygon from template edge directions + target lengths.
+ * Preserves chimney notches / angles from the freehand sketch.
+ */
+export function rebuildPolygonFromTemplate(dimensions) {
+  const template = dimensions.templatePolygon || dimensions.polygon;
+  if (!template || template.length < 3) return;
+  const n = template.length;
+  const dirs = [];
+  for (let i = 0; i < n; i++) {
+    const a = template[i];
+    const b = template[(i + 1) % n];
+    const d = dist(a, b) || 1;
+    dirs.push({ x: (b.x - a.x) / d, y: (b.y - a.y) / d });
+  }
+  const lens = [];
+  for (let i = 0; i < n; i++) {
+    const L = dimensions.edgeLengths?.[i];
+    lens.push(L > 0 ? L : dist(template[i], template[(i + 1) % n]));
+  }
+
+  let x = template[0].x;
+  let y = template[0].y;
+  const raw = [{ x, y }];
+  for (let i = 0; i < n; i++) {
+    x += dirs[i].x * lens[i];
+    y += dirs[i].y * lens[i];
+    raw.push({ x, y });
+  }
+  const errX = raw[n].x - raw[0].x;
+  const errY = raw[n].y - raw[0].y;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    out.push({
+      x: round2(raw[i].x - errX * t),
+      y: round2(raw[i].y - errY * t),
+    });
+  }
+  dimensions.polygon = out;
+  const b = polygonBounds(out);
+  dimensions.width = round2(b.width);
+  dimensions.depth = round2(b.depth);
+}
+
+/** Set one wall length then rebuild the whole room (keeps sketch angles). */
+export function setEdgeLength(dimensions, edgeIndex, targetLen) {
+  if (!dimensions?.polygon || edgeIndex == null || !(targetLen > 0)) return;
+  if (!dimensions.templatePolygon) {
+    dimensions.templatePolygon = dimensions.polygon.map((p) => ({ x: p.x, y: p.y }));
+  }
+  if (!dimensions.edgeLengths || dimensions.edgeLengths.length !== dimensions.templatePolygon.length) {
+    dimensions.edgeLengths = dimensions.templatePolygon.map(() => null);
+  }
+  dimensions.edgeLengths[edgeIndex] = targetLen;
+  rebuildPolygonFromTemplate(dimensions);
   dimensions.source = dimensions.source || "drawn";
+}
+
+/** @deprecated use setEdgeLength — kept name for older call sites */
+export function scaleEdge(dimensions, edgeIndex, targetLen) {
+  setEdgeLength(dimensions, edgeIndex, targetLen);
 }
 
 export function buildQuote(session, settings = {}) {
@@ -575,13 +695,22 @@ export function robotReply(session, userText, choiceId) {
     case "shape": {
       if (choiceId === "shape:draw") {
         session.step = "draw";
-        session.dimensions = { width: 0, depth: 0, height: 2.5, polygon: [], source: "drawn", chimney: null };
+        session.dimensions = {
+          width: 0,
+          depth: 0,
+          height: 2.5,
+          polygon: [],
+          templatePolygon: null,
+          edgeLengths: null,
+          source: "drawn",
+          chimney: null,
+        };
+        session._selectedEdge = null;
         return {
-          text: "Mode dessin smartphone : tape un coin, glisse à 1 doigt pour déplacer, pince pour zoomer. Bouton ↶ pour annuler un coin. Puis « Terminer le contour ».",
+          text: "Dessine la pièce d’un seul trait (doigt sur l’écran), comme un plan rapide. Ensuite on met chaque cote et Volt redessine proprement. 2 doigts = zoom/déplacer. Bouton Effacer = recommencer.",
           actions: [
             { id: "draw:done", label: "Terminer le contour" },
-            { id: "draw:undo", label: "Annuler dernier coin" },
-            { id: "draw:clear", label: "Effacer tout" },
+            { id: "draw:clear", label: "Effacer / recommencer" },
           ],
           showSketch: true, sketchMode: "draw", speak: true,
         };
@@ -607,29 +736,17 @@ export function robotReply(session, userText, choiceId) {
       };
     }
     case "draw": {
-      if (choiceId === "draw:undo") {
-        const poly = session.dimensions?.polygon;
-        if (poly?.length) poly.pop();
+      if (choiceId === "draw:clear" || choiceId === "draw:undo") {
+        if (session.dimensions) {
+          session.dimensions.polygon = [];
+          session.dimensions.templatePolygon = null;
+          session.dimensions.edgeLengths = null;
+        }
         return {
-          text: poly?.length
-            ? `Coin annulé — il reste ${poly.length} coin${poly.length > 1 ? "s" : ""}.`
-            : "Dessin vide. Tape les coins dans l'ordre.",
+          text: "Dessin effacé. Redessine la forme d’un trait, puis Terminer.",
           actions: [
             { id: "draw:done", label: "Terminer le contour" },
-            { id: "draw:undo", label: "Annuler dernier coin" },
-            { id: "draw:clear", label: "Effacer tout" },
-          ],
-          showSketch: true, sketchMode: "draw", speak: true,
-        };
-      }
-      if (choiceId === "draw:clear") {
-        if (session.dimensions) session.dimensions.polygon = [];
-        return {
-          text: "Dessin effacé. Repars des coins, dans l'ordre.",
-          actions: [
-            { id: "draw:done", label: "Terminer le contour" },
-            { id: "draw:undo", label: "Annuler dernier coin" },
-            { id: "draw:clear", label: "Effacer tout" },
+            { id: "draw:clear", label: "Effacer / recommencer" },
           ],
           showSketch: true, sketchMode: "draw", speak: true,
         };
@@ -637,57 +754,88 @@ export function robotReply(session, userText, choiceId) {
       if (choiceId === "draw:done") {
         if (!session.dimensions?.polygon || session.dimensions.polygon.length < 3) {
           return {
-            text: "Il faut au moins 3 coins. Continue, puis Terminer.",
+            text: "Trace d’abord le contour d’un trait (forme fermée), puis Terminer.",
             actions: [
               { id: "draw:done", label: "Terminer le contour" },
-              { id: "draw:undo", label: "Annuler dernier coin" },
-              { id: "draw:clear", label: "Effacer tout" },
+              { id: "draw:clear", label: "Effacer / recommencer" },
             ],
             showSketch: true, sketchMode: "draw", speak: true,
           };
         }
-        // close polygon bounds
-        const b = polygonBounds(session.dimensions.polygon);
-        session.dimensions.width = round2(b.width);
-        session.dimensions.depth = round2(b.depth);
+        finalizeDrawnPolygon(session.dimensions);
         session.step = "measure-walls";
+        session._selectedEdge = null;
         return {
-          text: "Contour noté. Clique un mur puis envoie sa longueur (ex. 3.2). Puis Continuer.",
-          actions: [{ id: "walls:done", label: "Cotes OK → Continuer" }],
+          text: "Contour noté. Tape chaque mur et envoie sa vraie longueur (ex. 4). La forme (rectangle + cheminée…) est conservée — Volt recalcule le plan propre à la fin.",
+          actions: [
+            { id: "walls:done", label: "Cotes OK → Continuer" },
+            { id: "draw:restart", label: "Recommencer le dessin" },
+          ],
           showSketch: true, sketchMode: "measure", speak: true,
         };
       }
       return {
-        text: "Tape un coin, glisse pour déplacer le plan, pince pour zoomer. Puis Terminer.",
+        text: "Dessine d’un trait, puis Terminer. Effacer pour recommencer.",
         actions: [
           { id: "draw:done", label: "Terminer le contour" },
-          { id: "draw:undo", label: "Annuler dernier coin" },
-          { id: "draw:clear", label: "Effacer tout" },
+          { id: "draw:clear", label: "Effacer / recommencer" },
         ],
         showSketch: true, sketchMode: "draw", speak: true,
       };
     }
     case "measure-walls": {
-      if (choiceId === "walls:done") {
-        session.step = "equipment";
+      if (choiceId === "draw:restart") {
+        session.step = "draw";
+        session.dimensions = {
+          width: 0,
+          depth: 0,
+          height: session.dimensions?.height || 2.5,
+          polygon: [],
+          templatePolygon: null,
+          edgeLengths: null,
+          source: "drawn",
+          chimney: null,
+        };
+        session._selectedEdge = null;
         return {
-          text: "Plan propre. Qu'est-ce qu'on installe ?",
+          text: "OK, on recommence. Dessine la pièce d’un trait.",
+          actions: [
+            { id: "draw:done", label: "Terminer le contour" },
+            { id: "draw:clear", label: "Effacer / recommencer" },
+          ],
+          showSketch: true, sketchMode: "draw", speak: true,
+        };
+      }
+      if (choiceId === "walls:done") {
+        if (session.dimensions) rebuildPolygonFromTemplate(session.dimensions);
+        session.step = "equipment";
+        session._selectedEdge = null;
+        return {
+          text: "Plan redessiné avec tes cotes. Qu'est-ce qu'on installe ?",
           suggestions: equipmentSuggestions(session.roomType),
           showSketch: true, sketchMode: "review-shape", speak: true,
         };
       }
       const n = parseFloat(String(userText || "").replace(",", "."));
       if (Number.isFinite(n) && n > 0 && session._selectedEdge != null && session.dimensions?.polygon) {
-        scaleEdge(session.dimensions, session._selectedEdge, n);
+        setEdgeLength(session.dimensions, session._selectedEdge, n);
+        const setCount = (session.dimensions.edgeLengths || []).filter((L) => L > 0).length;
+        const total = session.dimensions.polygon.length;
         return {
-          text: `Mur mis à ${n} m. Autre mur ou Continuer.`,
-          actions: [{ id: "walls:done", label: "Cotes OK → Continuer" }],
+          text: `Mur ${session._selectedEdge + 1} → ${n} m (${setCount}/${total} cotes). Autre mur ou Continuer.`,
+          actions: [
+            { id: "walls:done", label: "Cotes OK → Continuer" },
+            { id: "draw:restart", label: "Recommencer le dessin" },
+          ],
           showSketch: true, sketchMode: "measure", speak: true,
         };
       }
       return {
-        text: "Clique un mur, puis envoie sa longueur (ex. 4.5).",
-        actions: [{ id: "walls:done", label: "Cotes OK → Continuer" }],
+        text: "Tape un mur, puis envoie sa longueur (ex. 4.5).",
+        actions: [
+          { id: "walls:done", label: "Cotes OK → Continuer" },
+          { id: "draw:restart", label: "Recommencer le dessin" },
+        ],
         showSketch: true, sketchMode: "measure", speak: true,
       };
     }
