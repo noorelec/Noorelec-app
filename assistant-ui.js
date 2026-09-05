@@ -100,6 +100,11 @@ const els = {
   keypadDisplay: $("keypadDisplay"),
   keypadQuick: $("keypadQuick"),
   keypadGrid: $("keypadGrid"),
+  measureDock: $("measureDock"),
+  measureDockTitle: $("measureDockTitle"),
+  measureDockDisplay: $("measureDockDisplay"),
+  measureDockQuick: $("measureDockQuick"),
+  measureDockGrid: $("measureDockGrid"),
   paywall: $("paywall"),
   shell: $("shell"),
   sketchBar: $("sketchBar"),
@@ -265,72 +270,96 @@ function syncPlacePlanFromPlacements() {
 function openLengthKeypad(edgeIndex) {
   session._selectedEdge = edgeIndex;
   keypadValue = "";
-  if (els.keypadTitle) els.keypadTitle.textContent = `Mur ${edgeIndex + 1} — longueur`;
+  const title = `Mur ${edgeIndex + 1} — longueur`;
+  if (els.keypadTitle) els.keypadTitle.textContent = title;
+  if (els.measureDockTitle) els.measureDockTitle.textContent = title;
   if (els.keypadSub) els.keypadSub.textContent = "Tape les chiffres ci-dessous (pas le clavier du téléphone)";
   renderKeypadDisplay();
   buildKeypadOnce();
-  els.keypad.classList.add("on");
-  els.keypad.setAttribute("aria-hidden", "false");
-  try { els.input?.blur(); } catch (_) {}
+  // Dock sous le croquis (toujours visible) + modal plein écran
+  els.measureDock?.classList.add("on");
+  els.keypad?.classList.add("on");
+  els.keypad?.setAttribute("aria-hidden", "false");
+  // Empêche le clavier AZERTY du composer
+  if (els.input) {
+    els.input.blur();
+    els.input.setAttribute("readonly", "readonly");
+    els.input.inputMode = "none";
+  }
+  // Scroll le dock dans la vue (mobile)
+  try { els.measureDock?.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (_) {}
   drawRoom();
 }
 
 function closeLengthKeypad() {
   els.keypad?.classList.remove("on");
   els.keypad?.setAttribute("aria-hidden", "true");
+  els.measureDock?.classList.remove("on");
+  if (els.input) {
+    els.input.removeAttribute("readonly");
+    els.input.inputMode = "text";
+  }
 }
 
 function renderKeypadDisplay() {
-  if (!els.keypadDisplay) return;
   const shown = keypadValue || "0";
-  els.keypadDisplay.innerHTML = `${shown}<span>m</span>`;
+  const html = `${shown}<span>m</span>`;
+  if (els.keypadDisplay) els.keypadDisplay.innerHTML = html;
+  if (els.measureDockDisplay) els.measureDockDisplay.innerHTML = html;
 }
 
 let keypadBuilt = false;
 function buildKeypadOnce() {
-  if (keypadBuilt || !els.keypadGrid) return;
+  if (keypadBuilt) return;
   keypadBuilt = true;
 
-  const quick = [1, 2, 2.5, 3, 3.5, 4, 5, 6];
-  els.keypadQuick.innerHTML = "";
-  quick.forEach((n) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = `${n} m`;
-    b.addEventListener("click", () => {
-      keypadValue = String(n);
-      renderKeypadDisplay();
-      confirmKeypadLength();
-    });
-    els.keypadQuick.appendChild(b);
-  });
-
-  const keys = ["1","2","3","4","5","6","7","8","9",".","0","⌫","OK","Annuler"];
-  els.keypadGrid.innerHTML = "";
-  keys.forEach((k) => {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.textContent = k === "⌫" ? "⌫" : k;
-    if (k === "OK") b.className = "ok";
-    if (k === "Annuler") b.className = "ghost";
-    if (k === "OK") b.style.gridColumn = "span 2";
-    b.addEventListener("click", () => {
-      if (k === "Annuler") { closeLengthKeypad(); return; }
-      if (k === "OK") { confirmKeypadLength(); return; }
-      if (k === "⌫") {
-        keypadValue = keypadValue.slice(0, -1);
+  const wirePad = (quickEl, gridEl) => {
+    if (!quickEl || !gridEl) return;
+    quickEl.innerHTML = "";
+    [1, 2, 2.5, 3, 3.5, 4, 5, 6].forEach((n) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `${n} m`;
+      b.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        keypadValue = String(n);
         renderKeypadDisplay();
-        return;
-      }
-      if (k === "." && keypadValue.includes(".")) return;
-      if (keypadValue.length >= 6) return;
-      keypadValue += k;
-      renderKeypadDisplay();
+        confirmKeypadLength();
+      });
+      quickEl.appendChild(b);
     });
-    els.keypadGrid.appendChild(b);
-  });
 
-  els.keypad.addEventListener("click", (e) => {
+    gridEl.innerHTML = "";
+    ["1","2","3","4","5","6","7","8","9",".","0","⌫","OK","Annuler"].forEach((k) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = k === "⌫" ? "⌫" : k;
+      if (k === "OK") { b.className = "ok"; b.style.gridColumn = "span 2"; }
+      if (k === "Annuler") b.className = "ghost";
+      b.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (k === "Annuler") { closeLengthKeypad(); return; }
+        if (k === "OK") { confirmKeypadLength(); return; }
+        if (k === "⌫") {
+          keypadValue = keypadValue.slice(0, -1);
+          renderKeypadDisplay();
+          return;
+        }
+        if (k === "." && keypadValue.includes(".")) return;
+        if (keypadValue.length >= 6) return;
+        keypadValue += k;
+        renderKeypadDisplay();
+      });
+      gridEl.appendChild(b);
+    });
+  };
+
+  wirePad(els.keypadQuick, els.keypadGrid);
+  wirePad(els.measureDockQuick, els.measureDockGrid);
+
+  els.keypad?.addEventListener("click", (e) => {
     if (e.target === els.keypad) closeLengthKeypad();
   });
 }
@@ -395,6 +424,7 @@ function applyReply(reply) {
   if (reply.showSketch) {
     const prevMode = sketchMode;
     sketchMode = reply.sketchMode || "idle";
+    if (sketchMode !== "measure") closeLengthKeypad();
     if (reply.activeOpeningTool) openingTool = reply.activeOpeningTool;
     if (reply.placePlan) session.placePlan = reply.placePlan;
     if (sketchMode === "points" && session.equipment?.length && !session.placePlan?.length) {

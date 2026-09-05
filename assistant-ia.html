@@ -127,11 +127,36 @@
     }
     .place-chip.active { background: var(--amber); color: #1a1205; border-color: transparent; }
     .place-chip.done { opacity: .45; }
+    .measure-dock {
+      display: none; flex-direction: column; gap: 8px; padding: 10px 12px 12px;
+      border-top: 1px solid var(--stroke); background: rgba(0,0,0,.28);
+    }
+    .measure-dock.on { display: flex; }
+    .measure-dock-title { font-family: var(--fd); font-weight: 800; font-size: .95rem; }
+    .measure-dock-sub { color: var(--muted); font-size: .78rem; }
+    .measure-dock-display {
+      background: rgba(0,0,0,.35); border: 1px solid var(--stroke); border-radius: 12px;
+      padding: 12px 14px; font-family: var(--fd); font-size: 1.6rem; font-weight: 800; text-align: right;
+    }
+    .measure-dock-display span { color: var(--muted); font-size: .95rem; margin-left: 6px; }
+    .measure-dock-quick, .measure-dock-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .measure-dock-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .measure-dock button {
+      border: 1px solid var(--stroke); background: rgba(255,255,255,.07); color: var(--text);
+      border-radius: 11px; font-family: var(--fd); font-weight: 800; font-size: 1.15rem;
+      min-height: 48px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .measure-dock-quick button {
+      border-radius: 999px; font-size: .82rem; min-height: 36px; padding: 0 12px;
+      color: var(--cyan); border-color: rgba(62,224,197,.35); background: rgba(62,224,197,.1);
+    }
+    .measure-dock button.ok { background: linear-gradient(135deg, var(--cyan), #1fad97); color: #04201a; border: none; grid-column: span 2; }
+    .measure-dock button.ghost { color: var(--muted); }
     .keypad-backdrop {
-      display: none; position: fixed; inset: 0; z-index: 60; background: rgba(4,12,18,.72);
+      display: none; position: fixed; inset: 0; z-index: 80; background: rgba(4,12,18,.78);
       align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom));
     }
-    .keypad-backdrop.on { display: flex; }
+    .keypad-backdrop.on { display: flex !important; }
     .keypad {
       width: min(420px, 100%); background: #102433; border: 1px solid var(--stroke); border-radius: 18px 18px 14px 14px;
       padding: 14px; box-shadow: 0 -8px 40px rgba(0,0,0,.45);
@@ -229,6 +254,13 @@
         </div>
         <div class="cwrap empty" id="wrap">
           <canvas id="canvas" width="640" height="640"></canvas>
+        </div>
+        <div class="measure-dock" id="measureDock" aria-label="Saisie longueur du mur">
+          <div class="measure-dock-title" id="measureDockTitle">Mur — longueur</div>
+          <div class="measure-dock-sub">Pavé chiffres ici (pas le clavier AZERTY du haut)</div>
+          <div class="measure-dock-display" id="measureDockDisplay">0<span>m</span></div>
+          <div class="measure-dock-quick" id="measureDockQuick"></div>
+          <div class="measure-dock-grid" id="measureDockGrid"></div>
         </div>
         <div class="props" id="props">
           <span class="props-title">Point sélectionné</span>
