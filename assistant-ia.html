@@ -105,6 +105,8 @@
     .sw.o { background: var(--cyan); }
     .sw.l { background: #ffe08a; border-radius: 2px; width: 9px; height: 9px; }
     .sw.c { background: #7dd3fc; }
+    .sw.d { background: #f5a623; border-radius: 2px; width: 12px; height: 4px; }
+    .sw.w { background: #7dd3fc; border-radius: 1px; width: 12px; height: 4px; box-shadow: 0 3px 0 #7dd3fc; }
     .quote { display: none; margin: 0 13px 13px; padding: 13px; border-radius: 13px; background: var(--amber-soft); border: 1px solid rgba(245,166,35,.32); font-size: .86rem; line-height: 1.45; }
     .quote.on { display: block; }
     .quote strong { font-family: var(--fd); font-size: 1.2rem; color: var(--amber); display: block; margin-top: 4px; }
@@ -115,6 +117,72 @@
     .paywall-in h2 { font-family: var(--fd); margin-bottom: 8px; }
     .paywall-in p { color: var(--muted); margin-bottom: 18px; line-height: 1.5; }
     .paywall-in a { display: inline-block; background: var(--cyan); color: #04201a; padding: 11px 18px; border-radius: 11px; text-decoration: none; font-weight: 700; }
+
+    .place-bar { display: none; flex-wrap: wrap; gap: 6px; padding: 8px 13px; border-bottom: 1px solid var(--stroke); background: rgba(0,0,0,.14); }
+    .place-bar.on { display: flex; }
+    .place-chip {
+      border: 1px solid var(--stroke); background: rgba(255,255,255,.05); color: var(--text);
+      border-radius: 999px; padding: 7px 11px; font-size: .78rem; font-weight: 700; font-family: var(--fd);
+      cursor: pointer; min-height: 36px;
+    }
+    .place-chip.active { background: var(--amber); color: #1a1205; border-color: transparent; }
+    .place-chip.done { opacity: .45; }
+    .measure-dock {
+      display: none; flex-direction: column; gap: 8px; padding: 10px 12px 12px;
+      border-top: 1px solid var(--stroke); background: rgba(0,0,0,.28);
+    }
+    .measure-dock.on { display: flex; }
+    .measure-dock-title { font-family: var(--fd); font-weight: 800; font-size: .95rem; }
+    .measure-dock-sub { color: var(--muted); font-size: .78rem; }
+    .measure-dock-display {
+      background: rgba(0,0,0,.35); border: 1px solid var(--stroke); border-radius: 12px;
+      padding: 12px 14px; font-family: var(--fd); font-size: 1.6rem; font-weight: 800; text-align: right;
+    }
+    .measure-dock-display span { color: var(--muted); font-size: .95rem; margin-left: 6px; }
+    .measure-dock-quick, .measure-dock-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .measure-dock-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .measure-dock button {
+      border: 1px solid var(--stroke); background: rgba(255,255,255,.07); color: var(--text);
+      border-radius: 11px; font-family: var(--fd); font-weight: 800; font-size: 1.15rem;
+      min-height: 48px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .measure-dock-quick button {
+      border-radius: 999px; font-size: .82rem; min-height: 36px; padding: 0 12px;
+      color: var(--cyan); border-color: rgba(62,224,197,.35); background: rgba(62,224,197,.1);
+    }
+    .measure-dock button.ok { background: linear-gradient(135deg, var(--cyan), #1fad97); color: #04201a; border: none; grid-column: span 2; }
+    .measure-dock button.ghost { color: var(--muted); }
+    .keypad-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 80; background: rgba(4,12,18,.78);
+      align-items: flex-end; justify-content: center; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+    .keypad-backdrop.on { display: flex !important; }
+    .keypad {
+      width: min(420px, 100%); background: #102433; border: 1px solid var(--stroke); border-radius: 18px 18px 14px 14px;
+      padding: 14px; box-shadow: 0 -8px 40px rgba(0,0,0,.45);
+    }
+    .keypad-title { font-family: var(--fd); font-weight: 800; font-size: 1rem; margin-bottom: 4px; }
+    .keypad-sub { color: var(--muted); font-size: .8rem; margin-bottom: 10px; }
+    .keypad-display {
+      background: rgba(0,0,0,.28); border: 1px solid var(--stroke); border-radius: 12px;
+      padding: 14px 16px; font-family: var(--fd); font-size: 1.8rem; font-weight: 800; text-align: right; margin-bottom: 10px;
+      min-height: 58px; letter-spacing: .02em;
+    }
+    .keypad-display span { color: var(--muted); font-size: 1rem; margin-left: 6px; font-weight: 600; }
+    .keypad-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .keypad-grid button {
+      border: 1px solid var(--stroke); background: rgba(255,255,255,.06); color: var(--text);
+      border-radius: 12px; font-family: var(--fd); font-size: 1.35rem; font-weight: 800;
+      min-height: 52px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .keypad-grid button:active { background: rgba(62,224,197,.22); }
+    .keypad-grid button.ok { background: linear-gradient(135deg, var(--cyan), #1fad97); color: #04201a; border: none; grid-column: span 2; }
+    .keypad-grid button.ghost { color: var(--muted); }
+    .keypad-quick { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
+    .keypad-quick button {
+      border: 1px solid rgba(62,224,197,.35); background: rgba(62,224,197,.08); color: var(--cyan);
+      border-radius: 999px; padding: 6px 10px; font-weight: 700; font-size: .8rem; cursor: pointer; font-family: inherit;
+    }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     @keyframes pulse { from { opacity: .45; } to { opacity: 1; } }
     @keyframes bounce { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
@@ -172,6 +240,7 @@
           <h3>Croquis interactif</h3>
           <p class="meta" id="meta">En attente des dimensions…</p>
         </div>
+        <div class="place-bar" id="placeBar" aria-label="Numéros à placer"></div>
         <div class="sketch-bar" id="sketchBar">
           <div class="tools" id="tools" aria-label="Outils de placement"></div>
           <div class="zoom-group">
@@ -186,6 +255,13 @@
         <div class="cwrap empty" id="wrap">
           <canvas id="canvas" width="640" height="640"></canvas>
         </div>
+        <div class="measure-dock" id="measureDock" aria-label="Saisie longueur du mur">
+          <div class="measure-dock-title" id="measureDockTitle">Mur — longueur</div>
+          <div class="measure-dock-sub">Pavé chiffres ici (pas le clavier AZERTY du haut)</div>
+          <div class="measure-dock-display" id="measureDockDisplay">0<span>m</span></div>
+          <div class="measure-dock-quick" id="measureDockQuick"></div>
+          <div class="measure-dock-grid" id="measureDockGrid"></div>
+        </div>
         <div class="props" id="props">
           <span class="props-title">Point sélectionné</span>
           <label><input type="checkbox" id="chkExisting" /> Existant</label>
@@ -195,6 +271,8 @@
         <div class="legend" id="legend">
           <span><i class="sw a"></i> Arrivée</span>
           <span><i class="sw o"></i> Murs</span>
+          <span><i class="sw d"></i> Porte</span>
+          <span><i class="sw w"></i> Fenêtre</span>
           <span><i class="sw l"></i> Plafond</span>
           <span><i class="sw c"></i> Câble</span>
         </div>
@@ -203,6 +281,15 @@
     </div>
   </div>
 
+  <div class="keypad-backdrop" id="keypad" aria-hidden="true">
+    <div class="keypad" role="dialog" aria-label="Saisie longueur du mur">
+      <div class="keypad-title" id="keypadTitle">Longueur du mur</div>
+      <div class="keypad-sub" id="keypadSub">Pavé numérique — pas besoin du clavier AZERTY</div>
+      <div class="keypad-display" id="keypadDisplay">0<span>m</span></div>
+      <div class="keypad-quick" id="keypadQuick"></div>
+      <div class="keypad-grid" id="keypadGrid"></div>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
   <script type="module" src="./assistant-ui.js"></script>
 </body>

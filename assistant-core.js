@@ -17,7 +17,11 @@ export const FALLBACK_PRICES = {
   "prise-lavevaisselle": { name: "Prise lave-vaisselle", price: 12, tempsBase: 35, cable: "3G2.5" },
   "prise-frigo": { name: "Prise frigo", price: 10, tempsBase: 25, cable: "3G2.5" },
   interrupteur: { name: "Interrupteur simple", price: 7, tempsBase: 20, cable: "3G1.5" },
+  "va-et-vient": { name: "Interrupteur va-et-vient", price: 9, tempsBase: 25, cable: "3G1.5" },
+  "inter-prise": { name: "Ensemble inter + prise (vertical)", price: 16, tempsBase: 35, cable: "3G2.5" },
   eclairage: { name: "Point lumineux (plafond)", price: 6, tempsBase: 35, cable: "3G1.5", ceiling: true },
+  "eclairage-spot": { name: "Spot plafond", price: 6, tempsBase: 30, cable: "3G1.5", ceiling: true },
+  "eclairage-applique": { name: "Applique murale", price: 8, tempsBase: 35, cable: "3G1.5", ceiling: false },
   rj45: { name: "Prise RJ45", price: 15, tempsBase: 35, cable: "RJ45" },
   "cable-3G1.5": { name: "Câble 3G1.5", price: 1.2, unit: "m" },
   "cable-3G2.5": { name: "Câble 3G2.5", price: 1.8, unit: "m" },
@@ -58,7 +62,18 @@ export const POINT_TOOLS = [
   { id: "prise-four", label: "Four", ceiling: false },
   { id: "prise-plaque", label: "Taque", ceiling: false },
   { id: "interrupteur", label: "Inter", ceiling: false },
+  { id: "va-et-vient", label: "Va-et-vient", ceiling: false },
+  { id: "inter-prise", label: "Inter+prise", ceiling: false },
   { id: "eclairage", label: "Lumière", ceiling: true },
+  { id: "eclairage-spot", label: "Spot", ceiling: true },
+  { id: "eclairage-applique", label: "Applique", ceiling: false },
+];
+
+/** Architectural openings drawn on walls (not priced as points). */
+export const OPENING_TOOLS = [
+  { id: "porte", label: "Porte", kind: "door", defaultWidth: 0.9 },
+  { id: "fenetre", label: "Fenêtre", kind: "window", defaultWidth: 1.2 },
+  { id: "baie", label: "Baie", kind: "bay", defaultWidth: 2.0 },
 ];
 
 function round2(n) { return Math.round(n * 100) / 100; }
@@ -173,12 +188,134 @@ export function edgePathLength(poly, from, to) {
 }
 
 export function isCeilingType(type) {
-  return !!(FALLBACK_PRICES[type]?.ceiling) || type === "eclairage";
+  return !!(FALLBACK_PRICES[type]?.ceiling) || type === "eclairage" || type === "eclairage-spot";
 }
 
 export function parseEquipmentText(text) {
+  return parseInstallText(text).equipment;
+}
+
+/**
+ * Parse free text for gear + openings + door-side kits (va-et-vient…).
+ * Understands e.g. "2 portes avec inter/prise et va-et-vient".
+ */
+export function parseInstallText(text) {
   const t = normStr(text);
-  const items = [];
+  const equipment = [];
+  const openings = [];
+  const notes = [];
+
+  const addEq = (type, qty, labelOverride = null) => {
+    if (!(qty > 0)) return;
+    const label = labelOverride || FALLBACK_PRICES[type]?.name || type;
+    // Light groups stay separate by type; wall gear merges by type
+    const ex = equipment.find((i) => i.type === type && i.label === label);
+    if (ex) ex.qty += qty;
+    else equipment.push({ type, qty, label });
+  };
+
+  const wordQty = (s) => {
+    if (/deux/.test(s)) return 2;
+    if (/trois/.test(s)) return 3;
+    if (/quatre/.test(s)) return 4;
+    if (/une?\b/.test(s)) return 1;
+    const m = s.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+
+  // --- openings ---
+  let doorQty = 0;
+  const doorNum = t.match(/(\d+)\s*portes?/);
+  if (doorNum) doorQty = parseInt(doorNum[1], 10);
+  else if (/deux\s+portes?/.test(t)) doorQty = 2;
+  else if (/portes?\s+d.?entree|porte\s+d.?entree|portes?/.test(t) && /porte/.test(t)) {
+    doorQty = /portes/.test(t) ? 2 : 1;
+  }
+  if (doorQty > 0) {
+    openings.push({ kind: "door", qty: doorQty, width: 0.9 });
+    notes.push(`${doorQty} porte${doorQty > 1 ? "s" : ""}`);
+  }
+
+  let winQty = 0;
+  const winNum = t.match(/(\d+)\s*fenetres?/);
+  if (winNum) winQty = parseInt(winNum[1], 10);
+  else if (/deux\s+fenetres?/.test(t)) winQty = 2;
+  else if (/\bfenetres?\b/.test(t)) winQty = 1;
+  if (winQty > 0) {
+    openings.push({ kind: "window", qty: winQty, width: 1.2 });
+    notes.push(`${winQty} fenêtre${winQty > 1 ? "s" : ""}`);
+  }
+
+  let bayQty = 0;
+  const bayNum = t.match(/(\d+)\s*baies?/);
+  if (bayNum) bayQty = parseInt(bayNum[1], 10);
+  else if (/\bbaie\b/.test(t)) bayQty = 1;
+  if (bayQty > 0) {
+    openings.push({ kind: "bay", qty: bayQty, width: 2 });
+    notes.push(`${bayQty} baie${bayQty > 1 ? "s" : ""}`);
+  }
+
+  // --- va-et-vient / inter+prise ---
+  const hasVev = /va[\s-]*et[\s-]*vient/.test(t);
+  const hasInterPrise = /interrupteur\s*\/\s*prise|inter(?:rupteur)?\s*(?:\/|et)\s*prise|prise\s*(?:\/|et)\s*inter|a cote de chaque porte|a cote des? portes?|double\s+prise\s*\/\s*inter|prise\s*\/\s*interrupteur|avec\s+(?:une?\s+)?prise\s+a\s+chaque|vev\s*\+?\s*prise/.test(t);
+  const vertical = /vertical/.test(t);
+  let vevHandled = false;
+
+  if ((hasVev || hasInterPrise) && doorQty >= 2) {
+    // 2+ portes → va-et-vient + prise à chaque porte (1 numéro = inter+prise par porte)
+    addEq("inter-prise", doorQty, `Inter+prise / va-et-vient (×${doorQty})`);
+    notes.push(`va-et-vient entre les ${doorQty} portes + prise à côté de chaque${vertical ? " (vertical)" : ""}`);
+    vevHandled = true;
+  } else if (hasVev && hasInterPrise) {
+    // « va-et-vient avec une prise à chaque fois » → 2 postes par défaut (circuit)
+    const explicit = t.match(/(\d+)\s*(?:va[\s-]*et[\s-]*vient|ensembles?|postes?|inter(?:rupteurs?)?\s*\+\s*prises?)/);
+    const q = Math.max(doorQty || 0, explicit ? parseInt(explicit[1], 10) : 0, /chaque/.test(t) ? 2 : 0, 2);
+    addEq("inter-prise", q, `Inter+prise / va-et-vient (×${q})`);
+    notes.push(`${q} ensemble(s) va-et-vient + prise`);
+    vevHandled = true;
+  } else if (hasVev && doorQty >= 1) {
+    addEq("va-et-vient", Math.max(doorQty, 2));
+    notes.push(`va-et-vient (${Math.max(doorQty, 2)} inters, 1 circuit)`);
+    if (/prise/.test(t)) {
+      addEq("prise-simple", doorQty);
+      notes.push("prise à côté de chaque porte");
+    }
+    vevHandled = true;
+  } else if (hasInterPrise && doorQty >= 1) {
+    addEq("inter-prise", doorQty);
+    notes.push(vertical ? "ensembles verticaux inter+prise à côté des portes" : "inter/prise à côté des portes");
+    vevHandled = true;
+  } else if (hasVev) {
+    const q = wordQty(t) || 2;
+    addEq("va-et-vient", Math.max(q, 2));
+    notes.push("va-et-vient");
+    vevHandled = true;
+  }
+
+  // --- light groups (spots / appliques share one number each) ---
+  let lightSpots = 0;
+  let lightAppliques = 0;
+  let lightGeneric = 0;
+  const spotM = t.match(/(\d+)\s*spots?\b/);
+  if (spotM) lightSpots = parseInt(spotM[1], 10);
+  const appM = t.match(/(\d+)\s*appliques?\b/);
+  if (appM) lightAppliques = parseInt(appM[1], 10);
+  const genLight = [...t.matchAll(/(\d+)\s*(?:points?\s*)?(?:lumineux|eclairages?|lumieres?)(?!\s*spot|\s*applique)/g)];
+  for (const m of genLight) lightGeneric += parseInt(m[1], 10) || 1;
+  if (lightSpots > 0) {
+    addEq("eclairage-spot", lightSpots, `${lightSpots} spot${lightSpots > 1 ? "s" : ""} (même circuit)`);
+    notes.push(`${lightSpots} spots → même n° sur le plan`);
+  }
+  if (lightAppliques > 0) {
+    addEq("eclairage-applique", lightAppliques, `${lightAppliques} applique${lightAppliques > 1 ? "s" : ""} (même circuit)`);
+    notes.push(`${lightAppliques} appliques → même n° sur le plan`);
+  }
+  if (lightGeneric > 0) {
+    addEq("eclairage", lightGeneric, `${lightGeneric} lumière${lightGeneric > 1 ? "s" : ""} (même circuit)`);
+    notes.push(`${lightGeneric} lumières → même n°`);
+  }
+
+  // --- classic equipment patterns (avoid double-counting portes / lights / vev kits) ---
   const patterns = [
     { re: /(\d+)\s*prises?\s+doubles?\b/g, type: "prise-double" },
     { re: /(\d+)\s*prises?\s+simples?\b/g, type: "prise-simple" },
@@ -187,8 +324,7 @@ export function parseEquipmentText(text) {
     { re: /prise\s*(?:pour\s*)?(?:la\s*)?(?:taque|plaque)|\btaque\b|plaque\s*(?:de\s*)?cuisson/g, type: "prise-plaque", qty: 1 },
     { re: /lave[\s-]?vaisselle/g, type: "prise-lavevaisselle", qty: 1 },
     { re: /\bfrigo\b|refrigerateur/g, type: "prise-frigo", qty: 1 },
-    { re: /(\d+)\s*(?:points?\s*)?(?:lumineux|eclairages?|spots?|lumieres?)/g, type: "eclairage" },
-    { re: /(\d+)\s*interrupteurs?/g, type: "interrupteur" },
+    { re: /(\d+)\s*interrupteurs?(?!\s*\/\s*prise)/g, type: "interrupteur" },
     { re: /(\d+)\s*(?:prises?\s*)?rj\s*45|ethernet/g, type: "rj45" },
   ];
   for (const p of patterns) {
@@ -196,15 +332,130 @@ export function parseEquipmentText(text) {
     let m;
     while ((m = re.exec(t)) !== null) {
       const qty = p.qty ?? (parseInt(m[1], 10) || 1);
-      const ex = items.find((i) => i.type === p.type);
-      if (ex) ex.qty += qty;
-      else items.push({ type: p.type, qty, label: FALLBACK_PRICES[p.type]?.name || p.type });
+      // skip bare "prise" if already counted as door-side / vev kit prises
+      if (p.type === "prise-simple" && (hasInterPrise || vevHandled) && !/prises?\s+simples?/.test(m[0])) {
+        continue;
+      }
+      addEq(p.type, qty);
     }
   }
-  if (!items.length && /prise/.test(t)) {
-    items.push({ type: "prise-simple", qty: 1, label: FALLBACK_PRICES["prise-simple"].name });
+
+  if (!equipment.length && !openings.length && /prise/.test(t)) {
+    addEq("prise-simple", 1);
   }
-  return items;
+
+  return { equipment, openings, notes };
+}
+
+/**
+ * Build numbered place plan:
+ * - wall gear → one number per unit (1, 2, 3…)
+ * - lights of same type → one shared number, qty to place by multi-tap
+ */
+export function buildPlacePlan(session) {
+  const plan = [];
+  let mark = 1;
+  for (const eq of session.equipment || []) {
+    const isLightGroup =
+      eq.type === "eclairage" ||
+      eq.type === "eclairage-spot" ||
+      eq.type === "eclairage-applique";
+    if (isLightGroup) {
+      plan.push({
+        mark,
+        type: eq.type,
+        qty: eq.qty,
+        placed: 0,
+        label: eq.label,
+        group: true,
+      });
+      mark += 1;
+    } else {
+      for (let i = 0; i < eq.qty; i++) {
+        plan.push({
+          mark,
+          type: eq.type,
+          qty: 1,
+          placed: 0,
+          label: eq.label,
+          group: false,
+        });
+        mark += 1;
+      }
+    }
+  }
+  session.placePlan = plan;
+  return plan;
+}
+
+export function formatPlacePlan(session) {
+  const plan = session.placePlan || buildPlacePlan(session);
+  if (!plan.length) return "";
+  return plan
+    .map((item) => {
+      if (item.group) return `n°${item.mark} = ${item.label} (tape ${item.qty}× sur le plan)`;
+      return `n°${item.mark} = ${item.label}`;
+    })
+    .join("\n");
+}
+
+/** Snap ceiling lights into a clean row / grid while multi-tapping. */
+export function alignLightPlacement(existing, x, y) {
+  const round3 = (n) => Math.round(n * 1000) / 1000;
+  if (!existing?.length) return { x: round3(x), y: round3(y) };
+  const tol = 0.28;
+
+  if (existing.length === 1) {
+    const a = existing[0];
+    if (Math.abs(x - a.x) >= Math.abs(y - a.y)) {
+      return { x: round3(x), y: round3(a.y) }; // horizontal row
+    }
+    return { x: round3(a.x), y: round3(y) }; // vertical column
+  }
+
+  const uniqSorted = (vals) => {
+    const out = [];
+    for (const v of [...vals].sort((a, b) => a - b)) {
+      if (!out.length || Math.abs(out[out.length - 1] - v) > tol * 0.6) out.push(v);
+    }
+    return out;
+  };
+  const cols = uniqSorted(existing.map((p) => p.x));
+  const rows = uniqSorted(existing.map((p) => p.y));
+
+  const nearest = (arr, v) => arr.reduce((b, a) => (Math.abs(a - v) < Math.abs(b - v) ? a : b));
+  const extend = (arr, v) => {
+    if (arr.length < 2) return v;
+    const gaps = [];
+    for (let i = 1; i < arr.length; i++) gaps.push(arr[i] - arr[i - 1]);
+    const spacing = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+    if (v < arr[0] - tol * 0.5) return arr[0] - spacing;
+    if (v > arr[arr.length - 1] + tol * 0.5) return arr[arr.length - 1] + spacing;
+    return nearest(arr, v);
+  };
+
+  let sx = x;
+  let sy = y;
+  const nearRow = nearest(rows, y);
+  const nearCol = nearest(cols, x);
+  if (Math.abs(nearRow - y) <= tol) sy = nearRow;
+  else sy = extend(rows, y);
+  if (Math.abs(nearCol - x) <= tol) sx = nearCol;
+  else sx = extend(cols, x);
+
+  // Prefer continuing a 2×N / 3×N grid when a full row exists
+  if (rows.length === 1 && cols.length >= 2) {
+    const rowCount = existing.filter((p) => Math.abs(p.y - rows[0]) < tol).length;
+    if (rowCount >= 2 && Math.abs(y - rows[0]) > tol) {
+      const spacingY = cols.length >= 2
+        ? Math.abs(cols[1] - cols[0])
+        : 0.6;
+      sy = rows[0] + (y > rows[0] ? spacingY : -spacingY);
+      sx = nearCol;
+    }
+  }
+
+  return { x: round3(sx), y: round3(sy) };
 }
 
 export function parseRoomDescription(text) {
@@ -376,11 +627,14 @@ export function createSession() {
     dimensions: null,
     equipment: [],
     placements: [],
+    openings: [],
     arrival: null,
     panel: null,
     tech: { mursNu: null, saignees: null, rewirage: null, tubes: null, apparent: null, cablePath: null },
     client: { nom: "", telephone: "", email: "", adresse: "" },
     messages: [],
+    notes: [],
+    placePlan: [],
     _selectedEdge: null,
   };
 }
@@ -398,7 +652,49 @@ export function createPoint(type, x, y, extra = {}) {
     existing: !!extra.existing,
     saignee: extra.saignee ?? null,
     blochet: !!extra.blochet,
+    nearOpeningId: extra.nearOpeningId ?? null,
+    mark: extra.mark ?? null,
   };
+}
+
+export function createOpening(kind, edgeIndex, t, extra = {}) {
+  const tool = OPENING_TOOLS.find((o) => o.kind === kind || o.id === kind) || OPENING_TOOLS[0];
+  const k = tool.kind;
+  return {
+    id: `o${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    kind: k,
+    label: tool.label,
+    edgeIndex,
+    t: Math.min(0.92, Math.max(0.08, t ?? 0.5)),
+    width: extra.width ?? tool.defaultWidth ?? 0.9,
+    swing: extra.swing || "in-left",
+  };
+}
+
+/** Place N openings of a kind on the longest walls (evenly). */
+export function autoPlaceOpenings(session, kind, qty, width) {
+  const poly = session.dimensions?.polygon;
+  if (!poly || poly.length < 3 || qty < 1) return [];
+  if (!session.openings) session.openings = [];
+  const edges = polygonEdges(poly)
+    .map((e) => ({ ...e, length: dist(e.a, e.b) }))
+    .sort((a, b) => b.length - a.length);
+  const placed = [];
+  for (let i = 0; i < qty; i++) {
+    const edge = edges[i % edges.length];
+    const slot = 0.25 + (0.5 * ((i % 3) + 1)) / 4;
+    const o = createOpening(kind, edge.i, slot, { width });
+    session.openings.push(o);
+    placed.push(o);
+  }
+  return placed;
+}
+
+function addEquipment(session, type, qty) {
+  if (!(qty > 0)) return;
+  const ex = session.equipment.find((e) => e.type === type);
+  if (ex) ex.qty += qty;
+  else session.equipment.push({ type, qty, label: FALLBACK_PRICES[type]?.name || type });
 }
 
 /** Ramer–Douglas–Peucker simplification (world meters). */
@@ -827,12 +1123,16 @@ function equipmentSuggestions(roomType) {
       { id: "eq:prise-plaque", label: "+ Taque" },
       { id: "eq:eclairage", label: "+ Lumière plafond" },
       { id: "eq:interrupteur", label: "+ Inter" },
+      { id: "eq:va-et-vient", label: "+ Va-et-vient" },
+      { id: "eq:inter-prise", label: "+ Inter+prise" },
     ];
   }
   return [
     { id: "eq:prise-double", label: "+ Prise double" },
     { id: "eq:prise-simple", label: "+ Prise simple" },
     { id: "eq:interrupteur", label: "+ Inter" },
+    { id: "eq:va-et-vient", label: "+ Va-et-vient" },
+    { id: "eq:inter-prise", label: "+ Inter+prise" },
     { id: "eq:eclairage", label: "+ Lumière plafond" },
   ];
 }
@@ -855,7 +1155,17 @@ function autoPlaceCeilingLights(session) {
 
 function placeFromText(session, t, n, face) {
   if (!session.dimensions?.polygon || !session.arrival) return;
-  const type = /double/.test(t) ? "prise-double" : /inter/.test(t) ? "interrupteur" : /lumiere|eclairage|spot/.test(t) ? "eclairage" : "prise-simple";
+  const type = /va[\s-]*et[\s-]*vient/.test(t)
+    ? "va-et-vient"
+    : /inter(?:rupteur)?[\s/+-]*prise|inter-prise/.test(t)
+      ? "inter-prise"
+      : /double/.test(t)
+        ? "prise-double"
+        : /inter/.test(t)
+          ? "interrupteur"
+          : /lumiere|eclairage|spot/.test(t)
+            ? "eclairage"
+            : "prise-simple";
   if (isCeilingType(type)) {
     const c = polygonCentroid(session.dimensions.polygon);
     for (let i = 0; i < n; i++) session.placements.push(createPoint(type, c.x + i * 0.4, c.y));
@@ -869,6 +1179,52 @@ function placeFromText(session, t, n, face) {
     const pt = pointOnEdge(edges[edgeIndex], tt);
     session.placements.push(createPoint(type, pt.x, pt.y, { edgeIndex, t: tt }));
   }
+}
+
+/** Place remaining VEV / inter+prise / door-side prises next to door openings. */
+function autoPlaceNearDoors(session) {
+  const poly = session.dimensions?.polygon;
+  const doors = (session.openings || []).filter((o) => o.kind === "door");
+  if (!poly || doors.length < 1) return;
+  const edges = polygonEdges(poly);
+
+  const need = (type) => {
+    const eq = session.equipment.find((e) => e.type === type);
+    if (!eq) return 0;
+    const have = session.placements.filter((p) => p.type === type).length;
+    return Math.max(0, eq.qty - have);
+  };
+
+  const placeOnDoor = (type, door, sideSign) => {
+    const edge = edges[door.edgeIndex];
+    if (!edge) return false;
+    const len = dist(edge.a, edge.b) || 1;
+    const offset = Math.min(0.35, len * 0.12) / len;
+    const t = Math.min(0.92, Math.max(0.08, (door.t || 0.5) + sideSign * offset));
+    const pt = pointOnEdge(edge, t);
+    session.placements.push(createPoint(type, pt.x, pt.y, {
+      edgeIndex: door.edgeIndex,
+      t,
+      nearOpeningId: door.id,
+    }));
+    return true;
+  };
+
+  let vevLeft = need("va-et-vient");
+  let interPriseLeft = need("inter-prise");
+  let priseLeft = need("prise-simple");
+
+  doors.forEach((door, i) => {
+    if (vevLeft > 0) {
+      if (placeOnDoor("va-et-vient", door, i % 2 === 0 ? -1 : 1)) vevLeft--;
+    } else if (interPriseLeft > 0) {
+      if (placeOnDoor("inter-prise", door, -1)) interPriseLeft--;
+    }
+    if (priseLeft > 0 && session.equipment.some((e) => e.type === "va-et-vient")) {
+      // door-side prise paired with VEV
+      if (placeOnDoor("prise-simple", door, i % 2 === 0 ? 1 : -1)) priseLeft--;
+    }
+  });
 }
 
 export function robotReply(session, userText, choiceId) {
@@ -1073,12 +1429,20 @@ export function robotReply(session, userText, choiceId) {
           // Prefer already entered lengths when still matching edge count
           rebuildPolygonFromTemplate(session.dimensions);
         }
-        session.step = "equipment";
+        session.step = "openings";
         session._selectedEdge = null;
         return {
-          text: "Plan redessiné avec tes cotes (murs droits fusionnés). Qu'est-ce qu'on installe ?",
-          suggestions: equipmentSuggestions(session.roomType),
-          showSketch: true, sketchMode: "review-shape", speak: true,
+          text: "Plan prêt (murs droits fusionnés). Place les portes et fenêtres sur les murs (outils Porte / Fenêtre), ou décris-les (ex. « 2 portes et 1 fenêtre »). Ensuite on pose le matériel électrique.",
+          actions: [
+            { id: "openings:done", label: "Ouvertures OK → Matériel" },
+            { id: "openings:skip", label: "Passer (pas d'ouverture)" },
+          ],
+          choices: [
+            { id: "tool:porte", label: "🚪 Porte" },
+            { id: "tool:fenetre", label: "🪟 Fenêtre" },
+            { id: "tool:baie", label: "🪟 Baie" },
+          ],
+          showSketch: true, sketchMode: "openings", speak: true,
         };
       }
       const n = parseFloat(String(userText || "").replace(",", "."));
@@ -1098,6 +1462,76 @@ export function robotReply(session, userText, choiceId) {
         showSketch: true, sketchMode: "measure", speak: true,
       };
     }
+    case "openings": {
+      if (choiceId === "openings:skip") {
+        session.step = "equipment";
+        return {
+          text: "OK. Qu'est-ce qu'on installe électriquement ?",
+          suggestions: equipmentSuggestions(session.roomType),
+          actions: [{ id: "next", label: "Continuer →" }],
+          showSketch: true, sketchMode: "review-shape", speak: true,
+        };
+      }
+      if (choiceId === "openings:done") {
+        session.step = "equipment";
+        const n = session.openings?.length || 0;
+        return {
+          text: n
+            ? `${n} ouverture${n > 1 ? "s" : ""} sur le plan. Matériel électrique ? Tu peux aussi écrire « 2 portes avec va-et-vient et prise à côté ».`
+            : "Aucune ouverture placée. Matériel ? (tu pourras encore ajouter portes/fenêtres plus tard sur le croquis)",
+          suggestions: equipmentSuggestions(session.roomType),
+          actions: [{ id: "next", label: "Continuer →" }],
+          showSketch: true, sketchMode: "review-shape", speak: true,
+        };
+      }
+      if (choiceId?.startsWith("tool:")) {
+        return {
+          text: `Outil ${choiceId.slice(5)} : tape un mur sur le croquis pour placer l'ouverture.`,
+          actions: [
+            { id: "openings:done", label: "Ouvertures OK → Matériel" },
+            { id: "openings:skip", label: "Passer" },
+          ],
+          choices: [
+            { id: "tool:porte", label: "🚪 Porte" },
+            { id: "tool:fenetre", label: "🪟 Fenêtre" },
+            { id: "tool:baie", label: "🪟 Baie" },
+          ],
+          showSketch: true, sketchMode: "openings", activeOpeningTool: choiceId.slice(5), speak: true,
+        };
+      }
+      const parsedO = parseInstallText(userText || "");
+      if (parsedO.openings.length) {
+        for (const o of parsedO.openings) {
+          autoPlaceOpenings(session, o.kind, o.qty, o.width);
+        }
+        for (const e of parsedO.equipment) addEquipment(session, e.type, e.qty);
+        if (parsedO.notes.length) session.notes.push(...parsedO.notes);
+        return {
+          text: `Noté : ${parsedO.notes.join(", ") || "ouvertures"}. Déplace-les sur le croquis si besoin, puis continue.`,
+          actions: [
+            { id: "openings:done", label: "Ouvertures OK → Matériel" },
+          ],
+          choices: [
+            { id: "tool:porte", label: "🚪 Porte" },
+            { id: "tool:fenetre", label: "🪟 Fenêtre" },
+          ],
+          showSketch: true, sketchMode: "openings", speak: true,
+        };
+      }
+      return {
+        text: "Place une porte/fenêtre sur un mur, ou écris « 2 portes et 1 fenêtre ». Puis Ouvertures OK.",
+        actions: [
+          { id: "openings:done", label: "Ouvertures OK → Matériel" },
+          { id: "openings:skip", label: "Passer" },
+        ],
+        choices: [
+          { id: "tool:porte", label: "🚪 Porte" },
+          { id: "tool:fenetre", label: "🪟 Fenêtre" },
+          { id: "tool:baie", label: "🪟 Baie" },
+        ],
+        showSketch: true, sketchMode: "openings", speak: true,
+      };
+    }
     case "equipment": {
       if (choiceId === "walls:simplify" || wantsGeometryFix(t)) {
         const fix = applyGeometryFix(session, userText, t || "simplifier");
@@ -1105,14 +1539,12 @@ export function robotReply(session, userText, choiceId) {
       }
       if (choiceId?.startsWith("eq:")) {
         const type = choiceId.slice(3);
-        const ex = session.equipment.find((e) => e.type === type);
-        if (ex) ex.qty += 1;
-        else session.equipment.push({ type, qty: 1, label: FALLBACK_PRICES[type]?.name || type });
+        addEquipment(session, type, 1);
         if (type === "eclairage") autoPlaceCeilingLights(session);
         return {
           text: `Ajouté : ${FALLBACK_PRICES[type]?.name || type}. Autre chose ?`,
           suggestions: equipmentSuggestions(session.roomType),
-          actions: [{ id: "next", label: "Continuer →" }],
+          actions: [{ id: "next", label: "Continuer → place sur le plan" }],
           showSketch: true, sketchMode: "review-shape", speak: true,
         };
       }
@@ -1122,36 +1554,55 @@ export function robotReply(session, userText, choiceId) {
         }
         session.step = "sketch-arrival";
         return {
-          text: "Place l'arrivée (tableau / départ) sur un mur. Zoom : molette ou pincement.",
+          text: "Place l'arrivée (tableau / départ) sur un mur. Ensuite on place prises, va-et-vient, etc. à côté des portes.",
           showSketch: true, sketchMode: "arrival", speak: true,
         };
       }
-      const parsed = parseEquipmentText(t);
-      if (parsed.length) {
-        for (const p of parsed) {
-          const ex = session.equipment.find((e) => e.type === p.type);
-          if (ex) ex.qty += p.qty; else session.equipment.push(p);
+      const parsed = parseInstallText(userText || "");
+      if (parsed.equipment.length || parsed.openings.length) {
+        for (const e of parsed.equipment) addEquipment(session, e.type, e.qty);
+        for (const o of parsed.openings) {
+          if (!(session.openings || []).some((x) => x.kind === o.kind)) {
+            autoPlaceOpenings(session, o.kind, o.qty, o.width);
+          } else {
+            // already have some — add the missing count
+            const have = session.openings.filter((x) => x.kind === o.kind).length;
+            if (o.qty > have) autoPlaceOpenings(session, o.kind, o.qty - have, o.width);
+          }
         }
+        if (parsed.notes.length) session.notes.push(...parsed.notes);
         autoPlaceCeilingLights(session);
+        buildPlacePlan(session);
         const list = session.equipment.map((e) => `${e.qty}× ${e.label}`).join(", ");
+        const openTxt = (session.openings || []).length
+          ? `\nOuvertures sur le plan : ${(session.openings || []).map((o) => o.label).join(", ")}.`
+          : "";
+        const noteTxt = parsed.notes.length ? `\nCompris aussi : ${parsed.notes.join(" · ")}.` : "";
+        const planTxt = formatPlacePlan(session);
         return {
-          text: `Noté : ${list}. Lumières au plafond. Continuer ?`,
+          text: `Noté : ${list || "—"}.${noteTxt}${openTxt}\n\nNuméros pour le croquis :\n${planTxt}\n\nContinuer pour placer (choisis un n° puis tape sur le plan) ?`,
           suggestions: equipmentSuggestions(session.roomType),
-          actions: [{ id: "next", label: "Continuer →" }],
-          showSketch: true, sketchMode: "review-shape", speak: true,
+          actions: [{ id: "next", label: "Continuer → place sur le plan" }],
+          showSketch: true, sketchMode: "review-shape", placePlan: session.placePlan, speak: true,
         };
       }
-      return { text: "Ex. « 4 prises doubles, une prise four, 3 lumières ».", suggestions: equipmentSuggestions(session.roomType), speak: true };
+      return {
+        text: "Ex. « 3 prises doubles, 2 prises simples, 2 portes avec va-et-vient et prise à côté de chaque porte ».",
+        suggestions: equipmentSuggestions(session.roomType),
+        speak: true,
+      };
     }
     case "sketch-arrival": {
       if (!session.arrival) {
         return { text: "Clique un mur pour l'arrivée électrique.", showSketch: true, sketchMode: "arrival", speak: true };
       }
       session.step = "sketch-points";
+      autoPlaceNearDoors(session);
+      if (!session.placePlan?.length) buildPlacePlan(session);
       return {
-        text: "Place prises/inters sur les murs. Lumière = plafond.\nGlisser = déplacer · sélection + Supprimer · clic = existant / saignée / blochet.",
+        text: "Choisis un n° dans la barre d'outils, puis tape sur le plan.\nLumières = même n° : tape autant de fois que la qty (alignement auto 2×2 / 3×3).\nOutils Porte/Fenêtre encore dispo. Glisser = déplacer · 🗑️ = supprimer.",
         actions: [{ id: "next", label: "Continuer →" }],
-        showSketch: true, sketchMode: "points", speak: true,
+        showSketch: true, sketchMode: "points", placePlan: session.placePlan, speak: true,
       };
     }
     case "sketch-points": {

@@ -12,16 +12,22 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { checkElectricianAccess, paywallMessage } from "./devtech-access.js";
 import {
+  alignLightPlacement,
+  buildPlacePlan,
   buildQuote,
+  createOpening,
   createPoint,
   createSession,
+  formatPlacePlan,
   isCeilingType,
   nearestEdgePoint,
+  OPENING_TOOLS,
   POINT_TOOLS,
   polygonBounds,
   polygonEdges,
   pointOnEdge,
   robotReply,
+  setEdgeLength,
   speakFrench,
   strokeToPolygon,
 } from "./assistant-core.js";
@@ -44,6 +50,11 @@ let currentUser = null;
 let session = createSession();
 let sketchMode = "idle";
 let placeType = POINT_TOOLS[0]?.id || "prise-simple";
+let openingTool = "porte"; // porte | fenetre | baie
+let selectedOpeningId = null;
+let activeMark = null; // placePlan mark number
+let keypadValue = "";
+
 let selectedPointId = null;
 let voiceOn = true;
 let settings = { tarif: 50, deplacement: 25, tva: 0.06, rebouchage: 18 };
@@ -82,6 +93,18 @@ const els = {
   legend: $("legend"),
   quote: $("quote"),
   toast: $("toast"),
+  placeBar: $("placeBar"),
+  keypad: $("keypad"),
+  keypadTitle: $("keypadTitle"),
+  keypadSub: $("keypadSub"),
+  keypadDisplay: $("keypadDisplay"),
+  keypadQuick: $("keypadQuick"),
+  keypadGrid: $("keypadGrid"),
+  measureDock: $("measureDock"),
+  measureDockTitle: $("measureDockTitle"),
+  measureDockDisplay: $("measureDockDisplay"),
+  measureDockQuick: $("measureDockQuick"),
+  measureDockGrid: $("measureDockGrid"),
   paywall: $("paywall"),
   shell: $("shell"),
   sketchBar: $("sketchBar"),
@@ -143,21 +166,220 @@ function boot() {
 
 function buildToolButtons() {
   els.tools.innerHTML = "";
-  POINT_TOOLS.forEach((tool, i) => {
+  const showOpenings = sketchMode === "openings" || sketchMode === "points";
+  const showPoints = sketchMode === "points";
+
+  if (showOpenings) {
+    OPENING_TOOLS.forEach((tool) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const openingActive =
+        openingTool === tool.id &&
+        (sketchMode === "openings" || (sketchMode === "points" && !placeType));
+      btn.className = "tool" + (openingActive ? " active" : "");
+      btn.textContent = tool.label;
+      btn.title = tool.label;
+      btn.addEventListener("click", () => {
+        openingTool = tool.id;
+        if (sketchMode !== "openings" && sketchMode !== "points") return;
+        // In points mode, switch to placing openings until next electrical tool click
+        placeType = null;
+        selectedPointId = null;
+        updatePropsPanel();
+        els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        toast(`${tool.label} — tape un mur`);
+      });
+      els.tools.appendChild(btn);
+    });
+  }
+
+  if (showPoints) {
+    POINT_TOOLS.forEach((tool) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const active = placeType === tool.id;
+      btn.className = "tool" + (active ? " active" : "");
+      btn.textContent = tool.label;
+      btn.title = tool.ceiling ? "Plafond" : "Mur";
+      btn.addEventListener("click", () => {
+        placeType = tool.id;
+        selectedOpeningId = null;
+        els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+      els.tools.appendChild(btn);
+    });
+  }
+}
+
+
+function buildPlaceBar() {
+  if (!els.placeBar) return;
+  els.placeBar.innerHTML = "";
+  const plan = session.placePlan || [];
+  const show = sketchMode === "points" && plan.length > 0;
+  els.placeBar.classList.toggle("on", show);
+  if (!show) return;
+
+  plan.forEach((item) => {
+    const done = item.group ? item.placed >= item.qty : item.placed >= 1;
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "tool" + (i === 0 ? " active" : "");
-    btn.dataset.type = tool.id;
-    btn.textContent = tool.label;
-    btn.title = tool.ceiling ? "Plafond" : "Mur";
+    btn.className = "place-chip" + (activeMark === item.mark ? " active" : "") + (done ? " done" : "");
+    const remain = item.group ? Math.max(0, item.qty - item.placed) : (done ? 0 : 1);
+    btn.textContent = item.group
+      ? `n°${item.mark} ${shortLabel(item)} ${item.placed}/${item.qty}`
+      : `n°${item.mark} ${shortLabel(item)}`;
+    btn.title = item.label;
+    btn.disabled = done;
     btn.addEventListener("click", () => {
-      els.tools.querySelectorAll(".tool").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      placeType = tool.id;
+      if (done) return;
+      activeMark = item.mark;
+      placeType = item.type;
+      openingTool = null;
+      buildPlaceBar();
+      buildToolButtons();
+      toast(item.group
+        ? `n°${item.mark} — encore ${remain} à placer (alignement auto)`
+        : `n°${item.mark} — tape un mur pour placer`);
     });
-    els.tools.appendChild(btn);
+    els.placeBar.appendChild(btn);
   });
 }
+
+function shortLabel(item) {
+  const t = item.type || "";
+  if (t === "prise-double") return "Double";
+  if (t === "prise-simple") return "Prise";
+  if (t === "va-et-vient") return "VEV";
+  if (t === "inter-prise") return "Inter+prise";
+  if (t === "eclairage-spot") return "Spots";
+  if (t === "eclairage-applique") return "Appliques";
+  if (t === "eclairage") return "Lumières";
+  return (item.label || t).split(" ")[0];
+}
+
+function syncPlacePlanFromPlacements() {
+  if (!session.placePlan?.length) return;
+  for (const item of session.placePlan) {
+    item.placed = session.placements.filter((p) => p.mark === item.mark).length;
+  }
+}
+
+function openLengthKeypad(edgeIndex) {
+  session._selectedEdge = edgeIndex;
+  keypadValue = "";
+  const title = `Mur ${edgeIndex + 1} — longueur`;
+  if (els.keypadTitle) els.keypadTitle.textContent = title;
+  if (els.measureDockTitle) els.measureDockTitle.textContent = title;
+  if (els.keypadSub) els.keypadSub.textContent = "Tape les chiffres ci-dessous (pas le clavier du téléphone)";
+  renderKeypadDisplay();
+  buildKeypadOnce();
+  // Dock sous le croquis (toujours visible) + modal plein écran
+  els.measureDock?.classList.add("on");
+  els.keypad?.classList.add("on");
+  els.keypad?.setAttribute("aria-hidden", "false");
+  // Empêche le clavier AZERTY du composer
+  if (els.input) {
+    els.input.blur();
+    els.input.setAttribute("readonly", "readonly");
+    els.input.inputMode = "none";
+  }
+  // Scroll le dock dans la vue (mobile)
+  try { els.measureDock?.scrollIntoView({ behavior: "smooth", block: "nearest" }); } catch (_) {}
+  drawRoom();
+}
+
+function closeLengthKeypad() {
+  els.keypad?.classList.remove("on");
+  els.keypad?.setAttribute("aria-hidden", "true");
+  els.measureDock?.classList.remove("on");
+  if (els.input) {
+    els.input.removeAttribute("readonly");
+    els.input.inputMode = "text";
+  }
+}
+
+function renderKeypadDisplay() {
+  const shown = keypadValue || "0";
+  const html = `${shown}<span>m</span>`;
+  if (els.keypadDisplay) els.keypadDisplay.innerHTML = html;
+  if (els.measureDockDisplay) els.measureDockDisplay.innerHTML = html;
+}
+
+let keypadBuilt = false;
+function buildKeypadOnce() {
+  if (keypadBuilt) return;
+  keypadBuilt = true;
+
+  const wirePad = (quickEl, gridEl) => {
+    if (!quickEl || !gridEl) return;
+    quickEl.innerHTML = "";
+    [1, 2, 2.5, 3, 3.5, 4, 5, 6].forEach((n) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = `${n} m`;
+      b.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        keypadValue = String(n);
+        renderKeypadDisplay();
+        confirmKeypadLength();
+      });
+      quickEl.appendChild(b);
+    });
+
+    gridEl.innerHTML = "";
+    ["1","2","3","4","5","6","7","8","9",".","0","⌫","OK","Annuler"].forEach((k) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = k === "⌫" ? "⌫" : k;
+      if (k === "OK") { b.className = "ok"; b.style.gridColumn = "span 2"; }
+      if (k === "Annuler") b.className = "ghost";
+      b.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (k === "Annuler") { closeLengthKeypad(); return; }
+        if (k === "OK") { confirmKeypadLength(); return; }
+        if (k === "⌫") {
+          keypadValue = keypadValue.slice(0, -1);
+          renderKeypadDisplay();
+          return;
+        }
+        if (k === "." && keypadValue.includes(".")) return;
+        if (keypadValue.length >= 6) return;
+        keypadValue += k;
+        renderKeypadDisplay();
+      });
+      gridEl.appendChild(b);
+    });
+  };
+
+  wirePad(els.keypadQuick, els.keypadGrid);
+  wirePad(els.measureDockQuick, els.measureDockGrid);
+
+  els.keypad?.addEventListener("click", (e) => {
+    if (e.target === els.keypad) closeLengthKeypad();
+  });
+}
+
+function confirmKeypadLength() {
+  const n = parseFloat(String(keypadValue).replace(",", "."));
+  if (!(n > 0) || !Number.isFinite(n)) {
+    toast("Entre une longueur valide");
+    return;
+  }
+  if (session._selectedEdge == null) {
+    closeLengthKeypad();
+    return;
+  }
+  closeLengthKeypad();
+  // Envoie la cote au moteur sans ouvrir le clavier AZERTY
+  handleUser(String(n).replace(".", ","), null);
+}
+
+
 
 // ─── Chat ───────────────────────────────────────────────────────────────────
 
@@ -202,6 +424,23 @@ function applyReply(reply) {
   if (reply.showSketch) {
     const prevMode = sketchMode;
     sketchMode = reply.sketchMode || "idle";
+    if (sketchMode !== "measure") closeLengthKeypad();
+    if (reply.activeOpeningTool) openingTool = reply.activeOpeningTool;
+    if (reply.placePlan) session.placePlan = reply.placePlan;
+    if (sketchMode === "points" && session.equipment?.length && !session.placePlan?.length) {
+      buildPlacePlan(session);
+    }
+    if (sketchMode === "openings" || sketchMode === "points") buildToolButtons();
+    if (sketchMode === "points") {
+      syncPlacePlanFromPlacements();
+      if (activeMark == null) {
+        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+        if (next) { activeMark = next.mark; placeType = next.type; }
+      }
+      buildPlaceBar();
+    } else if (els.placeBar) {
+      els.placeBar.classList.remove("on");
+    }
     sketchVisible = true;
     if (
       (sketchMode === "draw" && prevMode !== "draw") ||
@@ -434,9 +673,10 @@ function showSketchPanel() {
   const d = session.dimensions;
   const modeHints = {
     draw: "1 doigt = dessiner · 2 doigts = zoom/déplacer · Effacer = recommencer",
-    measure: "Tape un mur → envoie la longueur · la forme est conservée",
+    measure: "Tape un mur → pavé numérique (chiffres) · forme conservée",
+    openings: "Outils Porte/Fenêtre · tape un mur pour placer",
     arrival: "Place l'arrivée sur un mur",
-    points: "Place les points · glisser pour déplacer",
+    points: "Choisis n°1, n°2… puis place · spots = même n° multi-tap",
     "review-shape": "Aperçu de la pièce",
     review: "Revue finale",
     idle: "Croquis",
@@ -447,12 +687,12 @@ function showSketchPanel() {
     els.meta.textContent = `${session.roomName || "Pièce"} · ${modeHints[sketchMode] || "Croquis"}`;
   }
 
-  const showTools = sketchMode === "points";
+  const showTools = sketchMode === "points" || sketchMode === "openings";
   const showDrawEdit = sketchMode === "draw" || sketchMode === "measure";
   els.tools.style.display = showTools ? "flex" : "none";
+  if (showTools) buildToolButtons();
   els.btnUndo.classList.toggle("on", sketchMode === "draw");
   els.btnClearDraw.classList.toggle("on", showDrawEdit);
-  els.btnDelete.classList.toggle("on", showTools && !!selectedPointId);
   if (els.btnClearDraw) els.btnClearDraw.textContent = sketchMode === "measure" ? "Recommencer" : "Effacer";
   updatePropsPanel();
 }
@@ -466,9 +706,14 @@ function showQuote(quote) {
 
 function updatePropsPanel() {
   const p = session.placements.find((x) => x.id === selectedPointId);
-  const show = sketchMode === "points" && p;
-  els.props.classList.toggle("on", show);
-  els.btnDelete.classList.toggle("on", show);
+  const o = (session.openings || []).find((x) => x.id === selectedOpeningId);
+  const showPoint = sketchMode === "points" && p;
+  const showDelete =
+    !!(p && (sketchMode === "points")) ||
+    !!(o && (sketchMode === "openings" || sketchMode === "points"));
+  els.props.classList.toggle("on", !!showPoint);
+  els.btnDelete.classList.toggle("on", showDelete);
+  els.btnDelete.title = o && !p ? "Supprimer l'ouverture" : "Supprimer le point";
   if (!p) return;
   els.chkExisting.checked = !!p.existing;
   els.chkSaignee.checked = p.saignee === true;
@@ -501,6 +746,14 @@ els.chkBlochet.addEventListener("change", () => {
 els.btnDelete.addEventListener("click", (e) => {
   e.preventDefault();
   e.stopPropagation();
+  if (selectedOpeningId && session.openings?.some((o) => o.id === selectedOpeningId)) {
+    session.openings = session.openings.filter((o) => o.id !== selectedOpeningId);
+    selectedOpeningId = null;
+    updatePropsPanel();
+    drawRoom();
+    toast("Ouverture supprimée");
+    return;
+  }
   const p = selectedPoint();
   if (!p) return;
   session.placements = session.placements.filter((x) => x.id !== p.id);
@@ -508,6 +761,29 @@ els.btnDelete.addEventListener("click", (e) => {
   updatePropsPanel();
   drawRoom();
   toast("Point supprimé");
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Backspace" && e.key !== "Delete") return;
+  const tag = (e.target && e.target.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (selectedOpeningId && session.openings?.some((o) => o.id === selectedOpeningId)) {
+    e.preventDefault();
+    session.openings = session.openings.filter((o) => o.id !== selectedOpeningId);
+    selectedOpeningId = null;
+    updatePropsPanel();
+    drawRoom();
+    toast("Ouverture supprimée");
+    return;
+  }
+  if (selectedPointId && session.placements.some((p) => p.id === selectedPointId)) {
+    e.preventDefault();
+    session.placements = session.placements.filter((p) => p.id !== selectedPointId);
+    selectedPointId = null;
+    updatePropsPanel();
+    drawRoom();
+    toast("Point supprimé");
+  }
 });
 
 function undoLastCorner() {
@@ -695,13 +971,16 @@ function drawRoom() {
     drawArrival(a.sx, a.sy);
   }
 
+  drawOpenings(poly);
+
   session.placements.forEach((p, i) => {
     const c = worldToScreen(p.x, p.y);
     const sel = p.id === selectedPointId;
+    const num = p.mark ?? (i + 1);
     if (p.mode === "ceiling" || isCeilingType(p.type)) {
-      drawCeilingLight(c.sx, c.sy, sel, p.existing);
+      drawCeilingLight(c.sx, c.sy, sel, p.existing, num);
     } else {
-      drawWallPoint(c.sx, c.sy, sel, p.existing, i + 1);
+      drawWallPoint(c.sx, c.sy, sel, p.existing, num);
     }
   });
 
@@ -726,11 +1005,85 @@ function drawRoom() {
 
   const hints = {
     draw: "Glisse = tracer la pièce · 2 doigts = zoom · Effacer = recommencer",
-    measure: "Tape un mur · envoie la longueur · la forme reste correcte",
+    measure: "Tape un mur · pavé numérique pour la longueur",
+    openings: "Porte / Fenêtre / Baie · tape le mur pour l’ouvrir",
     arrival: "Tape un mur pour l'arrivée électrique",
-    points: "Tape pour placer · glisse un point pour le bouger",
+    points: "Choisis un n° puis tape le plan · lumières = multi-tap aligné",
   };
   if (hints[sketchMode]) ctx.fillText(hints[sketchMode], W / 2, 22);
+}
+
+
+function drawOpenings(poly) {
+  if (!session.openings?.length || !poly?.length) return;
+  const edges = polygonEdges(poly);
+  for (const o of session.openings) {
+    const edge = edges[o.edgeIndex];
+    if (!edge) continue;
+    const mid = pointOnEdge(edge, o.t ?? 0.5);
+    const dx = edge.b.x - edge.a.x;
+    const dy = edge.b.y - edge.a.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len;
+    const uy = dy / len;
+    const px = -uy; // outward-ish normal
+    const py = ux;
+    const half = Math.min(o.width || 0.9, len * 0.45) / 2;
+    const a = { x: mid.x - ux * half, y: mid.y - uy * half };
+    const b = { x: mid.x + ux * half, y: mid.y + uy * half };
+    const sa = worldToScreen(a.x, a.y);
+    const sb = worldToScreen(b.x, b.y);
+    const sm = worldToScreen(mid.x, mid.y);
+    ctx.save();
+    if (o.kind === "door") {
+      // gap in wall + swing arc
+      ctx.strokeStyle = "#f5a623";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(sa.sx, sa.sy);
+      ctx.lineTo(sb.sx, sb.sy);
+      ctx.stroke();
+      const swing = worldToScreen(mid.x + px * (o.width || 0.9) * 0.7, mid.y + py * (o.width || 0.9) * 0.7);
+      ctx.strokeStyle = "rgba(245,166,35,0.7)";
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.moveTo(sa.sx, sa.sy);
+      ctx.lineTo(swing.sx, swing.sy);
+      ctx.arc(sa.sx, sa.sy, Math.hypot(sb.sx - sa.sx, sb.sy - sa.sy), 0, Math.PI / 2, false);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#f5a623";
+      ctx.font = "700 11px Outfit, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("Porte", sm.sx, sm.sy - 14);
+    } else {
+      // window / bay: double line
+      ctx.strokeStyle = "#7dd3fc";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(sa.sx, sa.sy);
+      ctx.lineTo(sb.sx, sb.sy);
+      ctx.stroke();
+      const o1 = worldToScreen(a.x + px * 0.08, a.y + py * 0.08);
+      const o2 = worldToScreen(b.x + px * 0.08, b.y + py * 0.08);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(o1.sx, o1.sy);
+      ctx.lineTo(o2.sx, o2.sy);
+      ctx.stroke();
+      ctx.fillStyle = "#7dd3fc";
+      ctx.font = "700 11px Outfit, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(o.kind === "bay" ? "Baie" : "Fenêtre", sm.sx, sm.sy - 14);
+    }
+    if (o.id === selectedOpeningId) {
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sm.sx - 18, sm.sy - 18, 36, 36);
+    }
+    ctx.restore();
+  }
 }
 
 function drawCable(from, to, pathMode) {
@@ -792,7 +1145,7 @@ function drawWallPoint(sx, sy, selected, existing, label) {
   ctx.restore();
 }
 
-function drawCeilingLight(sx, sy, selected, existing) {
+function drawCeilingLight(sx, sy, selected, existing, label) {
   ctx.save();
   const color = existing ? "rgba(255,224,138,0.5)" : "#ffe08a";
   if (selected) {
@@ -815,6 +1168,13 @@ function drawCeilingLight(sx, sy, selected, existing) {
     ctx.lineTo(sx + Math.cos(ang) * r, sy + Math.sin(ang) * r);
     ctx.stroke();
   }
+  if (label != null) {
+    ctx.fillStyle = "#1a1405";
+    ctx.font = "800 11px Outfit, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(label), sx, sy + 0.5);
+  }
   ctx.restore();
 }
 
@@ -835,10 +1195,32 @@ function handleCanvasClick(mx, my) {
   if (sketchMode === "measure") {
     const hit = nearestEdgePoint(poly, x, y);
     if (hit) {
-      session._selectedEdge = hit.edgeIndex;
-      drawRoom();
-      toast(`Mur ${hit.edgeIndex + 1} sélectionné — saisis la longueur`);
+      openLengthKeypad(hit.edgeIndex);
+      toast(`Mur ${hit.edgeIndex + 1} — entre la longueur sur le pavé`);
     }
+    return;
+  }
+
+  if (sketchMode === "openings") {
+    const hitOpen = findOpeningAt(x, y, poly);
+    if (hitOpen) {
+      selectedOpeningId = hitOpen.id;
+      selectedPointId = null;
+      updatePropsPanel();
+      drawRoom();
+      toast(`${hitOpen.label} — Suppr pour enlever`);
+      return;
+    }
+    const hit = nearestEdgePoint(poly, x, y);
+    if (!hit) return;
+    const tool = OPENING_TOOLS.find((o) => o.id === openingTool) || OPENING_TOOLS[0];
+    const o = createOpening(tool.id, hit.edgeIndex, hit.t, { width: tool.defaultWidth });
+    if (!session.openings) session.openings = [];
+    session.openings.push(o);
+    selectedOpeningId = o.id;
+    updatePropsPanel();
+    drawRoom();
+    toast(`${o.label} placée sur le mur ${hit.edgeIndex + 1}`);
     return;
   }
 
@@ -852,38 +1234,118 @@ function handleCanvasClick(mx, my) {
   }
 
   if (sketchMode === "points") {
+    const hitOpen = findOpeningAt(x, y, poly);
+    if (hitOpen && !placeType) {
+      selectedOpeningId = hitOpen.id;
+      selectedPointId = null;
+      drawRoom();
+      return;
+    }
+
+    // Place opening if an opening tool is active (placeType null)
+    if (!placeType && openingTool) {
+      const hit = nearestEdgePoint(poly, x, y);
+      if (hit) {
+        const tool = OPENING_TOOLS.find((o) => o.id === openingTool) || OPENING_TOOLS[0];
+        const o = createOpening(tool.id, hit.edgeIndex, hit.t, { width: tool.defaultWidth });
+        if (!session.openings) session.openings = [];
+        session.openings.push(o);
+        selectedOpeningId = o.id;
+        updatePropsPanel();
+        drawRoom();
+        toast(`${o.label} placée`);
+        return;
+      }
+    }
+
     const existing = findPointAt(x, y);
     if (existing) {
       selectedPointId = existing.id;
+      selectedOpeningId = null;
       updatePropsPanel();
       drawRoom();
       return;
     }
 
+    if (!placeType) {
+      toast("Choisis un outil (prise, va-et-vient, porte…)");
+      return;
+    }
+
+    const planItem = (session.placePlan || []).find((it) => it.mark === activeMark) || null;
+    if (planItem && planItem.placed >= planItem.qty) {
+      toast(`n°${planItem.mark} déjà complet`);
+      return;
+    }
+
     const ceilingTool = isCeilingType(placeType);
     if (ceilingTool && poly.length >= 3 && pointInPolygon(poly, x, y)) {
-      const pt = createPoint(placeType, round3(x), round3(y));
+      let px = x, py = y;
+      if (planItem?.group) {
+        const existing = session.placements.filter((p) => p.mark === planItem.mark);
+        const snapped = alignLightPlacement(existing, x, y);
+        px = snapped.x; py = snapped.y;
+      }
+      const pt = createPoint(placeType, round3(px), round3(py), { mark: planItem?.mark ?? activeMark });
       session.placements.push(pt);
       selectedPointId = pt.id;
+      if (planItem) planItem.placed = session.placements.filter((p) => p.mark === planItem.mark).length;
       syncEquipmentQty(placeType);
       updatePropsPanel();
+      buildPlaceBar();
       drawRoom();
-      toast(`${pt.label} placé au plafond`);
+      const left = planItem ? Math.max(0, planItem.qty - planItem.placed) : 0;
+      toast(planItem?.group
+        ? `n°${planItem.mark} placé (${planItem.placed}/${planItem.qty})` + (left ? ` — encore ${left}` : " ✓")
+        : `${pt.label} placé au plafond`);
+      if (planItem && planItem.placed >= planItem.qty) {
+        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+        activeMark = next?.mark ?? null;
+        placeType = next?.type ?? placeType;
+        buildPlaceBar();
+      }
       return;
     }
 
     if (!ceilingTool) {
       const hit = nearestEdgePoint(poly, x, y);
       if (!hit) return;
-      const pt = createPoint(placeType, hit.x, hit.y, { edgeIndex: hit.edgeIndex, t: hit.t });
+      const pt = createPoint(placeType, hit.x, hit.y, {
+        edgeIndex: hit.edgeIndex,
+        t: hit.t,
+        mark: planItem?.mark ?? activeMark,
+      });
       session.placements.push(pt);
       selectedPointId = pt.id;
+      if (planItem) planItem.placed = session.placements.filter((p) => p.mark === planItem.mark).length;
       syncEquipmentQty(placeType);
       updatePropsPanel();
+      buildPlaceBar();
       drawRoom();
-      toast(`${pt.label} placé`);
+      toast(planItem ? `n°${planItem.mark} ${pt.label} placé` : `${pt.label} placé`);
+      if (planItem && planItem.placed >= planItem.qty) {
+        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+        activeMark = next?.mark ?? null;
+        placeType = next?.type ?? placeType;
+        buildPlaceBar();
+      }
     }
   }
+}
+
+
+function findOpeningAt(x, y, poly) {
+  if (!session.openings?.length) return null;
+  const edges = polygonEdges(poly);
+  let best = null;
+  for (const o of session.openings) {
+    const edge = edges[o.edgeIndex];
+    if (!edge) continue;
+    const mid = pointOnEdge(edge, o.t ?? 0.5);
+    const d = Math.hypot(mid.x - x, mid.y - y);
+    if (d < 0.45 && (!best || d < best.d)) best = { o, d };
+  }
+  return best?.o || null;
 }
 
 function syncEquipmentQty(type) {
