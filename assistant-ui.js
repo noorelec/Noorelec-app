@@ -50,13 +50,14 @@ let settings = { tarif: 50, deplacement: 25, tva: 0.06, rebouchage: 18 };
 let viewZoom = 1;
 let viewPanX = 0;
 let viewPanY = 0;
-let spaceHeld = false;
-let isPanning = false;
-let panStart = null;
 let dragPoint = null;
-let lastPinchDist = null;
 let sketchVisible = false;
-let pointerMoved = false;
+
+/** Active pointer tracking for mobile-friendly pan / pinch / tap */
+const pointers = new Map();
+let gesture = null; // { type: 'pan'|'pinch'|'drag'|'tap', ... }
+const TAP_MOVE_PX = 12;
+let suppressClickUntil = 0;
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -84,6 +85,8 @@ const els = {
   zoomOut: $("zoomOut"),
   zoomReset: $("zoomReset"),
   btnDelete: $("btnDelete"),
+  btnUndo: $("btnUndo"),
+  btnClearDraw: $("btnClearDraw"),
   chkExisting: $("chkExisting"),
   chkSaignee: $("chkSaignee"),
   chkBlochet: $("chkBlochet"),
@@ -192,10 +195,18 @@ function applyReply(reply) {
   if (reply.actions) renderChips(els.actions, reply.actions, ["save", "next", "draw:done", "walls:done"]);
 
   if (reply.showSketch) {
+    const prevMode = sketchMode;
     sketchMode = reply.sketchMode || "idle";
     sketchVisible = true;
-    showSketchPanel();
-    drawRoom();
+    if (
+      (sketchMode === "draw" && prevMode !== "draw") ||
+      (prevMode === "draw" && sketchMode !== "draw")
+    ) {
+      fitToView();
+    } else {
+      showSketchPanel();
+      drawRoom();
+    }
   }
   if (reply.quote) showQuote(reply.quote);
   if (reply.save) {
@@ -261,6 +272,11 @@ function resetView() {
   viewPanY = 0;
 }
 
+function fitToView() {
+  resetView();
+  drawRoom();
+}
+
 function getPoly() {
   return session.dimensions?.polygon || [];
 }
@@ -270,14 +286,15 @@ function computeBaseLayout() {
   const W = els.canvas.width;
   const H = els.canvas.height;
   const pad = 52;
-  if (!poly.length) {
-    const span = 8;
+  // Stable world during freehand draw so adding corners doesn't jump the view
+  if (sketchMode === "draw" || !poly.length) {
+    const span = 10;
     const scale = Math.min((W - pad * 2) / span, (H - pad * 2) / span);
     return { minX: 0, minY: 0, maxX: span, maxY: span, scale, ox: pad, oy: pad, width: span, depth: span };
   }
   const b = polygonBounds(poly);
-  const w = b.width || 1;
-  const d = b.depth || 1;
+  const w = Math.max(b.width || 1, 0.5);
+  const d = Math.max(b.depth || 1, 0.5);
   const scale = Math.min((W - pad * 2) / w, (H - pad * 2) / d);
   const roomW = w * scale;
   const roomH = d * scale;
@@ -410,8 +427,8 @@ function showSketchPanel() {
 
   const d = session.dimensions;
   const modeHints = {
-    draw: "Mode dessin — clique les coins",
-    measure: "Mode cotes — clique un mur puis saisis la longueur",
+    draw: "Tape un coin · glisse = déplacer · pince = zoomer",
+    measure: "Mode cotes — tape un mur puis saisis la longueur",
     arrival: "Place l'arrivée sur un mur",
     points: "Place les points · glisser pour déplacer",
     "review-shape": "Aperçu de la pièce",
@@ -425,7 +442,10 @@ function showSketchPanel() {
   }
 
   const showTools = sketchMode === "points";
+  const showDrawEdit = sketchMode === "draw";
   els.tools.style.display = showTools ? "flex" : "none";
+  els.btnUndo.classList.toggle("on", showDrawEdit);
+  els.btnClearDraw.classList.toggle("on", showDrawEdit);
   els.btnDelete.classList.toggle("on", showTools && !!selectedPointId);
   updatePropsPanel();
 }
@@ -471,7 +491,9 @@ els.chkBlochet.addEventListener("change", () => {
   p.blochet = els.chkBlochet.checked;
 });
 
-els.btnDelete.addEventListener("click", () => {
+els.btnDelete.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
   const p = selectedPoint();
   if (!p) return;
   session.placements = session.placements.filter((x) => x.id !== p.id);
@@ -481,15 +503,51 @@ els.btnDelete.addEventListener("click", () => {
   toast("Point supprimé");
 });
 
-els.zoomIn.addEventListener("click", () => {
-  zoomAt(1.2, els.canvas.width / 2, els.canvas.height / 2);
+function undoLastCorner() {
+  const poly = session.dimensions?.polygon;
+  if (!poly?.length) {
+    toast("Rien à annuler");
+    return;
+  }
+  poly.pop();
+  fitToView();
+  toast(poly.length ? `Coin annulé (${poly.length} restant${poly.length > 1 ? "s" : ""})` : "Dessin vide");
+}
+
+function clearDrawing() {
+  if (session.dimensions) session.dimensions.polygon = [];
+  fitToView();
+  toast("Dessin effacé");
+}
+
+els.btnUndo.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  undoLastCorner();
 });
-els.zoomOut.addEventListener("click", () => {
-  zoomAt(1 / 1.2, els.canvas.width / 2, els.canvas.height / 2);
+els.btnClearDraw.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  clearDrawing();
 });
-els.zoomReset.addEventListener("click", () => {
-  resetView();
-  drawRoom();
+
+function bindZoomButton(el, fn) {
+  el.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    fn();
+  });
+}
+
+bindZoomButton(els.zoomIn, () => {
+  zoomAt(1.25, els.canvas.width / 2, els.canvas.height / 2);
+});
+bindZoomButton(els.zoomOut, () => {
+  zoomAt(1 / 1.25, els.canvas.width / 2, els.canvas.height / 2);
+});
+bindZoomButton(els.zoomReset, () => {
+  fitToView();
+  toast("Vue recadrée");
 });
 
 // ─── Drawing ────────────────────────────────────────────────────────────────
@@ -555,8 +613,15 @@ function drawRoom() {
       const c = worldToScreen(v.x, v.y);
       ctx.beginPath();
       ctx.fillStyle = i === 0 ? "#f5a623" : "#3ee0c5";
-      ctx.arc(c.sx, c.sy, 6, 0, Math.PI * 2);
+      ctx.arc(c.sx, c.sy, sketchMode === "draw" ? 9 : 6, 0, Math.PI * 2);
       ctx.fill();
+      if (sketchMode === "draw") {
+        ctx.fillStyle = "#04201a";
+        ctx.font = "700 11px Outfit, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(i + 1), c.sx, c.sy + 0.5);
+      }
     });
 
     if (poly.length >= 2) {
@@ -612,10 +677,10 @@ function drawRoom() {
   ctx.fillStyle = "rgba(139,163,181,0.9)";
   ctx.font = "500 13px IBM Plex Sans, sans-serif";
   const hints = {
-    draw: "Clique les coins · Terminer via le bouton chat",
-    measure: "Clique un mur puis saisis sa longueur dans le chat",
-    arrival: "Clique un mur pour l'arrivée électrique",
-    points: "Outil actif puis clic mur ou plafond · glisser pour déplacer",
+    draw: "Tape = coin · Glisse = déplacer · Pince = zoom · ↶ annule",
+    measure: "Tape un mur puis saisis sa longueur dans le chat",
+    arrival: "Tape un mur pour l'arrivée électrique",
+    points: "Tape pour placer · glisse un point pour le bouger",
   };
   if (hints[sketchMode]) ctx.fillText(hints[sketchMode], W / 2, 22);
 }
@@ -708,7 +773,6 @@ function drawCeilingLight(sx, sy, selected, existing) {
 // ─── Pointer handling ─────────────────────────────────────────────────────────
 
 function handleCanvasClick(mx, my) {
-  if (isPanning || pointerMoved) return;
   const { x, y } = screenToWorld(mx, my);
   const poly = getPoly();
 
@@ -718,6 +782,7 @@ function handleCanvasClick(mx, my) {
     }
     session.dimensions.polygon.push({ x: round3(x), y: round3(y) });
     drawRoom();
+    toast(`Coin ${session.dimensions.polygon.length} placé`);
     return;
   }
 
@@ -812,18 +877,63 @@ function round3(n) {
   return Math.round(n * 1000) / 1000;
 }
 
-function onPointerDown(e) {
-  pointerMoved = false;
-  if (e.button === 1 || (e.button === 0 && spaceHeld)) {
-    isPanning = true;
-    panStart = { x: e.clientX, y: e.clientY, panX: viewPanX, panY: viewPanY };
-    els.canvas.classList.add("panning", "active");
+// ─── Pointer / touch (smartphone: tap, pan, pinch) ───────────────────────────
+
+function pointerList() {
+  return [...pointers.values()];
+}
+
+function beginPan(p) {
+  gesture = {
+    type: "pan",
+    startMx: p.mx,
+    startMy: p.my,
+    panX: viewPanX,
+    panY: viewPanY,
+  };
+  els.canvas.classList.add("panning", "active");
+}
+
+function beginPinch(a, b) {
+  const dx = b.mx - a.mx;
+  const dy = b.my - a.my;
+  gesture = {
+    type: "pinch",
+    dist: Math.hypot(dx, dy) || 1,
+    midX: (a.mx + b.mx) / 2,
+    midY: (a.my + b.my) / 2,
+  };
+  els.canvas.classList.add("panning", "active");
+}
+
+function onCanvasPointerDown(e) {
+  if (!sketchVisible) return;
+  if (e.pointerType === "mouse" && e.button !== 0 && e.button !== 1) return;
+
+  const { mx, my } = canvasCoords(e.clientX, e.clientY);
+  pointers.set(e.pointerId, { id: e.pointerId, mx, my, cx: e.clientX, cy: e.clientY });
+  try {
+    els.canvas.setPointerCapture(e.pointerId);
+  } catch {
+    /* ignore */
+  }
+
+  const pts = pointerList();
+  if (pts.length >= 2) {
+    dragPoint = null;
+    beginPinch(pts[0], pts[1]);
     e.preventDefault();
     return;
   }
-  if (e.button !== 0) return;
 
-  const { mx, my } = canvasCoords(e.clientX, e.clientY);
+  // Middle mouse = pan
+  if (e.pointerType === "mouse" && e.button === 1) {
+    beginPan(pts[0]);
+    e.preventDefault();
+    return;
+  }
+
+  // Drag electrical point
   if (sketchMode === "points") {
     const { x, y } = screenToWorld(mx, my);
     const hit = findPointAt(x, y);
@@ -832,45 +942,150 @@ function onPointerDown(e) {
       selectedPointId = hit.id;
       updatePropsPanel();
       drawRoom();
+      gesture = { type: "drag", moved: false };
       e.preventDefault();
+      return;
     }
   }
+
+  // Pending tap-or-pan (1 finger / left click)
+  gesture = {
+    type: "tap",
+    startMx: mx,
+    startMy: my,
+    startCx: e.clientX,
+    startCy: e.clientY,
+    panX: viewPanX,
+    panY: viewPanY,
+    moved: false,
+  };
+  e.preventDefault();
 }
 
-function onPointerMove(e) {
-  if (isPanning && panStart) {
-    pointerMoved = true;
-    viewPanX = panStart.panX + (e.clientX - panStart.x);
-    viewPanY = panStart.panY + (e.clientY - panStart.y);
-    drawRoom();
+function onCanvasPointerMove(e) {
+  if (!pointers.has(e.pointerId)) return;
+  const { mx, my } = canvasCoords(e.clientX, e.clientY);
+  pointers.set(e.pointerId, { id: e.pointerId, mx, my, cx: e.clientX, cy: e.clientY });
+
+  const pts = pointerList();
+
+  if (pts.length >= 2) {
+    const [a, b] = pts;
+    const dist = Math.hypot(b.mx - a.mx, b.my - a.my) || 1;
+    const midX = (a.mx + b.mx) / 2;
+    const midY = (a.my + b.my) / 2;
+    if (!gesture || gesture.type !== "pinch") {
+      beginPinch(a, b);
+    } else {
+      const factor = dist / (gesture.dist || 1);
+      // Pan with the pinch midpoint (finger direction = content direction)
+      viewPanX += midX - gesture.midX;
+      viewPanY += midY - gesture.midY;
+      zoomAt(factor, midX, midY);
+      gesture.dist = dist;
+      gesture.midX = midX;
+      gesture.midY = midY;
+    }
+    e.preventDefault();
     return;
   }
-  if (dragPoint) {
-    pointerMoved = true;
-    const { mx, my } = canvasCoords(e.clientX, e.clientY);
+
+  if (gesture?.type === "drag" && dragPoint) {
+    gesture.moved = true;
     const { x, y } = screenToWorld(mx, my);
     movePoint(dragPoint, x, y);
     drawRoom();
+    e.preventDefault();
+    return;
+  }
+
+  if (gesture?.type === "pan" || gesture?.type === "tap") {
+    const dx = mx - gesture.startMx;
+    const dy = my - gesture.startMy;
+    const clientDist = Math.hypot(e.clientX - (gesture.startCx ?? e.clientX), e.clientY - (gesture.startCy ?? e.clientY));
+    if (gesture.type === "tap" && clientDist > TAP_MOVE_PX) {
+      gesture.type = "pan";
+      gesture.moved = true;
+      els.canvas.classList.add("panning", "active");
+    }
+    if (gesture.type === "pan") {
+      // Content follows the finger (grab / map style)
+      viewPanX = gesture.panX + dx;
+      viewPanY = gesture.panY + dy;
+      drawRoom();
+    }
+    e.preventDefault();
   }
 }
 
-function onPointerUp() {
-  if (dragPoint) dragPoint = null;
-  if (isPanning) {
-    isPanning = false;
-    panStart = null;
+function onCanvasPointerUp(e) {
+  if (!pointers.has(e.pointerId)) return;
+  const was = gesture;
+  pointers.delete(e.pointerId);
+
+  try {
+    els.canvas.releasePointerCapture(e.pointerId);
+  } catch {
+    /* ignore */
+  }
+
+  if (pointers.size >= 2) {
+    const pts = pointerList();
+    beginPinch(pts[0], pts[1]);
+    return;
+  }
+
+  if (pointers.size === 1) {
+    // End of pinch → continue as pan with remaining finger
+    const p = pointerList()[0];
+    beginPan(p);
+    dragPoint = null;
+    return;
+  }
+
+  // All pointers up
+  els.canvas.classList.remove("panning", "active");
+
+  if (was?.type === "drag") {
+    dragPoint = null;
+    gesture = null;
+    suppressClickUntil = performance.now() + 400;
+    return;
+  }
+
+  if (was?.type === "tap" && !was.moved) {
+    handleCanvasClick(was.startMx, was.startMy);
+    suppressClickUntil = performance.now() + 400;
+  }
+
+  dragPoint = null;
+  gesture = null;
+}
+
+function onCanvasPointerCancel(e) {
+  pointers.delete(e.pointerId);
+  if (pointers.size === 0) {
+    dragPoint = null;
+    gesture = null;
     els.canvas.classList.remove("panning", "active");
   }
 }
 
-els.canvas.addEventListener("mousedown", onPointerDown);
-window.addEventListener("mousemove", onPointerMove);
-window.addEventListener("mouseup", onPointerUp);
+els.canvas.addEventListener("pointerdown", onCanvasPointerDown);
+els.canvas.addEventListener("pointermove", onCanvasPointerMove);
+els.canvas.addEventListener("pointerup", onCanvasPointerUp);
+els.canvas.addEventListener("pointercancel", onCanvasPointerCancel);
+els.canvas.addEventListener("lostpointercapture", onCanvasPointerCancel);
 
+// Ignore legacy click after touch (prevents double corners on mobile)
 els.canvas.addEventListener("click", (e) => {
-  if (e.button !== 0 || spaceHeld || pointerMoved) return;
-  const { mx, my } = canvasCoords(e.clientX, e.clientY);
-  handleCanvasClick(mx, my);
+  if (performance.now() < suppressClickUntil) {
+    e.preventDefault();
+    e.stopPropagation();
+    return;
+  }
+  // Mouse fallback if pointer events somehow skipped tap
+  if (e.pointerType && e.pointerType !== "mouse") return;
 });
 
 els.canvas.addEventListener("wheel", (e) => {
@@ -881,99 +1096,6 @@ els.canvas.addEventListener("wheel", (e) => {
 }, { passive: false });
 
 els.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
-
-window.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && !e.repeat) {
-    spaceHeld = true;
-    els.canvas.classList.add("panning");
-    e.preventDefault();
-  }
-});
-window.addEventListener("keyup", (e) => {
-  if (e.code === "Space") {
-    spaceHeld = false;
-    if (!isPanning) els.canvas.classList.remove("panning", "active");
-  }
-});
-
-els.canvas.addEventListener("touchstart", (e) => {
-  pointerMoved = false;
-  if (e.touches.length === 2) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    lastPinchDist = Math.hypot(dx, dy);
-    e.preventDefault();
-    return;
-  }
-  if (e.touches.length === 1 && sketchMode === "points") {
-    const t = e.touches[0];
-    const { mx, my } = canvasCoords(t.clientX, t.clientY);
-    const { x, y } = screenToWorld(mx, my);
-    const hit = findPointAt(x, y);
-    if (hit) {
-      dragPoint = hit;
-      selectedPointId = hit.id;
-      updatePropsPanel();
-      e.preventDefault();
-    }
-  }
-}, { passive: false });
-
-els.canvas.addEventListener("touchmove", (e) => {
-  if (e.touches.length === 2 && lastPinchDist) {
-    const dx = e.touches[0].clientX - e.touches[1].clientX;
-    const dy = e.touches[0].clientY - e.touches[1].clientY;
-    const dist = Math.hypot(dx, dy);
-    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    const { mx, my } = canvasCoords(cx, cy);
-    zoomAt(dist / lastPinchDist, mx, my);
-    lastPinchDist = dist;
-
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    if (e.touches[0].identifier < e.touches[1].identifier) {
-      viewPanX += (e.touches[0].clientX - e.touches[1].clientX) * 0.02;
-      viewPanY += (e.touches[0].clientY - e.touches[1].clientY) * 0.02;
-    }
-    drawRoom();
-    e.preventDefault();
-    return;
-  }
-  if (dragPoint && e.touches.length === 1) {
-    pointerMoved = true;
-    const t = e.touches[0];
-    const { mx, my } = canvasCoords(t.clientX, t.clientY);
-    const { x, y } = screenToWorld(mx, my);
-    movePoint(dragPoint, x, y);
-    drawRoom();
-    e.preventDefault();
-  } else if (e.touches.length === 2) {
-    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-    if (!panStart) panStart = { x: midX, y: midY, panX: viewPanX, panY: viewPanY };
-    viewPanX = panStart.panX + (midX - panStart.x);
-    viewPanY = panStart.panY + (midY - panStart.y);
-    drawRoom();
-    e.preventDefault();
-  }
-}, { passive: false });
-
-els.canvas.addEventListener("touchend", (e) => {
-  if (e.touches.length < 2) {
-    lastPinchDist = null;
-    panStart = null;
-  }
-  if (dragPoint) {
-    dragPoint = null;
-    return;
-  }
-  if (!e.changedTouches[0] || e.touches.length > 0 || pointerMoved) return;
-  const t = e.changedTouches[0];
-  const { mx, my } = canvasCoords(t.clientX, t.clientY);
-  handleCanvasClick(mx, my);
-  e.preventDefault();
-}, { passive: false });
 
 function resizeCanvas() {
   const rect = els.wrap.getBoundingClientRect();
