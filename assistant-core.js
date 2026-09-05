@@ -212,13 +212,19 @@ export function parseRoomDescription(text) {
   const num = "(\\d+(?:\\.\\d+)?)";
   const unit = "(?:\\s*(?:m|metres?|mètres?|cm))?";
   let width = null, depth = null, height = 2.5;
-  const sur = t.match(new RegExp(`${num}${unit}\\s*(?:sur|x|par)\\s*${num}${unit}`, "i"));
+  const sur = t.match(new RegExp(`${num}${unit}\\s*(?:sur|x|par|par)\\s*${num}${unit}`, "i"));
   if (sur) {
     width = parseFloat(sur[1]); depth = parseFloat(sur[2]);
     if (width > 30) width /= 100; if (depth > 30) depth /= 100;
   }
   const triple = t.match(new RegExp(`${num}\\s*[x×]\\s*${num}\\s*[x×]\\s*${num}`, "i"));
   if (triple) { width = parseFloat(triple[1]); depth = parseFloat(triple[2]); height = parseFloat(triple[3]); }
+  const carre = t.match(new RegExp(`(?:carre|carré|piece carree|pièce carrée)\\s*(?:de\\s*)?${num}${unit}`, "i"))
+    || t.match(new RegExp(`${num}${unit}\\s*(?:sur|x)\\s*\\1`, "i"));
+  if (carre && (!width || !depth)) {
+    const s = parseFloat(carre[1]);
+    width = depth = s > 30 ? s / 100 : s;
+  }
   const h = t.match(new RegExp(`hauteur\\s*(?:de\\s*)?${num}${unit}`, "i"))
     || t.match(new RegExp(`${num}${unit}\\s*(?:de\\s*)?haut`, "i"));
   if (h) {
@@ -227,22 +233,123 @@ export function parseRoomDescription(text) {
   }
   let chimney = null;
   if (/cheminee|foyer|encoche|decrochement|renfoncement/.test(t)) {
-    let cw = 1.5, cd = 0.5;
+    let cw = 1.0, cd = 0.5;
     const wMatch = t.match(new RegExp(`(?:large(?:ur)?|de\\s+large)\\s*(?:de\\s*)?${num}\\s*(cm|m)?`, "i"))
       || t.match(new RegExp(`${num}\\s*(cm|m)?\\s*(?:de\\s*)?large`, "i"));
     const dMatch = t.match(new RegExp(`(?:epaisseur|profondeur)\\s*(?:de\\s*)?${num}\\s*(cm|m)?`, "i"))
       || t.match(new RegExp(`${num}\\s*(cm|m)?\\s*(?:d'?|de\\s*)?(?:epaisseur|profondeur)`, "i"));
     if (wMatch) { cw = parseFloat(wMatch[1]); if ((wMatch[2] || "").includes("cm") || cw > 10) cw /= 100; }
     if (dMatch) { cd = parseFloat(dMatch[1]); if ((dMatch[2] || "").includes("cm") || cd > 5) cd /= 100; }
-    let wall = "top";
+    let wall = "right";
     if (/mur\s+(?:de\s+)?(?:gauche|left)/.test(t)) wall = "left";
     else if (/mur\s+(?:de\s+)?(?:droite|right)/.test(t)) wall = "right";
     else if (/mur\s+(?:du\s+)?(?:bas|sud)/.test(t)) wall = "bottom";
+    else if (/mur\s+(?:du\s+)?(?:haut|nord)/.test(t)) wall = "top";
     chimney = { width: cw, depth: cd, wall };
   }
   if (!width || !depth) return null;
   const polygon = chimney ? rectWithChimney(width, depth, chimney) : rectPolygon(width, depth);
   return { width, depth, height: height || 2.5, chimney, polygon, source: chimney ? "rect+cheminee" : "rect" };
+}
+
+function wantsGeometryFix(t) {
+  return /(mur\s+(de\s+)?(gauche|droite)|mur droit|fusionne|align|trop de points?|pas besoin .{0,40}points?|points? (different|inutile)|un seul (mur|segment)|simplif(ier)? murs?|redress|carre de|piece de \d|6\s*(m|metres?)?\s*(sur|x|×)\s*6|cheminee sur le mur)/.test(t);
+}
+
+function geometryFixActions(extra = []) {
+  return [
+    { id: "walls:done", label: "Cotes OK → Continuer" },
+    { id: "walls:simplify", label: "Simplifier murs droits" },
+    { id: "draw:restart", label: "Recommencer le dessin" },
+    ...extra,
+  ];
+}
+
+/** Merge stray points / rebuild a clean room from natural language. */
+function applyGeometryFix(session, userText, t) {
+  const parsed = parseRoomDescription(userText || "");
+  if (parsed && (parsed.width >= 1.5 || /carre|rectangle|cheminee|sur|x/.test(t))) {
+    const height = session.dimensions?.height || parsed.height || 2.5;
+    session.dimensions = {
+      width: parsed.width,
+      depth: parsed.depth,
+      height,
+      polygon: parsed.polygon,
+      chimney: parsed.chimney,
+      templatePolygon: null,
+      edgeLengths: null,
+      source: "corrected",
+    };
+    finalizeDrawnPolygon(session.dimensions);
+    const edges = polygonEdges(session.dimensions.polygon);
+    session.dimensions.edgeLengths = edges.map((e) => round2(e.length));
+    session.dimensions.templatePolygon = session.dimensions.polygon.map((p) => ({ x: p.x, y: p.y }));
+    session._selectedEdge = null;
+    session.step = "measure-walls";
+    return {
+      text: `Compris — pièce propre ${parsed.width}×${parsed.depth} m${parsed.chimney ? " avec cheminée" : ""}, murs droits (plus de points inutiles). Vérifie les cotes ou continue.`,
+      actions: geometryFixActions(),
+      showSketch: true,
+      sketchMode: "measure",
+      speak: true,
+    };
+  }
+
+  if (!session.dimensions?.polygon?.length) return null;
+  const before = session.dimensions.polygon.length;
+  session.dimensions.polygon = cleanRoomPolygon(session.dimensions.polygon);
+  finalizeDrawnPolygon(session.dimensions);
+
+  // Optional: "mur de gauche … 6 m" after simplify
+  const lenMatch = t.match(/(\d+(?:[.,]\d+)?)\s*m/);
+  const len = lenMatch ? parseFloat(lenMatch[1].replace(",", ".")) : NaN;
+  if (Number.isFinite(len) && len > 0) {
+    const edges = polygonEdges(session.dimensions.polygon);
+    let idx = null;
+    if (/gauche|left/.test(t)) {
+      let best = Infinity;
+      edges.forEach((e) => {
+        const midX = (e.a.x + e.b.x) / 2;
+        const vert = Math.abs(e.a.x - e.b.x) < Math.abs(e.a.y - e.b.y);
+        if (vert && midX < best) { best = midX; idx = e.i; }
+      });
+    } else if (/droite|right/.test(t)) {
+      let best = -Infinity;
+      edges.forEach((e) => {
+        const midX = (e.a.x + e.b.x) / 2;
+        const vert = Math.abs(e.a.x - e.b.x) < Math.abs(e.a.y - e.b.y);
+        if (vert && midX > best) { best = midX; idx = e.i; }
+      });
+    } else if (/haut|nord|fond/.test(t)) {
+      let best = -Infinity;
+      edges.forEach((e) => {
+        const midY = (e.a.y + e.b.y) / 2;
+        const horiz = Math.abs(e.a.y - e.b.y) < Math.abs(e.a.x - e.b.x);
+        if (horiz && midY > best) { best = midY; idx = e.i; }
+      });
+    } else if (/bas|sud/.test(t)) {
+      let best = Infinity;
+      edges.forEach((e) => {
+        const midY = (e.a.y + e.b.y) / 2;
+        const horiz = Math.abs(e.a.y - e.b.y) < Math.abs(e.a.x - e.b.x);
+        if (horiz && midY < best) { best = midY; idx = e.i; }
+      });
+    }
+    if (idx != null) setEdgeLength(session.dimensions, idx, len);
+  }
+
+  const after = session.dimensions.polygon.length;
+  session._selectedEdge = null;
+  session.step = "measure-walls";
+  return {
+    text: after < before
+      ? `OK — points alignés fusionnés : ${before} coins → ${after}. Un mur droit = un seul segment${Number.isFinite(len) ? ` (cote ${len} m appliquée si le mur était identifiable)` : ""}. Tu peux aussi écrire « 6 sur 6 avec cheminée sur le mur de droite ».`
+      : `Plan réaligné (${after} coins). Pour un résultat nickel : « cuisine 6 sur 6 avec cheminée 1 m sur le mur de droite ».`,
+    actions: geometryFixActions(),
+    showSketch: true,
+    sketchMode: "measure",
+    speak: true,
+  };
 }
 
 export function detectRoomType(text) {
@@ -330,31 +437,182 @@ export function simplifyStroke(points, epsilon = 0.12) {
   return rdp(points.map((p) => ({ x: p.x, y: p.y })));
 }
 
+function angleDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
+/** Remove vertices that sit on an almost-straight wall. */
+export function mergeCollinearPoints(poly, angleTolDeg = 14) {
+  if (!poly || poly.length < 3) return [];
+  const tol = (angleTolDeg * Math.PI) / 180;
+  let pts = poly.map((p) => ({ x: p.x, y: p.y }));
+  for (let guard = 0; guard < 24; guard++) {
+    const n = pts.length;
+    if (n < 3) break;
+    const keep = [];
+    let removed = false;
+    for (let i = 0; i < n; i++) {
+      const a = pts[(i - 1 + n) % n];
+      const b = pts[i];
+      const c = pts[(i + 1) % n];
+      if (dist(a, b) < 1e-6 || dist(b, c) < 1e-6) {
+        removed = true;
+        continue;
+      }
+      const angIn = Math.atan2(b.y - a.y, b.x - a.x);
+      const angOut = Math.atan2(c.y - b.y, c.x - b.x);
+      if (Math.abs(angleDiff(angOut, angIn)) < tol) {
+        removed = true;
+        continue;
+      }
+      keep.push(b);
+    }
+    if (!removed || keep.length < 3) {
+      if (keep.length >= 3) pts = keep;
+      break;
+    }
+    pts = keep;
+  }
+  return pts;
+}
+
+/** Snap near-horizontal / near-vertical walls, then merge same-direction runs. */
+export function orthogonalizePolygon(poly, angleTolDeg = 22) {
+  if (!poly || poly.length < 3) return [];
+  const tol = (angleTolDeg * Math.PI) / 180;
+  const n = poly.length;
+  const lens = [];
+  const angs = [];
+  for (let i = 0; i < n; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % n];
+    lens.push(Math.max(dist(a, b), 0.01));
+    let ang = Math.atan2(b.y - a.y, b.x - a.x);
+    const snap = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
+    if (Math.abs(angleDiff(ang, snap)) <= tol) ang = snap;
+    angs.push(ang);
+  }
+
+  const mLens = [];
+  const mAngs = [];
+  for (let i = 0; i < n; i++) {
+    if (mAngs.length && Math.abs(angleDiff(angs[i], mAngs[mAngs.length - 1])) < 1e-6) {
+      mLens[mLens.length - 1] += lens[i];
+    } else {
+      mLens.push(lens[i]);
+      mAngs.push(angs[i]);
+    }
+  }
+  if (mLens.length < 3) return poly.map((p) => ({ x: p.x, y: p.y }));
+
+  let x = poly[0].x;
+  let y = poly[0].y;
+  const raw = [{ x, y }];
+  for (let i = 0; i < mLens.length; i++) {
+    x += Math.cos(mAngs[i]) * mLens[i];
+    y += Math.sin(mAngs[i]) * mLens[i];
+    raw.push({ x, y });
+  }
+  const errX = raw[mLens.length].x - raw[0].x;
+  const errY = raw[mLens.length].y - raw[0].y;
+  const out = [];
+  for (let i = 0; i < mLens.length; i++) {
+    const t = i / mLens.length;
+    out.push({
+      x: round2(raw[i].x - errX * t),
+      y: round2(raw[i].y - errY * t),
+    });
+  }
+  return out;
+}
+
+function dropTinyEdges(poly, minLen) {
+  if (!poly || poly.length < 3) return [];
+  let pts = poly.map((p) => ({ x: p.x, y: p.y }));
+  for (let guard = 0; guard < 16; guard++) {
+    const n = pts.length;
+    if (n < 3) break;
+    const next = [pts[0]];
+    let removed = false;
+    for (let i = 0; i < n; i++) {
+      const a = next[next.length - 1];
+      const b = pts[(i + 1) % n];
+      // last segment closes to first — handle at end
+      if (i === n - 1) {
+        if (dist(a, pts[0]) < minLen && next.length > 2) {
+          // drop current last by not keeping issue — absorb into first
+          removed = true;
+        } else if (dist(a, pts[0]) >= minLen) {
+          /* closed OK */
+        }
+        break;
+      }
+      if (dist(a, b) < minLen) {
+        removed = true;
+        continue; // skip b
+      }
+      next.push(b);
+    }
+    if (next.length >= 3 && dist(next[next.length - 1], next[0]) < minLen) {
+      next.pop();
+      removed = true;
+    }
+    if (!removed || next.length < 3) {
+      pts = next.length >= 3 ? next : pts;
+      break;
+    }
+    pts = next;
+  }
+  return pts;
+}
+
+/**
+ * Clean a freehand room: fewer corners, straight walls, axis-aligned when close.
+ * Keeps real corners (chimney notch, L-shape…).
+ */
+export function cleanRoomPolygon(poly) {
+  if (!poly || poly.length < 3) return [];
+  const bbox = polygonBounds(poly);
+  const span = Math.max(bbox.width, bbox.depth, 1);
+  let p = simplifyStroke(poly, Math.max(0.12, span * 0.045));
+  if (p.length < 3) p = poly.map((pt) => ({ x: pt.x, y: pt.y }));
+  p = mergeCollinearPoints(p, 18);
+  p = orthogonalizePolygon(p, 24);
+  p = mergeCollinearPoints(p, 12);
+  p = dropTinyEdges(p, Math.max(0.15, span * 0.025));
+  p = mergeCollinearPoints(p, 10);
+  return p.length >= 3 ? p.map((pt) => ({ x: round2(pt.x), y: round2(pt.y) })) : poly.map((pt) => ({ x: pt.x, y: pt.y }));
+}
+
 /** Convert a freehand stroke into a closed room polygon. */
 export function strokeToPolygon(stroke) {
   if (!stroke || stroke.length < 4) return [];
   const bbox = polygonBounds(stroke);
   const span = Math.max(bbox.width, bbox.depth, 1);
-  let poly = simplifyStroke(stroke, Math.max(0.08, span * 0.03));
-  if (poly.length < 3) poly = simplifyStroke(stroke, Math.max(0.05, span * 0.02));
+  // More aggressive simplify on fat finger strokes
+  let poly = simplifyStroke(stroke, Math.max(0.14, span * 0.05));
+  if (poly.length < 3) poly = simplifyStroke(stroke, Math.max(0.08, span * 0.03));
   if (poly.length < 3) return [];
 
-  // Close shape if ends are near
   const first = poly[0];
   const last = poly[poly.length - 1];
-  if (dist(first, last) < span * 0.12) poly.pop();
-  // Drop near-duplicate consecutive points
+  if (dist(first, last) < span * 0.15) poly.pop();
   const cleaned = [];
   for (const p of poly) {
-    if (!cleaned.length || dist(cleaned[cleaned.length - 1], p) > 0.05) cleaned.push(p);
+    if (!cleaned.length || dist(cleaned[cleaned.length - 1], p) > Math.max(0.08, span * 0.015)) cleaned.push(p);
   }
-  if (cleaned.length >= 3 && dist(cleaned[0], cleaned[cleaned.length - 1]) < 0.05) cleaned.pop();
-  return cleaned.length >= 3 ? cleaned.map((p) => ({ x: round2(p.x), y: round2(p.y) })) : [];
+  if (cleaned.length >= 3 && dist(cleaned[0], cleaned[cleaned.length - 1]) < 0.08) cleaned.pop();
+  if (cleaned.length < 3) return [];
+  return cleanRoomPolygon(cleaned);
 }
 
 /** Freeze sketch angles as a template before measuring walls. */
 export function finalizeDrawnPolygon(dimensions) {
   if (!dimensions?.polygon || dimensions.polygon.length < 3) return false;
+  dimensions.polygon = cleanRoomPolygon(dimensions.polygon);
   dimensions.templatePolygon = dimensions.polygon.map((p) => ({ x: p.x, y: p.y }));
   dimensions.edgeLengths = dimensions.polygon.map(() => null);
   const b = polygonBounds(dimensions.polygon);
@@ -765,12 +1023,10 @@ export function robotReply(session, userText, choiceId) {
         finalizeDrawnPolygon(session.dimensions);
         session.step = "measure-walls";
         session._selectedEdge = null;
+        const corners = session.dimensions.polygon.length;
         return {
-          text: "Contour noté. Tape chaque mur et envoie sa vraie longueur (ex. 4). La forme (rectangle + cheminée…) est conservée — Volt recalcule le plan propre à la fin.",
-          actions: [
-            { id: "walls:done", label: "Cotes OK → Continuer" },
-            { id: "draw:restart", label: "Recommencer le dessin" },
-          ],
+          text: `Contour nettoyé : ${corners} coins (murs presque droits fusionnés). Tape chaque mur pour sa cote, ou écris « 6 sur 6 avec cheminée sur le mur de droite ». Bouton « Simplifier murs droits » si un mur a encore trop de points.`,
+          actions: geometryFixActions(),
           showSketch: true, sketchMode: "measure", speak: true,
         };
       }
@@ -806,12 +1062,21 @@ export function robotReply(session, userText, choiceId) {
           showSketch: true, sketchMode: "draw", speak: true,
         };
       }
+      if (choiceId === "walls:simplify" || wantsGeometryFix(t)) {
+        const fix = applyGeometryFix(session, userText, t || "simplifier");
+        if (fix) return fix;
+      }
       if (choiceId === "walls:done") {
-        if (session.dimensions) rebuildPolygonFromTemplate(session.dimensions);
+        if (session.dimensions?.polygon) {
+          session.dimensions.polygon = cleanRoomPolygon(session.dimensions.polygon);
+          finalizeDrawnPolygon(session.dimensions);
+          // Prefer already entered lengths when still matching edge count
+          rebuildPolygonFromTemplate(session.dimensions);
+        }
         session.step = "equipment";
         session._selectedEdge = null;
         return {
-          text: "Plan redessiné avec tes cotes. Qu'est-ce qu'on installe ?",
+          text: "Plan redessiné avec tes cotes (murs droits fusionnés). Qu'est-ce qu'on installe ?",
           suggestions: equipmentSuggestions(session.roomType),
           showSketch: true, sketchMode: "review-shape", speak: true,
         };
@@ -822,24 +1087,22 @@ export function robotReply(session, userText, choiceId) {
         const setCount = (session.dimensions.edgeLengths || []).filter((L) => L > 0).length;
         const total = session.dimensions.polygon.length;
         return {
-          text: `Mur ${session._selectedEdge + 1} → ${n} m (${setCount}/${total} cotes). Autre mur ou Continuer.`,
-          actions: [
-            { id: "walls:done", label: "Cotes OK → Continuer" },
-            { id: "draw:restart", label: "Recommencer le dessin" },
-          ],
+          text: `Mur ${session._selectedEdge + 1} → ${n} m (${setCount}/${total} cotes). Autre mur ou Continuer. Si un mur droit a plusieurs points : « Simplifier murs droits ».`,
+          actions: geometryFixActions(),
           showSketch: true, sketchMode: "measure", speak: true,
         };
       }
       return {
-        text: "Tape un mur, puis envoie sa longueur (ex. 4.5).",
-        actions: [
-          { id: "walls:done", label: "Cotes OK → Continuer" },
-          { id: "draw:restart", label: "Recommencer le dessin" },
-        ],
+        text: "Tape un mur, puis envoie sa longueur (ex. 6). Un mur droit ne doit avoir qu’un segment — bouton « Simplifier murs droits » si besoin.",
+        actions: geometryFixActions(),
         showSketch: true, sketchMode: "measure", speak: true,
       };
     }
     case "equipment": {
+      if (choiceId === "walls:simplify" || wantsGeometryFix(t)) {
+        const fix = applyGeometryFix(session, userText, t || "simplifier");
+        if (fix) return fix;
+      }
       if (choiceId?.startsWith("eq:")) {
         const type = choiceId.slice(3);
         const ex = session.equipment.find((e) => e.type === type);
