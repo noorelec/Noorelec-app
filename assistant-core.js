@@ -12,6 +12,7 @@ export function normStr(s) {
 export const FALLBACK_PRICES = {
   "prise-simple": { name: "Prise 2P+T simple", price: 8.5, tempsBase: 25, cable: "3G2.5" },
   "prise-double": { name: "Prise 2P+T double", price: 14, tempsBase: 30, cable: "3G2.5" },
+  "prise-triple": { name: "Prise 2P+T triple", price: 18, tempsBase: 35, cable: "3G2.5" },
   "prise-four": { name: "Prise dédiée four", price: 12, tempsBase: 40, cable: "3G2.5" },
   "prise-plaque": { name: "Alim. plaque / taque", price: 18, tempsBase: 50, cable: "5G6" },
   "prise-lavevaisselle": { name: "Prise lave-vaisselle", price: 12, tempsBase: 35, cable: "3G2.5" },
@@ -42,16 +43,30 @@ export const PROJECT_TYPES = [
 
 export const SCOPE_OPTIONS = [
   { id: "scope:piece", label: "Une pièce", emoji: "🚪" },
-  { id: "scope:etage", label: "Un étage", emoji: "🏠" },
+  { id: "scope:appartement", label: "Un appartement", emoji: "🏠" },
   { id: "scope:maison", label: "Toute la maison", emoji: "🏡" },
 ];
+
+export const FLOOR_COUNT_OPTIONS = [
+  { id: "floors:1", label: "1 niveau (RDC)" },
+  { id: "floors:2", label: "2 niveaux (RDC + 1)" },
+  { id: "floors:3", label: "3 niveaux" },
+  { id: "floors:4", label: "4 niveaux +" },
+];
+
+export const FLOOR_NAMES = ["RDC", "1er étage", "2e étage", "3e étage"];
+
 
 export const ROOM_PRESETS = [
   { id: "cuisine", label: "Cuisine", emoji: "🍳" },
   { id: "salon", label: "Salon", emoji: "🛋️" },
+  { id: "salle-a-manger", label: "Salle à manger", emoji: "🍽️" },
+  { id: "hall", label: "Hall / entrée", emoji: "🚪" },
   { id: "chambre", label: "Chambre", emoji: "🛏️" },
   { id: "sdb", label: "Salle de bain", emoji: "🚿" },
+  { id: "wc", label: "WC", emoji: "🚽" },
   { id: "bureau", label: "Bureau", emoji: "💻" },
+  { id: "couloir", label: "Couloir", emoji: "↔️" },
   { id: "garage", label: "Garage", emoji: "🚗" },
   { id: "autre", label: "Autre", emoji: "📦" },
 ];
@@ -59,6 +74,7 @@ export const ROOM_PRESETS = [
 export const POINT_TOOLS = [
   { id: "prise-simple", label: "Prise", ceiling: false },
   { id: "prise-double", label: "Double", ceiling: false },
+  { id: "prise-triple", label: "Triple", ceiling: false },
   { id: "prise-four", label: "Four", ceiling: false },
   { id: "prise-plaque", label: "Taque", ceiling: false },
   { id: "interrupteur", label: "Inter", ceiling: false },
@@ -286,9 +302,17 @@ export function parseInstallText(text) {
     notes.push(vertical ? "ensembles verticaux inter+prise à côté des portes" : "inter/prise à côté des portes");
     vevHandled = true;
   } else if (hasVev) {
-    const q = wordQty(t) || 2;
-    addEq("va-et-vient", Math.max(q, 2));
-    notes.push("va-et-vient");
+    // Explicit qty only — never steal "2" from "2x prises"
+    const explicit = t.match(/(\d+)\s*x?\s*va[\s-]*et[\s-]*vient/)
+      || t.match(/va[\s-]*et[\s-]*vient\s*[x×]?\s*(\d+)/)
+      || t.match(/\b(une?|un)\s+va[\s-]*et[\s-]*vient/);
+    let q = 1;
+    if (explicit) {
+      if (/^(une?|un)$/.test(explicit[1] || "")) q = 1;
+      else q = parseInt(explicit[1], 10) || 1;
+    }
+    addEq("va-et-vient", q);
+    notes.push(q === 1 ? "1 va-et-vient (à placer — circuit souvent 2 inters)" : `${q} va-et-vient`);
     vevHandled = true;
   }
 
@@ -315,16 +339,19 @@ export function parseInstallText(text) {
     notes.push(`${lightGeneric} lumières → même n°`);
   }
 
-  // --- classic equipment patterns (avoid double-counting portes / lights / vev kits) ---
+  // --- classic equipment patterns (supports "2x", "2×", "2 prises") ---
   const patterns = [
-    { re: /(\d+)\s*prises?\s+doubles?\b/g, type: "prise-double" },
-    { re: /(\d+)\s*prises?\s+simples?\b/g, type: "prise-simple" },
-    { re: /(\d+)\s*prises?\b(?!\s*(?:doubles?|simples?|four|plaque|taque|frigo|lave))/g, type: "prise-simple" },
+    { re: /(\d+)\s*[x×]?\s*prises?\s+triples?\b/g, type: "prise-triple" },
+    { re: /(\d+)\s*[x×]?\s*prises?\s+doubles?\b/g, type: "prise-double" },
+    { re: /(\d+)\s*[x×]?\s*prises?\s+simples?\b/g, type: "prise-simple" },
+    { re: /(\d+)\s*[x×]\s*prises?\b(?!\s*(?:doubles?|simples?|triples?|four|plaque|taque|frigo|lave))/g, type: "prise-simple" },
+    { re: /(\d+)\s*prises?\b(?!\s*(?:doubles?|simples?|triples?|four|plaque|taque|frigo|lave))/g, type: "prise-simple" },
+    { re: /(\d+)\s*[x×]?\s*interrupteurs?(?!\s*\/\s*prise)/g, type: "interrupteur" },
+    { re: /\b(?:un|une)\s+interrupteur(?!\s*\/\s*prise)/g, type: "interrupteur", qty: 1 },
     { re: /prise\s*(?:pour\s*)?(?:le\s*)?four|\bfour\b/g, type: "prise-four", qty: 1 },
     { re: /prise\s*(?:pour\s*)?(?:la\s*)?(?:taque|plaque)|\btaque\b|plaque\s*(?:de\s*)?cuisson/g, type: "prise-plaque", qty: 1 },
     { re: /lave[\s-]?vaisselle/g, type: "prise-lavevaisselle", qty: 1 },
     { re: /\bfrigo\b|refrigerateur/g, type: "prise-frigo", qty: 1 },
-    { re: /(\d+)\s*interrupteurs?(?!\s*\/\s*prise)/g, type: "interrupteur" },
     { re: /(\d+)\s*(?:prises?\s*)?rj\s*45|ethernet/g, type: "rj45" },
   ];
   for (const p of patterns) {
@@ -348,44 +375,42 @@ export function parseInstallText(text) {
 }
 
 /**
- * Build numbered place plan:
- * - wall gear → one number per unit (1, 2, 3…)
- * - lights of same type → one shared number, qty to place by multi-tap
+ * Parcours B : un n° par type, qty à placer par multi-tap
+ * (ex. n°1 = 2× prises double → tape 2 fois).
  */
 export function buildPlacePlan(session) {
   const plan = [];
   let mark = 1;
   for (const eq of session.equipment || []) {
-    const isLightGroup =
-      eq.type === "eclairage" ||
-      eq.type === "eclairage-spot" ||
-      eq.type === "eclairage-applique";
-    if (isLightGroup) {
-      plan.push({
-        mark,
-        type: eq.type,
-        qty: eq.qty,
-        placed: 0,
-        label: eq.label,
-        group: true,
-      });
-      mark += 1;
-    } else {
-      for (let i = 0; i < eq.qty; i++) {
-        plan.push({
-          mark,
-          type: eq.type,
-          qty: 1,
-          placed: 0,
-          label: eq.label,
-          group: false,
-        });
-        mark += 1;
-      }
-    }
+    if (!(eq.qty > 0)) continue;
+    plan.push({
+      mark,
+      type: eq.type,
+      qty: eq.qty,
+      placed: 0,
+      label: eq.label || FALLBACK_PRICES[eq.type]?.name || eq.type,
+      group: true,
+    });
+    mark += 1;
   }
   session.placePlan = plan;
   return plan;
+}
+
+function setEquipmentFromParse(session, items) {
+  session.equipment = [];
+  for (const e of items || []) addEquipment(session, e.type, e.qty);
+}
+
+function countPlacedForMark(session, markItem) {
+  if (!markItem) return 0;
+  return (session.placements || []).filter((p) => p.mark === markItem.mark).length;
+}
+
+function syncPlacePlanCounts(session) {
+  for (const item of session.placePlan || []) {
+    item.placed = countPlacedForMark(session, item);
+  }
 }
 
 export function formatPlacePlan(session) {
@@ -620,8 +645,15 @@ export function detectRoomType(text) {
 export function createSession() {
   return {
     step: "scope",
-    scope: null,
+    scope: null, // piece | appartement | maison
     projectType: null,
+    floorsCount: null,
+    floors: [], // [{ id, name, level, pendingRoomTypes: [] }]
+    floorSetupIndex: 0,
+    rooms: [], // full room records
+    currentRoomId: null,
+    pendingEquipment: null, // awaiting confirm (Path B)
+    guideIndex: 0,
     roomType: null,
     roomName: "",
     dimensions: null,
@@ -982,28 +1014,87 @@ export function scaleEdge(dimensions, edgeIndex, targetLen) {
   setEdgeLength(dimensions, edgeIndex, targetLen);
 }
 
+export function quoteRoomSources(session) {
+  saveCurrentRoom(session);
+  const done = (session.rooms || []).filter(
+    (r) => r.status === "done" && ((r.equipment || []).length || (r.placements || []).length)
+  );
+  if (done.length) return done;
+  return [{
+    name: session.roomName || "Pièce",
+    dimensions: session.dimensions,
+    equipment: session.equipment || [],
+    placements: session.placements || [],
+    arrival: session.arrival,
+  }];
+}
+
 export function buildQuote(session, settings = {}) {
   const tarif = settings.tarif ?? 50;
   const deplacement = settings.deplacement ?? 25;
   const tva = settings.tva ?? 0.06;
   const rebouchageM = settings.rebouchage ?? 18;
   const path = session.tech.cablePath || "murs";
-  const poly = session.dimensions?.polygon;
-  const articles = [];
-  const cableMeters = {};
-  let moMinutes = 0, materiel = 0, rebouchage = 0;
+  const rooms = quoteRoomSources(session);
 
   const byType = {};
-  for (const p of session.placements) {
-    if (p.existing) continue;
-    byType[p.type] = (byType[p.type] || 0) + 1;
-  }
-  for (const eq of session.equipment) {
-    const placed = session.placements.filter((p) => p.type === eq.type && !p.existing).length;
-    const missing = Math.max(0, eq.qty - placed);
-    if (missing > 0) byType[eq.type] = (byType[eq.type] || 0) + missing;
+  const cableMeters = {};
+  let moMinutes = 0, materiel = 0, rebouchage = 0;
+  let saigneeM = 0, blochetCount = 0;
+  let totalCableM = 0;
+  let pointsNeufs = 0, pointsExist = 0;
+
+  for (const room of rooms) {
+    const placements = room.placements || [];
+    const equipment = room.equipment || [];
+    const poly = room.dimensions?.polygon;
+    const arrival = room.arrival;
+    const H = room.dimensions?.height || 2.5;
+
+    for (const p of placements) {
+      if (p.existing) { pointsExist += 1; continue; }
+      pointsNeufs += 1;
+      byType[p.type] = (byType[p.type] || 0) + 1;
+    }
+    for (const eq of equipment) {
+      const placed = placements.filter((p) => p.type === eq.type && !p.existing).length;
+      const missing = Math.max(0, eq.qty - placed);
+      if (missing > 0) byType[eq.type] = (byType[eq.type] || 0) + missing;
+    }
+
+    if (arrival && poly) {
+      for (const p of placements) {
+        if (p.existing) continue;
+        let len = 0;
+        const straight = Math.hypot(p.x - arrival.x, p.y - arrival.y);
+        if (p.mode === "ceiling") {
+          if (path === "plafond") len = (H - 0.3) + straight + 0.2;
+          else if (path === "sol") len = 0.3 + straight + H;
+          else if (p.edgeIndex != null && arrival.edgeIndex != null)
+            len = edgePathLength(poly, arrival, { edgeIndex: p.edgeIndex, t: p.t || 0.5 }) + H * 0.5;
+          else len = straight + H * 0.6;
+        } else {
+          if (path === "plafond") len = (H - 0.3) + straight + (H - 0.3);
+          else if (path === "sol") len = 0.3 + straight + 0.3;
+          else if (p.edgeIndex != null && arrival.edgeIndex != null)
+            len = edgePathLength(poly, arrival, p) + 0.4;
+          else len = straight + 0.4;
+        }
+        const ct = FALLBACK_PRICES[p.type]?.cable || "3G2.5";
+        cableMeters[ct] = (cableMeters[ct] || 0) + len;
+      }
+    }
+
+    for (const p of placements) {
+      if (p.existing) continue;
+      if (p.saignee === true || (p.saignee == null && session.tech.saignees === true)) {
+        saigneeM += arrival ? Math.hypot(p.x - arrival.x, p.y - arrival.y) * 0.7 : 2;
+      }
+      if (p.blochet) blochetCount += 1;
+    }
   }
 
+  const articles = [];
   for (const [type, qty] of Object.entries(byType)) {
     const meta = FALLBACK_PRICES[type];
     if (!meta || !qty) continue;
@@ -1011,31 +1102,6 @@ export function buildQuote(session, settings = {}) {
     materiel += line;
     moMinutes += (meta.tempsBase || 20) * qty;
     articles.push({ ref: type.toUpperCase(), name: meta.name, qty, category: "appareillage", prixAchat: meta.price, materiel: line, tempsBase: meta.tempsBase || 20, mo: 0, rebouchage: 0, total: 0 });
-  }
-
-  let totalCableM = 0;
-  if (session.arrival && poly) {
-    for (const p of session.placements) {
-      if (p.existing) continue;
-      let len = 0;
-      const H = session.dimensions.height || 2.5;
-      const straight = Math.hypot(p.x - session.arrival.x, p.y - session.arrival.y);
-      if (p.mode === "ceiling") {
-        if (path === "plafond") len = (H - 0.3) + straight + 0.2;
-        else if (path === "sol") len = 0.3 + straight + H;
-        else if (p.edgeIndex != null && session.arrival.edgeIndex != null)
-          len = edgePathLength(poly, session.arrival, { edgeIndex: p.edgeIndex, t: p.t || 0.5 }) + H * 0.5;
-        else len = straight + H * 0.6;
-      } else {
-        if (path === "plafond") len = (H - 0.3) + straight + (H - 0.3);
-        else if (path === "sol") len = 0.3 + straight + 0.3;
-        else if (p.edgeIndex != null && session.arrival.edgeIndex != null)
-          len = edgePathLength(poly, session.arrival, p) + 0.4;
-        else len = straight + 0.4;
-      }
-      const ct = FALLBACK_PRICES[p.type]?.cable || "3G2.5";
-      cableMeters[ct] = (cableMeters[ct] || 0) + len;
-    }
   }
 
   for (const [ct, meters] of Object.entries(cableMeters)) {
@@ -1047,14 +1113,6 @@ export function buildQuote(session, settings = {}) {
     articles.push({ ref: ct, name: meta.name, qty: m, unit: "m", category: "cables", prixAchat: meta.price, materiel: line, tempsBase: 8, mo: 0, rebouchage: 0, total: 0 });
   }
 
-  let saigneeM = 0, blochetCount = 0;
-  for (const p of session.placements) {
-    if (p.existing) continue;
-    if (p.saignee === true || (p.saignee == null && session.tech.saignees === true)) {
-      saigneeM += session.arrival ? Math.hypot(p.x - session.arrival.x, p.y - session.arrival.y) * 0.7 : 2;
-    }
-    if (p.blochet) blochetCount += 1;
-  }
   if (saigneeM > 0) {
     saigneeM = Math.ceil(saigneeM * 10) / 10;
     const line = saigneeM * rebouchageM;
@@ -1089,6 +1147,9 @@ export function buildQuote(session, settings = {}) {
   const totalTVA = totalHT * tva;
   return {
     articles, cableMeters, totalCableM: Math.ceil(totalCableM * 10) / 10,
+    roomCount: rooms.length,
+    roomNames: rooms.map((r) => r.name).filter(Boolean),
+    pointsNeufs, pointsExist,
     totaux: {
       materiel: round2(materiel), mainOeuvre: round2(moCost), rebouchage: round2(rebouchage),
       deplacement: round2(deplacement), totalHT: round2(totalHT), tva: round2(totalTVA),
@@ -1102,10 +1163,18 @@ function labelProject(id) { return PROJECT_TYPES.find((p) => p.id === id)?.label
 
 function formatQuoteSpeech(session, quote) {
   const path = { murs: "murs", plafond: "plafond", sol: "sol" }[quote.path] || quote.path;
-  const neuves = session.placements.filter((p) => !p.existing).length;
-  const exist = session.placements.filter((p) => p.existing).length;
+  const placed = quote.pointsNeufs ?? session.placements.filter((p) => !p.existing).length;
+  const exist = quote.pointsExist ?? session.placements.filter((p) => p.existing).length;
+  const planned = (quote.articles || [])
+    .filter((a) => a.category === "appareillage")
+    .reduce((s, a) => s + (a.qty || 0), 0);
+  const neuves = Math.max(placed, planned);
+  const scope =
+    quote.roomCount > 1
+      ? `les ${quote.roomCount} pièces (${(quote.roomNames || []).join(", ")})`
+      : (quote.roomNames?.[0] || session.roomName || "la pièce");
   return (
-    `Voici mon estimation pour ${session.roomName || "la pièce"} :\n\n` +
+    `Voici mon estimation pour ${scope} :\n\n` +
     `${neuves} point(s) à créer` + (exist ? `, ${exist} existant(s) (non facturés en neuf)` : "") + ".\n" +
     `Chemin câble : ${path}.\nLongueur totale : ~${quote.totalCableM} m.\n\n` +
     `Matériel : ${quote.totaux.materiel.toFixed(2)} € HT\n` +
@@ -1227,6 +1296,181 @@ function autoPlaceNearDoors(session) {
   });
 }
 
+
+function floorLabel(level, floorsCount) {
+  if (floorsCount <= 1) return "l'appartement";
+  return FLOOR_NAMES[level] || `niveau ${level}`;
+}
+
+function makeRoomId() {
+  return `r${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function emptyRoomState(type, name, floorId, floorName) {
+  return {
+    id: makeRoomId(),
+    floorId,
+    floorName,
+    type,
+    name,
+    status: "pending", // pending | in_progress | done
+    dimensions: null,
+    equipment: [],
+    placements: [],
+    openings: [],
+    arrival: null,
+    placePlan: [],
+    notes: [],
+  };
+}
+
+/** Persist working fields into rooms[] */
+export function saveCurrentRoom(session) {
+  if (!session.currentRoomId) return;
+  const room = session.rooms.find((r) => r.id === session.currentRoomId);
+  if (!room) return;
+  room.dimensions = session.dimensions;
+  room.equipment = session.equipment;
+  room.placements = session.placements;
+  room.openings = session.openings;
+  room.arrival = session.arrival;
+  room.placePlan = session.placePlan;
+  room.notes = session.notes.filter((n) => true);
+  room.type = session.roomType;
+  room.name = session.roomName;
+}
+
+/** Load a room into the working session fields (UI uses these). */
+export function loadRoom(session, roomId) {
+  saveCurrentRoom(session);
+  const room = session.rooms.find((r) => r.id === roomId);
+  if (!room) return null;
+  session.currentRoomId = room.id;
+  session.roomType = room.type;
+  session.roomName = room.name;
+  session.dimensions = room.dimensions;
+  session.equipment = room.equipment || [];
+  session.placements = room.placements || [];
+  session.openings = room.openings || [];
+  session.arrival = room.arrival;
+  session.placePlan = room.placePlan || [];
+  session.pendingEquipment = null;
+  session.guideIndex = 0;
+  room.status = "in_progress";
+  return room;
+}
+
+function nextPendingRoom(session) {
+  return session.rooms.find((r) => r.status !== "done") || null;
+}
+
+function startRoomWorkflow(session, room) {
+  loadRoom(session, room.id);
+  session.step = "shape";
+  return {
+    text: `On s'occupe de : ${room.name}${room.floorName ? ` (${room.floorName})` : ""}.\nDécris la forme ou dessine le brouillon sur le croquis.`,
+    choices: [
+      { id: "shape:describe", label: "Je décris à l'écrit" },
+      { id: "shape:draw", label: "Je dessine le brouillon" },
+    ],
+    showSketch: true, sketchMode: "idle", speak: true,
+  };
+}
+
+function finishCurrentRoom(session) {
+  saveCurrentRoom(session);
+  const room = session.rooms.find((r) => r.id === session.currentRoomId);
+  if (room) room.status = "done";
+}
+
+function buildRoomsFromFloors(session) {
+  session.rooms = [];
+  for (const floor of session.floors) {
+    for (const type of floor.pendingRoomTypes || []) {
+      const preset = ROOM_PRESETS.find((r) => r.id === type);
+      const base = preset?.label || type;
+      const countSame = session.rooms.filter((r) => r.type === type && r.floorId === floor.id).length;
+      const finalName = countSame === 0 ? base : `${base} ${countSame + 1}`;
+      session.rooms.push(emptyRoomState(type, finalName, floor.id, floor.name));
+    }
+  }
+}
+
+function roomChecklist(session) {
+  if (!session.rooms?.length) return "";
+  return session.rooms.map((r) => {
+    const mark = r.status === "done" ? "✓" : (r.id === session.currentRoomId ? "→" : "·");
+    return `${mark} ${r.name}${r.floorName ? ` (${r.floorName})` : ""}`;
+  }).join("\n");
+}
+
+function floorRoomsChoices(session) {
+  const floor = session.floors[session.floorSetupIndex];
+  const pending = floor?.pendingRoomTypes || [];
+  const counts = {};
+  for (const id of pending) counts[id] = (counts[id] || 0) + 1;
+  const addChoices = ROOM_PRESETS.map((r) => ({
+    id: `roomadd:${r.id}`,
+    label: counts[r.id] ? `${r.emoji || ""} ${r.label} (${counts[r.id]})` : `${r.emoji || ""} + ${r.label}`,
+  }));
+  const list = pending.length
+    ? `Déjà : ${pending.map((id, i) => {
+        const p = ROOM_PRESETS.find((r) => r.id === id);
+        return p?.label || id;
+      }).join(", ")}.`
+    : "Aucune pièce encore.";
+  return { list, choices: addChoices.concat([
+    { id: "floor:clear", label: "↺ Vider la liste" },
+    { id: "floor:done", label: "✔ Niveau OK → suivant", primary: true },
+  ]) };
+}
+
+function afterRoomComplete(session) {
+  finishCurrentRoom(session);
+  const next = nextPendingRoom(session);
+  if (next) {
+    session.step = "room-ready";
+    return {
+      text: `« ${session.roomName} » est terminée.\n\nPièces :\n${roomChecklist(session)}\n\nOn passe à « ${next.name} » ?`,
+      actions: [{ id: "room:next", label: `Continuer → ${next.name}` }],
+      choices: [{ id: "room:next", label: `Oui, ${next.name}` }],
+      speak: true,
+    };
+  }
+  session.step = "tech-murs";
+  return {
+    text: `Toutes les pièces sont faites.\n\n${roomChecklist(session)}\n\nQuestions techniques globales : les murs sont-ils à nu ?`,
+    choices: [{ id: "yes", label: "Oui, murs à nu" }, { id: "no", label: "Non, finis / peints" }],
+    speak: true,
+  };
+}
+
+function beginGuidedPlacement(session) {
+  if (!session.placePlan?.length) buildPlacePlan(session);
+  syncPlacePlanCounts(session);
+  session.step = "guided-place";
+  const plan = session.placePlan || [];
+  let idx = session.guideIndex || 0;
+  while (idx < plan.length && (plan[idx].placed || 0) >= plan[idx].qty) idx += 1;
+  session.guideIndex = idx;
+  if (idx >= plan.length) return afterRoomComplete(session);
+  const mark = plan[idx];
+  const left = Math.max(0, mark.qty - (mark.placed || 0));
+  return {
+    text: `Place les ${left}× ${mark.label} (n° ${mark.mark}). Tape ${left} fois sur le plan.`,
+    actions: [
+      { id: "guide:skip", label: "Passer ce type" },
+      { id: "guide:done", label: "Terminer cette pièce →" },
+    ],
+    showSketch: true,
+    sketchMode: "points",
+    placePlan: session.placePlan,
+    guideMark: mark.mark,
+    speak: true,
+  };
+}
+
+
 export function robotReply(session, userText, choiceId) {
   const t = normStr(userText || "");
 
@@ -1234,20 +1478,18 @@ export function robotReply(session, userText, choiceId) {
     case "scope": {
       if (choiceId?.startsWith("scope:")) session.scope = choiceId.slice(6);
       else if (/maison|tout/.test(t)) session.scope = "maison";
-      else if (/etage/.test(t)) session.scope = "etage";
+      else if (/appart|etage/.test(t)) session.scope = "appartement";
       else if (t) session.scope = "piece";
       if (!session.scope) {
-        return { text: "On commence comment ? Une pièce, un étage, ou toute la maison ?", choices: SCOPE_OPTIONS, speak: true };
+        return { text: "C'est pour une pièce, un appartement, ou toute la maison ?", choices: SCOPE_OPTIONS, speak: true };
       }
       session.step = "project";
-      return {
-        text: session.scope === "maison"
-          ? "OK, toute la maison — on fera pièce par pièce. Type de projet ?"
-          : session.scope === "etage"
-            ? "OK, un étage. Type de projet ?"
-            : "Parfait, une pièce. Type de projet ?",
-        choices: PROJECT_TYPES, speak: true,
-      };
+      const intro = session.scope === "maison"
+        ? "OK, toute la maison — on va d'abord lister les étages et les pièces, puis croquis pièce par pièce."
+        : session.scope === "appartement"
+          ? "OK, un appartement — on liste les pièces, puis croquis une par une."
+          : "Parfait, une seule pièce.";
+      return { text: `${intro} Type de projet ?`, choices: PROJECT_TYPES, speak: true };
     }
     case "project": {
       const byId = PROJECT_TYPES.find((p) => p.id === choiceId);
@@ -1287,8 +1529,121 @@ export function robotReply(session, userText, choiceId) {
           speak: true,
         };
       }
+      // Questionnaire multi-pièces
+      if (session.scope === "maison") {
+        session.step = "floors-count";
+        return {
+          text: "Combien de niveaux (étages) a la maison ?",
+          choices: FLOOR_COUNT_OPTIONS,
+          speak: true,
+        };
+      }
+      if (session.scope === "appartement" || session.scope === "etage") {
+        session.floorsCount = 1;
+        session.floors = [{ id: "f0", name: "Appartement", level: 0, pendingRoomTypes: [] }];
+        session.floorSetupIndex = 0;
+        session.step = "floor-rooms";
+        const fr = floorRoomsChoices(session);
+        return {
+          text: `Quelles pièces dans l'appartement ? Tape plusieurs fois « Chambre » s'il y en a plusieurs.\n${fr.list}`,
+          choices: fr.choices,
+          speak: true,
+        };
+      }
+      // Une seule pièce
       session.step = "room";
-      return { text: `Noté. Projet « ${labelProject(session.projectType)} ». Quelle pièce en premier ?`, choices: ROOM_PRESETS, speak: true };
+      return { text: `Noté. Quelle pièce ?`, choices: ROOM_PRESETS, speak: true };
+    }
+    case "floors-count": {
+      let n = null;
+      if (choiceId?.startsWith("floors:")) n = parseInt(choiceId.split(":")[1], 10);
+      else {
+        const m = t.match(/(\d+)/);
+        if (m) n = parseInt(m[1], 10);
+        else if (/rdc|un\s+seul|seulement/.test(t)) n = 1;
+      }
+      if (!(n >= 1 && n <= 6)) {
+        return { text: "Combien de niveaux ?", choices: FLOOR_COUNT_OPTIONS, speak: true };
+      }
+      session.floorsCount = n;
+      session.floors = Array.from({ length: n }, (_, i) => ({
+        id: `f${i}`,
+        name: FLOOR_NAMES[i] || `Niveau ${i}`,
+        level: i,
+        pendingRoomTypes: [],
+      }));
+      session.floorSetupIndex = 0;
+      session.step = "floor-rooms";
+      const fr = floorRoomsChoices(session);
+      return {
+        text: `OK, ${n} niveau${n > 1 ? "x" : ""}. Quelles pièces au ${session.floors[0].name} ? (tu peux ajouter plusieurs chambres)`,
+        choices: fr.choices,
+        speak: true,
+      };
+    }
+    case "floor-rooms": {
+      const floor = session.floors[session.floorSetupIndex];
+      if (!floor) {
+        session.step = "room";
+        return { text: "Quelle pièce ?", choices: ROOM_PRESETS, speak: true };
+      }
+      if (choiceId?.startsWith("roomadd:")) {
+        const id = choiceId.slice(8);
+        floor.pendingRoomTypes.push(id);
+        const fr = floorRoomsChoices(session);
+        return {
+          text: `${floor.name} — ${fr.list}\nAjoute d'autres pièces ou « Niveau OK ».`,
+          choices: fr.choices,
+          speak: true,
+        };
+      }
+      if (choiceId === "floor:clear") {
+        floor.pendingRoomTypes = [];
+        const fr = floorRoomsChoices(session);
+        return { text: `${floor.name} vidé. Quelles pièces ?`, choices: fr.choices, speak: true };
+      }
+      if (choiceId === "floor:done" || /suivant|ok|termine|c.?est bon/.test(t)) {
+        if (!floor.pendingRoomTypes.length) {
+          const fr = floorRoomsChoices(session);
+          return { text: `Ajoute au moins une pièce pour ${floor.name}.`, choices: fr.choices, speak: true };
+        }
+        if (session.floorSetupIndex < session.floors.length - 1) {
+          session.floorSetupIndex += 1;
+          const next = session.floors[session.floorSetupIndex];
+          const fr = floorRoomsChoices(session);
+          return {
+            text: `Parfait. Maintenant les pièces du ${next.name} ?`,
+            choices: fr.choices,
+            speak: true,
+          };
+        }
+        buildRoomsFromFloors(session);
+        const first = nextPendingRoom(session);
+        session.step = "room-ready";
+        return {
+          text: `Récap des pièces :\n${roomChecklist(session)}\n\nOn commence le croquis de « ${first.name} » ?`,
+          actions: [{ id: "room:next", label: `Commencer → ${first.name}` }],
+          choices: [{ id: "room:next", label: `Oui, ${first.name}` }],
+          speak: true,
+        };
+      }
+      const fr = floorRoomsChoices(session);
+      return { text: `${floor.name} — ${fr.list}`, choices: fr.choices, speak: true };
+    }
+    case "room-ready": {
+      if (choiceId === "room:next" || /oui|commenc|contin|ok/.test(t)) {
+        const next = nextPendingRoom(session);
+        if (!next) {
+          session.step = "tech-murs";
+          return { text: "Plus de pièce en attente. Les murs sont-ils à nu ?", choices: [{ id: "yes", label: "Oui" }, { id: "no", label: "Non" }], speak: true };
+        }
+        return startRoomWorkflow(session, next);
+      }
+      return {
+        text: `Pièces :\n${roomChecklist(session)}\nOn continue ?`,
+        actions: [{ id: "room:next", label: "Continuer →" }],
+        speak: true,
+      };
     }
     case "room": {
       const byId = ROOM_PRESETS.find((p) => p.id === choiceId);
@@ -1296,15 +1651,13 @@ export function robotReply(session, userText, choiceId) {
       if (!detected && !t) return { text: "Quelle pièce ?", choices: ROOM_PRESETS, speak: true };
       session.roomType = detected || "autre";
       session.roomName = byId?.label || (detected ? ROOM_PRESETS.find((r) => r.id === detected)?.label : t) || "Pièce";
-      session.step = "shape";
-      return {
-        text: `Pour ${session.roomName.toLowerCase()} : décris la forme (ex. « 3 sur 5 hauteur 3 avec cheminée 50 cm d'épaisseur sur 1,5 m au milieu du mur ») OU dessine le brouillon sur le croquis.`,
-        choices: [
-          { id: "shape:describe", label: "Je décris à l'écrit" },
-          { id: "shape:draw", label: "Je dessine le brouillon" },
-        ],
-        showSketch: true, sketchMode: "idle", speak: true,
-      };
+      // Single-room project → one entry in rooms[]
+      session.floorsCount = 1;
+      session.floors = [{ id: "f0", name: "Pièce", level: 0, pendingRoomTypes: [session.roomType] }];
+      buildRoomsFromFloors(session);
+      const room = session.rooms[0];
+      room.name = session.roomName;
+      return startRoomWorkflow(session, room);
     }
     case "shape": {
       if (choiceId === "shape:draw") {
@@ -1540,55 +1893,88 @@ export function robotReply(session, userText, choiceId) {
       if (choiceId?.startsWith("eq:")) {
         const type = choiceId.slice(3);
         addEquipment(session, type, 1);
-        if (type === "eclairage") autoPlaceCeilingLights(session);
         return {
-          text: `Ajouté : ${FALLBACK_PRICES[type]?.name || type}. Autre chose ?`,
+          text: `Ajouté : ${FALLBACK_PRICES[type]?.name || type}. Autre chose, ou « C'est bon » pour confirmer le total.`,
           suggestions: equipmentSuggestions(session.roomType),
-          actions: [{ id: "next", label: "Continuer → place sur le plan" }],
+          actions: [{ id: "next", label: "C'est bon → confirmer" }],
           showSketch: true, sketchMode: "review-shape", speak: true,
         };
       }
-      if (choiceId === "next" || /suivant|continuer|c.?est bon|ok|passe/.test(t)) {
-        if (!session.equipment.length && !session.placements.length) {
-          return { text: "Ajoute au moins un équipement.", suggestions: equipmentSuggestions(session.roomType), speak: true };
+      if (choiceId === "next" || /suivant|continuer|c.?est bon|ok|passe|confirme/.test(t)) {
+        if (!session.equipment.length) {
+          return { text: "Ajoute au moins un équipement (texte ou boutons).", suggestions: equipmentSuggestions(session.roomType), speak: true };
         }
-        session.step = "sketch-arrival";
+        buildPlacePlan(session);
+        session.step = "equipment-confirm";
+        session.pendingEquipment = session.equipment.map((e) => ({ ...e }));
+        const list = session.equipment.map((e) => `${e.qty}× ${e.label}`).join(", ");
         return {
-          text: "Place l'arrivée (tableau / départ) sur un mur. Ensuite on place prises, va-et-vient, etc. à côté des portes.",
-          showSketch: true, sketchMode: "arrival", speak: true,
+          text: `Pour ${session.roomName} :\n${list}\n\nC'est bien ça ?`,
+          choices: [
+            { id: "equip:ok", label: "Oui, on place" },
+            { id: "equip:edit", label: "Corriger" },
+          ],
+          showSketch: true, sketchMode: "review-shape", placePlan: session.placePlan, speak: true,
         };
       }
       const parsed = parseInstallText(userText || "");
       if (parsed.equipment.length || parsed.openings.length) {
-        for (const e of parsed.equipment) addEquipment(session, e.type, e.qty);
+        // Remplace le matériel (évite de cumuler si on reformule)
+        setEquipmentFromParse(session, parsed.equipment);
         for (const o of parsed.openings) {
-          if (!(session.openings || []).some((x) => x.kind === o.kind)) {
-            autoPlaceOpenings(session, o.kind, o.qty, o.width);
-          } else {
-            // already have some — add the missing count
-            const have = session.openings.filter((x) => x.kind === o.kind).length;
-            if (o.qty > have) autoPlaceOpenings(session, o.kind, o.qty - have, o.width);
-          }
+          const have = (session.openings || []).filter((x) => x.kind === o.kind).length;
+          if (o.qty > have) autoPlaceOpenings(session, o.kind, o.qty - have, o.width);
         }
         if (parsed.notes.length) session.notes.push(...parsed.notes);
-        autoPlaceCeilingLights(session);
         buildPlacePlan(session);
+        session.step = "equipment-confirm";
+        session.pendingEquipment = session.equipment.map((e) => ({ ...e }));
         const list = session.equipment.map((e) => `${e.qty}× ${e.label}`).join(", ");
-        const openTxt = (session.openings || []).length
-          ? `\nOuvertures sur le plan : ${(session.openings || []).map((o) => o.label).join(", ")}.`
-          : "";
-        const noteTxt = parsed.notes.length ? `\nCompris aussi : ${parsed.notes.join(" · ")}.` : "";
-        const planTxt = formatPlacePlan(session);
+        const noteTxt = parsed.notes.length ? `\n(${parsed.notes.join(" · ")})` : "";
         return {
-          text: `Noté : ${list || "—"}.${noteTxt}${openTxt}\n\nNuméros pour le croquis :\n${planTxt}\n\nContinuer pour placer (choisis un n° puis tape sur le plan) ?`,
-          suggestions: equipmentSuggestions(session.roomType),
-          actions: [{ id: "next", label: "Continuer → place sur le plan" }],
+          text: `J'ai noté pour ${session.roomName} :\n${list || "—"}.${noteTxt}\n\nC'est bien ça ? (Sinon dis « corriger » et reformule.)`,
+          choices: [
+            { id: "equip:ok", label: "Oui, on place" },
+            { id: "equip:edit", label: "Corriger" },
+          ],
           showSketch: true, sketchMode: "review-shape", placePlan: session.placePlan, speak: true,
         };
       }
       return {
-        text: "Ex. « 3 prises doubles, 2 prises simples, 2 portes avec va-et-vient et prise à côté de chaque porte ».",
+        text: `Matériel pour ${session.roomName} ? Ex. « 1 va-et-vient, 2x prises double, 3x prise simple ».`,
         suggestions: equipmentSuggestions(session.roomType),
+        speak: true,
+      };
+    }
+    case "equipment-confirm": {
+      if (choiceId === "equip:edit" || /corrig|modifi|non|pas\s*bon|faux/.test(t)) {
+        session.equipment = [];
+        session.placements = [];
+        session.placePlan = [];
+        session.guideIndex = 0;
+        session.step = "equipment";
+        return {
+          text: "OK, reformule le matériel (ex. « 1 va-et-vient, 2x prises double… »).",
+          suggestions: equipmentSuggestions(session.roomType),
+          showSketch: true, sketchMode: "review-shape", speak: true,
+        };
+      }
+      if (choiceId === "equip:ok" || /oui|ok|c.?est\s*bon|place|valide|parfait/.test(t)) {
+        buildPlacePlan(session);
+        session.guideIndex = 0;
+        session.step = "sketch-arrival";
+        return {
+          text: "Place l'arrivée électrique (tableau / départ) sur un mur. Ensuite on pose le matériel type par type.",
+          showSketch: true, sketchMode: "arrival", placePlan: session.placePlan, speak: true,
+        };
+      }
+      const list = session.equipment.map((e) => `${e.qty}× ${e.label}`).join(", ");
+      return {
+        text: `Confirme : ${list}\nOui = on place · Corriger = reformuler.`,
+        choices: [
+          { id: "equip:ok", label: "Oui, on place" },
+          { id: "equip:edit", label: "Corriger" },
+        ],
         speak: true,
       };
     }
@@ -1596,34 +1982,28 @@ export function robotReply(session, userText, choiceId) {
       if (!session.arrival) {
         return { text: "Clique un mur pour l'arrivée électrique.", showSketch: true, sketchMode: "arrival", speak: true };
       }
-      session.step = "sketch-points";
-      autoPlaceNearDoors(session);
-      if (!session.placePlan?.length) buildPlacePlan(session);
-      return {
-        text: "Choisis un n° dans la barre d'outils, puis tape sur le plan.\nLumières = même n° : tape autant de fois que la qty (alignement auto 2×2 / 3×3).\nOutils Porte/Fenêtre encore dispo. Glisser = déplacer · 🗑️ = supprimer.",
-        actions: [{ id: "next", label: "Continuer →" }],
-        showSketch: true, sketchMode: "points", placePlan: session.placePlan, speak: true,
-      };
+      // Parcours B : placement guidé type par type (pas d'auto-placement)
+      return beginGuidedPlacement(session);
+    }
+    case "guided-place": {
+      if (choiceId === "guide:skip" || /passer|skip/.test(t)) {
+        session.guideIndex = (session.guideIndex || 0) + 1;
+        return beginGuidedPlacement(session);
+      }
+      if (choiceId === "guide:done" || choiceId === "next" || /terminer|fini|c.?est\s*bon|continuer/.test(t)) {
+        return afterRoomComplete(session);
+      }
+      if (choiceId === "guide:refresh" || choiceId === "guide:next-type") {
+        return beginGuidedPlacement(session);
+      }
+      return beginGuidedPlacement(session);
     }
     case "sketch-points": {
+      // Compat anciennes sessions → bascule en guidé
       if (choiceId === "next" || /suivant|continuer|c.?est bon|fini|ok/.test(t)) {
-        if (!session.placements.length) {
-          return { text: "Place au moins un point.", actions: [{ id: "next", label: "Continuer →" }], showSketch: true, sketchMode: "points", speak: true };
-        }
-        session.step = "tech-murs";
-        return {
-          text: "Les murs sont-ils à nu ?",
-          choices: [{ id: "yes", label: "Oui, murs à nu" }, { id: "no", label: "Non, finis / peints" }],
-          speak: true,
-        };
+        return afterRoomComplete(session);
       }
-      const face = /(?:mur\s+)?(?:en\s+)?face|oppose/.test(t);
-      const n = parseInt((t.match(/(\d+)/) || [])[1], 10) || 1;
-      if (/prise|inter|lumiere|eclairage|point/.test(t) || face) {
-        placeFromText(session, t, n, face);
-        return { text: `Placé ${n} élément(s). Continue ou Continuer.`, actions: [{ id: "next", label: "Continuer →" }], showSketch: true, sketchMode: "points", speak: true };
-      }
-      return { text: "Place sur le croquis, ou « 2 prises sur le mur en face ».", actions: [{ id: "next", label: "Continuer →" }], showSketch: true, sketchMode: "points", speak: true };
+      return beginGuidedPlacement(session);
     }
     case "tech-murs": {
       if (choiceId === "yes" || /oui|nu|a nu/.test(t)) session.tech.mursNu = true;

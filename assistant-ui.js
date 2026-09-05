@@ -419,7 +419,12 @@ function applyReply(reply) {
   }
   if (reply.choices) renderChips(els.choices, reply.choices);
   if (reply.suggestions) renderChips(els.suggestions, reply.suggestions);
-  if (reply.actions) renderChips(els.actions, reply.actions, ["save", "next", "draw:done", "walls:done", "draw:clear", "draw:restart"]);
+  if (reply.actions) {
+    renderChips(els.actions, reply.actions, [
+      "save", "next", "draw:done", "walls:done", "draw:clear", "draw:restart",
+      "equip:ok", "room:next", "guide:done", "floor:done", "openings:done",
+    ]);
+  }
 
   if (reply.showSketch) {
     const prevMode = sketchMode;
@@ -433,7 +438,11 @@ function applyReply(reply) {
     if (sketchMode === "openings" || sketchMode === "points") buildToolButtons();
     if (sketchMode === "points") {
       syncPlacePlanFromPlacements();
-      if (activeMark == null) {
+      if (reply.guideMark != null) {
+        activeMark = reply.guideMark;
+        const guided = (session.placePlan || []).find((it) => it.mark === reply.guideMark);
+        if (guided) placeType = guided.type;
+      } else if (activeMark == null) {
         const next = (session.placePlan || []).find((it) => it.placed < it.qty);
         if (next) { activeMark = next.mark; placeType = next.type; }
       }
@@ -1299,10 +1308,7 @@ function handleCanvasClick(mx, my) {
         ? `n°${planItem.mark} placé (${planItem.placed}/${planItem.qty})` + (left ? ` — encore ${left}` : " ✓")
         : `${pt.label} placé au plafond`);
       if (planItem && planItem.placed >= planItem.qty) {
-        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
-        activeMark = next?.mark ?? null;
-        placeType = next?.type ?? placeType;
-        buildPlaceBar();
+        advanceGuidedMark();
       }
       return;
     }
@@ -1324,12 +1330,23 @@ function handleCanvasClick(mx, my) {
       drawRoom();
       toast(planItem ? `n°${planItem.mark} ${pt.label} placé` : `${pt.label} placé`);
       if (planItem && planItem.placed >= planItem.qty) {
-        const next = (session.placePlan || []).find((it) => it.placed < it.qty);
-        activeMark = next?.mark ?? null;
-        placeType = next?.type ?? placeType;
-        buildPlaceBar();
+        advanceGuidedMark();
       }
     }
+  }
+}
+
+function advanceGuidedMark() {
+  const next = (session.placePlan || []).find((it) => it.placed < it.qty);
+  activeMark = next?.mark ?? null;
+  placeType = next?.type ?? placeType;
+  buildPlaceBar();
+  if (session.step !== "guided-place") return;
+  if (next) {
+    session.guideIndex = (session.placePlan || []).findIndex((it) => it.mark === next.mark);
+    handleUser("", "guide:refresh");
+  } else {
+    handleUser("Terminer", "guide:done");
   }
 }
 
