@@ -721,6 +721,7 @@ function showSketchPanel() {
   const d = session.dimensions;
   const modeHints = {
     draw: "1 doigt = dessiner · 2 doigts = zoom/déplacer · Effacer = recommencer",
+    "attach-draw": "Glisse depuis le mur jaune (mitoyen) · 2 doigts = zoom · Effacer = murs manquants seulement",
     measure: "Tape un mur → pavé numérique (chiffres) · forme redressée",
     openings: "Outils Porte/Fenêtre · tape un mur pour placer",
     arrival: "Place l'arrivée sur un mur",
@@ -917,13 +918,17 @@ bindZoomButton(els.zoomOut, () => {
   toast("Zoom −");
 });
 bindZoomButton(els.zoomReset, () => {
-  if (sketchMode === "draw") {
+  if (isFreehandMode()) {
     clearDrawing();
     return;
   }
   fitToView();
   toast("Vue recadrée");
 });
+
+function isFreehandMode() {
+  return sketchMode === "draw" || sketchMode === "attach-draw";
+}
 
 // ─── Drawing ────────────────────────────────────────────────────────────────
 
@@ -1067,7 +1072,7 @@ function drawRoom() {
       ctx.fillStyle = i === 0 ? "#f5a623" : "#3ee0c5";
       ctx.arc(c.sx, c.sy, (sketchMode === "draw" || sketchMode === "attach-draw") ? 9 : 6, 0, Math.PI * 2);
       ctx.fill();
-      if (sketchMode === "draw") {
+      if (isFreehandMode()) {
         ctx.fillStyle = "#04201a";
         ctx.font = "700 11px Outfit, sans-serif";
         ctx.textAlign = "center";
@@ -1075,6 +1080,20 @@ function drawRoom() {
         ctx.fillText(String(i + 1), c.sx, c.sy + 0.5);
       }
     });
+
+    // Attach-draw: emphasize the shared wall so the user starts from it
+    if (sketchMode === "attach-draw" && poly.length >= 2) {
+      const a = worldToScreen(poly[0].x, poly[0].y);
+      const b = worldToScreen(poly[1].x, poly[1].y);
+      ctx.save();
+      ctx.strokeStyle = "#f5a623";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(a.sx, a.sy);
+      ctx.lineTo(b.sx, b.sy);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     if (poly.length >= 2) {
       const edges = polygonEdges(poly);
@@ -1150,6 +1169,7 @@ function drawRoom() {
 
   const hints = {
     draw: "Glisse = tracer la pièce · 2 doigts = zoom · Effacer = recommencer",
+    "attach-draw": "Glisse du mur jaune vers l’extérieur = murs manquants · 2 doigts = zoom",
     measure: "Tape un mur · pavé numérique pour la longueur",
     openings: "Porte / Fenêtre / Baie · tape le mur pour l’ouvrir",
     arrival: "Tape un mur pour l'arrivée électrique",
@@ -1329,9 +1349,13 @@ function handleCanvasClick(mx, my) {
   const { x, y } = screenToWorld(mx, my);
   const poly = getPoly();
 
-  if (sketchMode === "draw") {
+  if (isFreehandMode()) {
     // Drawing is freehand (drag). A tap alone does nothing.
-    toast("Glisse le doigt pour tracer la pièce d’un trait");
+    toast(
+      sketchMode === "attach-draw"
+        ? "Glisse du mur mitoyen vers l’extérieur pour tracer les murs manquants"
+        : "Glisse le doigt pour tracer la pièce d’un trait"
+    );
     return;
   }
 
@@ -1546,7 +1570,11 @@ function finishFreehand() {
   if (!freehandStroke || freehandStroke.length < 6) {
     freehandStroke = null;
     drawRoom();
-    toast("Trait trop court — redessine la pièce d’un geste continu");
+    toast(
+      sketchMode === "attach-draw"
+        ? "Trait trop court — glisse depuis le mur mitoyen pour tracer les murs manquants"
+        : "Trait trop court — redessine la pièce d’un geste continu"
+    );
     return;
   }
   const poly = strokeToPolygon(freehandStroke);
@@ -1628,8 +1656,8 @@ function onCanvasPointerDown(e) {
     }
   }
 
-  // Draw mode: one finger starts freehand stroke
-  if (sketchMode === "draw") {
+  // Draw / attach-draw: one finger starts freehand stroke (must not pan)
+  if (isFreehandMode()) {
     const { x, y } = screenToWorld(mx, my);
     freehandStroke = [{ x, y }];
     gesture = {
@@ -1778,7 +1806,11 @@ function onCanvasPointerUp(e) {
     if (was.moved) finishFreehand();
     else {
       freehandStroke = null;
-      toast("Glisse le doigt pour tracer la pièce d’un trait");
+      toast(
+        sketchMode === "attach-draw"
+          ? "Glisse du mur mitoyen vers l’extérieur pour tracer les murs manquants"
+          : "Glisse le doigt pour tracer la pièce d’un trait"
+      );
       drawRoom();
     }
     gesture = null;
