@@ -1427,13 +1427,20 @@ function nextPendingRoom(session) {
 function startRoomWorkflow(session, room) {
   loadRoom(session, room.id);
   session.step = "shape";
+  const hasNeighbors = (session.rooms || []).some(
+    (r) => r.id !== room.id && r.status === "done" && r.floorId === room.floorId && r.worldPolygon?.length
+  );
   return {
-    text: `On s'occupe de : ${room.name}${room.floorName ? ` (${room.floorName})` : ""}.\nDécris la forme ou dessine le brouillon sur le croquis.`,
+    text: hasNeighbors
+      ? `On s'occupe de : ${room.name}${room.floorName ? ` (${room.floorName})` : ""}.\nLe plan déjà dessiné reste affiché — colle cette pièce sur un mur, ou dessine-la à part.`
+      : `On s'occupe de : ${room.name}${room.floorName ? ` (${room.floorName})` : ""}.\nDécris la forme ou dessine le brouillon sur le croquis.`,
     choices: [
       { id: "shape:describe", label: "Je décris à l'écrit" },
       { id: "shape:draw", label: "Je dessine le brouillon" },
     ],
-    showSketch: true, sketchMode: "idle", speak: true,
+    showSketch: true,
+    sketchMode: hasNeighbors ? "floor" : "idle",
+    speak: true,
   };
 }
 
@@ -1553,6 +1560,8 @@ function rotatePoint(p, origin, ang) {
  */
 export function applyRoomPlacement(session, room) {
   if (!room?.dimensions?.polygon?.length) return;
+  // Already placed via wall extrusion — do not re-transform
+  if (room.placementLocked && room.worldPolygon?.length) return;
   const local = room.dimensions.polygon.map((p) => ({ x: p.x, y: p.y }));
   const sameFloorDone = (session.rooms || []).filter(
     (r) => r.id !== room.id && r.status === "done" && r.floorId === room.floorId && r.worldPolygon?.length
@@ -1624,6 +1633,170 @@ export function applyRoomPlacement(session, room) {
   room.offsetX = dx;
   room.offsetY = dy;
   room.worldPolygon = rotated.map((p) => ({ x: round2(p.x + dx), y: round2(p.y + dy) }));
+}
+
+
+/**
+ * Build the next room by extruding outward from a shared wall of a done room.
+ * The shared wall is reused (not redrawn) — user only gives the depth beyond it.
+ */
+export function extrudeRoomFromSharedWall(session, room, depthMeters) {
+  const depth = Number(depthMeters);
+  if (!room?.attach || !(depth > 0.3 && depth < 40)) return null;
+  const target = session.rooms.find((r) => r.id === room.attach.roomId);
+  if (!target?.worldPolygon?.length) return null;
+  const tPoly = target.worldPolygon;
+  const n = tPoly.length;
+  const ti = ((room.attach.targetEdge ?? 0) % n + n) % n;
+  const A = tPoly[ti];
+  const B = tPoly[(ti + 1) % n];
+  const wallLen = dist(A, B);
+  if (!(wallLen > 0.2)) return null;
+
+  // Target centroid → outward normal (away from interior)
+  let cx = 0, cy = 0;
+  for (const p of tPoly) { cx += p.x; cy += p.y; }
+  cx /= n; cy /= n;
+  const ex = B.x - A.x, ey = B.y - A.y;
+  let nx = -ey / wallLen, ny = ex / wallLen;
+  const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+  if ((cx - mx) * nx + (cy - my) * ny > 0) { nx = -nx; ny = -ny; }
+
+  const C = { x: round2(B.x + nx * depth), y: round2(B.y + ny * depth) };
+  const D = { x: round2(A.x + nx * depth), y: round2(A.y + ny * depth) };
+  // World poly: shared wall A→B then out to C→D (CCW if outward is left of AB)
+  const world = [
+    { x: round2(A.x), y: round2(A.y) },
+    { x: round2(B.x), y: round2(B.y) },
+    C,
+    D,
+  ];
+  room.worldPolygon = world.map((p) => ({ x: p.x, y: p.y }));
+  room.offsetX = 0;
+  room.offsetY = 0;
+  room.rotation = 0;
+  room.placementLocked = true;
+  room.attach.myEdge = 0;
+  // Working polygon stays in world meters so openings/points align with the floor plan
+  room.dimensions = {
+    width: round2(wallLen),
+    depth: round2(depth),
+    height: room.dimensions?.height || session.dimensions?.height || 2.5,
+    polygon: world.map((p) => ({ x: p.x, y: p.y })),
+    templatePolygon: world.map((p) => ({ x: p.x, y: p.y })),
+    edgeLengths: [round2(wallLen), round2(depth), round2(wallLen), round2(depth)],
+    source: "extruded",
+    chimney: null,
+  };
+  return room.dimensions;
+}
+
+/** Seed next room on a shared wall so the user only draws the missing walls. */
+export function beginAttachDraw(session, room) {
+  if (!room?.attach) return null;
+  const target = session.rooms.find((r) => r.id === room.attach.roomId);
+  if (!target?.worldPolygon?.length) return null;
+  const tPoly = target.worldPolygon;
+  const n = tPoly.length;
+  const ti = ((room.attach.targetEdge ?? 0) % n + n) % n;
+  const A = { x: round2(tPoly[ti].x), y: round2(tPoly[ti].y) };
+  const B = { x: round2(tPoly[(ti + 1) % n].x), y: round2(tPoly[(ti + 1) % n].y) };
+  const wallLen = dist(A, B);
+  if (!(wallLen > 0.2)) return null;
+  room.attach.myEdge = 0;
+  room.placementLocked = false;
+  room.worldPolygon = null;
+  session.dimensions = {
+    width: round2(wallLen),
+    depth: 0,
+    height: room.dimensions?.height || session.dimensions?.height || 2.5,
+    polygon: [A, B],
+    templatePolygon: null,
+    edgeLengths: null,
+    source: "attach-draw",
+    chimney: null,
+    sharedEdgeLocked: true,
+  };
+  room.dimensions = session.dimensions;
+  return { A, B, wallLen, targetName: target.name };
+}
+
+/** Merge freehand missing walls onto the locked shared edge A→B. */
+export function mergeAttachDrawStroke(seedAB, strokePoly) {
+  if (!seedAB || seedAB.length < 2) return strokePoly || [];
+  const A = { x: seedAB[0].x, y: seedAB[0].y };
+  const B = { x: seedAB[1].x, y: seedAB[1].y };
+  if (!strokePoly?.length) return [A, B];
+  // Keep freehand points off the shared wall; order so polygon is A → B → (path B→A)
+  const mid = [];
+  for (const p of strokePoly) {
+    const dA = dist(p, A);
+    const dB = dist(p, B);
+    if (dA < 0.25 || dB < 0.25) continue;
+    const last = mid[mid.length - 1];
+    if (last && dist(last, p) < 0.08) continue;
+    mid.push({ x: round2(p.x), y: round2(p.y) });
+  }
+  if (!mid.length) return [A, B];
+  const first = strokePoly[0];
+  const last = strokePoly[strokePoly.length - 1];
+  const startsNearB = dist(first, B) <= dist(first, A);
+  const endsNearA = dist(last, A) <= dist(last, B);
+  // Prefer B → … → A (missing walls after shared A→B). Reverse if user drew A → … → B.
+  const path = (startsNearB || endsNearA) ? mid : mid.slice().reverse();
+  return [A, B, ...path];
+}
+
+/** Finalize a room drawn against a shared wall (missing walls only). */
+export function finalizeAttachDraw(session, room) {
+  const poly = session.dimensions?.polygon;
+  if (!room || !poly || poly.length < 3) return null;
+  const world = poly.map((p) => ({ x: round2(p.x), y: round2(p.y) }));
+  room.worldPolygon = world;
+  room.placementLocked = true;
+  room.offsetX = 0;
+  room.offsetY = 0;
+  room.rotation = 0;
+  const b = polygonBounds(world);
+  room.dimensions = {
+    width: round2(b.width || session.dimensions.width || 0),
+    depth: round2(b.depth || 0),
+    height: session.dimensions.height || 2.5,
+    polygon: world,
+    templatePolygon: world.map((p) => ({ x: p.x, y: p.y })),
+    edgeLengths: world.map((p, i) => round2(dist(p, world[(i + 1) % world.length]))),
+    source: "attach-drawn",
+    chimney: null,
+  };
+  session.dimensions = room.dimensions;
+  return room.dimensions;
+}
+
+/** Snapshot for later atelier (Mes devis → Ouvrir le plan). */
+export function buildPlanSnapshot(session) {
+  saveCurrentRoom(session);
+  return {
+    version: 1,
+    savedAt: new Date().toISOString(),
+    scope: session.scope,
+    client: { ...(session.client || {}) },
+    scale: session.planScale || 50,
+    rooms: (session.rooms || []).map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      floorId: r.floorId,
+      floorName: r.floorName,
+      status: r.status,
+      worldPolygon: r.worldPolygon ? r.worldPolygon.map((p) => ({ x: p.x, y: p.y })) : null,
+      dimensions: r.dimensions,
+      openings: r.openings || [],
+      placements: r.placements || [],
+      arrival: r.arrival || null,
+      equipment: r.equipment || [],
+      attach: r.attach || null,
+    })),
+  };
 }
 
 /** All rooms of a floor for floor-plan view. */
@@ -1886,14 +2059,178 @@ export function robotReply(session, userText, choiceId) {
       if (choiceId?.startsWith("attach:")) {
         const parts = choiceId.split(":");
         next.attach = { roomId: parts[1], targetEdge: parseInt(parts[2], 10), myEdge: null };
-        session.pendingAttachRoomId = null;
-        return startRoomWorkflow(session, next);
+        session.pendingAttachRoomId = next.id;
+        loadRoom(session, next.id);
+        session.step = "attach-depth";
+        const target = session.rooms.find((r) => r.id === next.attach.roomId);
+        const wallLabel = target ? target.name : "la pièce voisine";
+        return {
+          text: `Mur mitoyen choisi sur « ${wallLabel} » — il reste en place (tu ne le redessines pas).\nTu peux donner la profondeur de « ${next.name} », ou dessiner seulement les murs manquants.`,
+          choices: [
+            { id: "depth:3", label: "3 m" },
+            { id: "depth:3.5", label: "3,5 m" },
+            { id: "depth:4", label: "4 m" },
+            { id: "depth:5", label: "5 m" },
+            { id: "depth:draw", label: "✏️ Dessiner les murs manquants" },
+          ],
+          actions: [{ id: "depth:custom", label: "Autre longueur…" }],
+          showSketch: true,
+          sketchMode: "floor",
+          speak: true,
+        };
       }
       return {
-        text: `Où coller « ${next.name} » ?`,
+        text: `Où coller « ${next.name} » ? Le premier schéma reste affiché.`,
         choices: attachRoomChoices(session, next),
         showSketch: true,
         sketchMode: "floor",
+        speak: true,
+      };
+    }
+    case "attach-depth": {
+      const next = session.rooms.find((r) => r.id === session.pendingAttachRoomId)
+        || session.rooms.find((r) => r.id === session.currentRoomId)
+        || nextPendingRoom(session);
+      if (!next) {
+        session.step = "tech-murs";
+        return { text: "Plus de pièce en attente.", speak: true };
+      }
+      // Draw only the missing walls — shared wall stays from room 1
+      if (choiceId === "depth:draw" || /dessin|murs?\s*manqu|tracer|croquis/.test(String(userText || ""))) {
+        loadRoom(session, next.id);
+        next.attach = next.attach || session.rooms.find((r) => r.id === next.id)?.attach;
+        const seeded = beginAttachDraw(session, next);
+        if (!seeded) {
+          return { text: "Impossible de partir de ce mur — choisis un autre mur.", speak: true };
+        }
+        session.step = "attach-draw";
+        return {
+          text: `Mur mitoyen de « ${seeded.targetName} » gardé (${seeded.wallLen} m).\nDessine seulement les murs manquants de « ${next.name} » (du bout du mur jaune jusqu’à l’autre bout). Le 1er schéma reste visible.`,
+          actions: [
+            { id: "attach-draw:done", label: "Terminer les murs manquants" },
+            { id: "attach-draw:clear", label: "Effacer (garder le mitoyen)" },
+          ],
+          showSketch: true,
+          sketchMode: "attach-draw",
+          speak: true,
+        };
+      }
+      let depth = null;
+      if (choiceId?.startsWith("depth:")) {
+        const raw = choiceId.slice(6);
+        if (raw === "custom") {
+          return {
+            text: `Indique la profondeur de « ${next.name} » en mètres (ex. 4.2).`,
+            choices: [{ id: "depth:draw", label: "✏️ Dessiner les murs manquants" }],
+            showSketch: true, sketchMode: "floor", speak: true,
+          };
+        }
+        depth = parseFloat(raw.replace(",", "."));
+      } else {
+        const m = String(userText || "").replace(",", ".").match(/(\d+(?:\.\d+)?)/);
+        if (m) depth = parseFloat(m[1]);
+      }
+      if (!(depth > 0.3 && depth < 40)) {
+        return {
+          text: `Profondeur de « ${next.name} » ? Ex. 4, ou dessine les murs manquants.`,
+          choices: [
+            { id: "depth:3", label: "3 m" },
+            { id: "depth:3.5", label: "3,5 m" },
+            { id: "depth:4", label: "4 m" },
+            { id: "depth:5", label: "5 m" },
+            { id: "depth:draw", label: "✏️ Dessiner les murs manquants" },
+          ],
+          showSketch: true, sketchMode: "floor", speak: true,
+        };
+      }
+      loadRoom(session, next.id);
+      next.attach = next.attach || session.rooms.find((r) => r.id === next.id)?.attach;
+      const dim = extrudeRoomFromSharedWall(session, next, depth);
+      if (!dim) {
+        return { text: "Impossible de coller sur ce mur — choisis un autre mur.", speak: true };
+      }
+      session.dimensions = dim;
+      session.pendingAttachRoomId = null;
+      session.step = "openings";
+      return {
+        text: `« ${next.name} » est collée (${dim.width} × ${dim.depth} m) — le mur mitoyen est celui de la pièce voisine.\nPlace portes/fenêtres sur les murs libres, puis le matériel.`,
+        actions: [
+          { id: "openings:done", label: "Ouvertures OK → Matériel" },
+          { id: "openings:skip", label: "Passer (pas d'ouverture)" },
+        ],
+        choices: [
+          { id: "tool:porte", label: "🚪 Porte" },
+          { id: "tool:fenetre", label: "🪟 Fenêtre" },
+          { id: "tool:baie", label: "🪟 Baie" },
+        ],
+        showSketch: true,
+        sketchMode: "openings",
+        speak: true,
+      };
+    }
+    case "attach-draw": {
+      const next = session.rooms.find((r) => r.id === session.pendingAttachRoomId)
+        || session.rooms.find((r) => r.id === session.currentRoomId)
+        || nextPendingRoom(session);
+      if (!next) {
+        session.step = "tech-murs";
+        return { text: "Plus de pièce en attente.", speak: true };
+      }
+      if (choiceId === "attach-draw:clear" || /effac|recommenc/.test(String(userText || ""))) {
+        const seeded = beginAttachDraw(session, next);
+        return {
+          text: seeded
+            ? `Mitoyen gardé. Redessine les murs manquants de « ${next.name} ».`
+            : "Effacé. Redessine les murs manquants.",
+          actions: [
+            { id: "attach-draw:done", label: "Terminer les murs manquants" },
+            { id: "attach-draw:clear", label: "Effacer (garder le mitoyen)" },
+          ],
+          showSketch: true,
+          sketchMode: "attach-draw",
+          speak: true,
+        };
+      }
+      if (choiceId === "attach-draw:done" || /termin|ok|contin|valider/.test(String(userText || ""))) {
+        const dim = finalizeAttachDraw(session, next);
+        if (!dim) {
+          return {
+            text: `Il faut au moins 3 points pour fermer « ${next.name} ». Continue le tracé des murs manquants.`,
+            actions: [
+              { id: "attach-draw:done", label: "Terminer les murs manquants" },
+              { id: "attach-draw:clear", label: "Effacer (garder le mitoyen)" },
+            ],
+            showSketch: true,
+            sketchMode: "attach-draw",
+            speak: true,
+          };
+        }
+        session.pendingAttachRoomId = null;
+        session.step = "openings";
+        return {
+          text: `« ${next.name} » est collée au plan — mur mitoyen réutilisé, murs manquants ajoutés.\nPlace portes/fenêtres sur les murs libres, puis le matériel.`,
+          actions: [
+            { id: "openings:done", label: "Ouvertures OK → Matériel" },
+            { id: "openings:skip", label: "Passer (pas d'ouverture)" },
+          ],
+          choices: [
+            { id: "tool:porte", label: "🚪 Porte" },
+            { id: "tool:fenetre", label: "🪟 Fenêtre" },
+            { id: "tool:baie", label: "🪟 Baie" },
+          ],
+          showSketch: true,
+          sketchMode: "openings",
+          speak: true,
+        };
+      }
+      return {
+        text: `Dessine les murs manquants de « ${next.name} » (le mur mitoyen est déjà là), puis Terminer.`,
+        actions: [
+          { id: "attach-draw:done", label: "Terminer les murs manquants" },
+          { id: "attach-draw:clear", label: "Effacer (garder le mitoyen)" },
+        ],
+        showSketch: true,
+        sketchMode: "attach-draw",
         speak: true,
       };
     }

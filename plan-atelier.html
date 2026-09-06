@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Atelier plan · Volt</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    :root {
+      --atelier-ink: #0f2744;
+      --atelier-line: #1a3a5c;
+      --atelier-accent: #0d9488;
+      --atelier-paper: #f7f4ef;
+    }
+    body.atelier-body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 10% -10%, rgba(13, 148, 136, 0.12), transparent 50%),
+        linear-gradient(165deg, #e8eef5 0%, var(--atelier-paper) 45%, #eef2f6 100%);
+      color: var(--atelier-ink);
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    .atelier-shell { max-width: 1100px; margin: 0 auto; padding: 1rem 1rem 3rem; }
+    .atelier-hero h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      letter-spacing: -0.02em;
+    }
+    .atelier-hero p { margin: 0.35rem 0 0; color: #4a5d73; max-width: 40rem; line-height: 1.45; }
+    .atelier-nav { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1rem 0 1.25rem; }
+    .atelier-nav a, .atelier-btn {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.55rem 0.85rem; border-radius: 10px; border: 1px solid #c5d0dc;
+      background: #fff; color: var(--atelier-ink); text-decoration: none; font-weight: 600; font-size: 0.9rem; cursor: pointer;
+    }
+    .atelier-btn.primary { background: var(--atelier-accent); border-color: var(--atelier-accent); color: #fff; }
+    .atelier-btn.danger { background: #7f1d1d; border-color: #7f1d1d; color: #fff; }
+    .atelier-grid { display: grid; gap: 1rem; }
+    @media (min-width: 900px) { .atelier-grid { grid-template-columns: 280px 1fr; align-items: start; } }
+    .atelier-panel {
+      background: rgba(255,255,255,0.92); border: 1px solid #d5dde8; border-radius: 14px; padding: 0.9rem 1rem;
+      box-shadow: 0 8px 24px rgba(15, 39, 68, 0.06);
+    }
+    .atelier-panel h2 { margin: 0 0 0.65rem; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: #5a6f86; }
+    .atelier-field { display: grid; gap: 0.25rem; margin-bottom: 0.65rem; }
+    .atelier-field label { font-size: 0.78rem; font-weight: 600; color: #4a5d73; }
+    .atelier-field input, .atelier-field select, .atelier-field textarea {
+      width: 100%; box-sizing: border-box; padding: 0.5rem 0.65rem; border-radius: 8px; border: 1px solid #c5d0dc;
+      font: inherit; background: #fff;
+    }
+    .atelier-field textarea { min-height: 64px; resize: vertical; }
+    .atelier-tools { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+    .atelier-tool {
+      border: 1px solid #c5d0dc; background: #fff; border-radius: 999px; padding: 0.4rem 0.7rem;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer; color: var(--atelier-ink);
+    }
+    .atelier-tool.active { background: var(--atelier-ink); color: #fff; border-color: var(--atelier-ink); }
+    .atelier-canvas-wrap {
+      position: relative; background: #0b1220; border-radius: 12px; overflow: hidden; border: 1px solid #1e293b;
+      aspect-ratio: 210 / 297; max-height: min(78vh, 920px); margin: 0 auto;
+    }
+    #atelier-canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+    .atelier-status { margin-top: 0.65rem; font-size: 0.85rem; color: #4a5d73; min-height: 1.2em; }
+    .atelier-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.45rem; max-height: 280px; overflow: auto; }
+    .atelier-list li {
+      display: flex; justify-content: space-between; gap: 0.5rem; align-items: center;
+      padding: 0.55rem 0.65rem; border-radius: 10px; border: 1px solid #d5dde8; background: #f8fafc; font-size: 0.85rem;
+    }
+    .atelier-list button { border: 0; background: transparent; color: #b91c1c; font-weight: 700; cursor: pointer; }
+    .atelier-empty { color: #64748b; font-size: 0.9rem; line-height: 1.45; }
+    @media print {
+      body.atelier-body * { visibility: hidden; }
+      #atelier-print-root, #atelier-print-root * { visibility: visible; }
+      #atelier-print-root { position: absolute; left: 0; top: 0; width: 210mm; }
+      @page { size: A4 portrait; margin: 10mm; }
+    }
+  </style>
+</head>
+<body class="atelier-body">
+  <div class="atelier-shell">
+    <header class="atelier-hero">
+      <h1>Volt · Atelier plan</h1>
+      <p>
+        Groupe séparé du devis du jour : retrouve le plan d’étage, peaufine les symboles réels,
+        règle l’échelle, le cartouche client, puis imprime en A4 pour le contrôleur agréé et le client.
+      </p>
+    </header>
+
+    <nav class="atelier-nav">
+      <a href="mes-devis.html">← Mes devis</a>
+      <a href="assistant-ia.html">Assistant devis</a>
+      <button type="button" class="atelier-btn" id="btn-reload">Recharger</button>
+      <button type="button" class="atelier-btn primary" id="btn-save">Enregistrer le plan</button>
+      <button type="button" class="atelier-btn" id="btn-print">Imprimer A4</button>
+      <button type="button" class="atelier-btn" id="btn-pdf">PDF A4</button>
+    </nav>
+
+    <div id="atelier-gate" class="atelier-panel" hidden>
+      <p class="atelier-empty" id="atelier-gate-msg">Connexion requise.</p>
+      <p><a class="atelier-btn primary" href="login.html">Se connecter</a></p>
+    </div>
+
+    <div id="atelier-picker" class="atelier-panel" hidden>
+      <h2>Choisir un devis avec plan</h2>
+      <p class="atelier-empty">Ouvre un devis enregistré qui contient un croquis, ou passe <code>?devis=ID</code> dans l’URL.</p>
+      <ul class="atelier-list" id="devis-list"></ul>
+    </div>
+
+    <div id="atelier-workspace" class="atelier-grid" hidden>
+      <aside class="atelier-panel">
+        <h2>Cartouche client</h2>
+        <div class="atelier-field"><label for="f-client">Client</label><input id="f-client" type="text" autocomplete="name" /></div>
+        <div class="atelier-field"><label for="f-addr">Adresse / chantier</label><textarea id="f-addr"></textarea></div>
+        <div class="atelier-field"><label for="f-ref">Référence devis</label><input id="f-ref" type="text" /></div>
+        <div class="atelier-field"><label for="f-scale">Échelle (1 cm = … m)</label><input id="f-scale" type="number" min="0.2" max="20" step="0.1" value="1" /></div>
+        <div class="atelier-field"><label for="f-date">Date</label><input id="f-date" type="date" /></div>
+        <div class="atelier-field"><label for="f-notes">Notes plan</label><textarea id="f-notes" placeholder="Ex. plan indicatif, cotes hors œuvre…"></textarea></div>
+
+        <h2>Symboles réels</h2>
+        <div class="atelier-tools" id="tool-bar">
+          <button type="button" class="atelier-tool active" data-tool="select">Sélection</button>
+          <button type="button" class="atelier-tool" data-tool="prise">Prise</button>
+          <button type="button" class="atelier-tool" data-tool="interrupteur">Interrupteur</button>
+          <button type="button" class="atelier-tool" data-tool="luminaire">Luminaire</button>
+          <button type="button" class="atelier-tool" data-tool="tableau">Tableau</button>
+          <button type="button" class="atelier-tool" data-tool="arrivee">Arrivée</button>
+          <button type="button" class="atelier-tool" data-tool="annotation">Texte</button>
+          <button type="button" class="atelier-tool" data-tool="erase">Gomme</button>
+        </div>
+        <ul class="atelier-list" id="symbol-list"></ul>
+        <p class="atelier-status" id="status"></p>
+      </aside>
+
+      <section class="atelier-panel">
+        <h2>Feuille A4 · plan d’étage</h2>
+        <div class="atelier-canvas-wrap" id="atelier-print-root">
+          <canvas id="atelier-canvas" width="1240" height="1754"></canvas>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script type="module" src="plan-atelier.js"></script>
+</body>
+</html>
