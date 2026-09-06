@@ -27,6 +27,8 @@ import {
   polygonBounds,
   polygonEdges,
   pointOnEdge,
+  buildPlanSnapshot,
+  mergeAttachDrawStroke,
   robotReply,
   roomWorldPolygon,
   setEdgeLength,
@@ -424,7 +426,7 @@ function applyReply(reply) {
   if (reply.actions) {
     renderChips(els.actions, reply.actions, [
       "save", "next", "draw:done", "walls:done", "draw:clear", "draw:restart",
-      "equip:ok", "room:next", "guide:done", "floor:done", "openings:done",
+      "equip:ok", "room:next", "guide:done", "floor:done", "openings:done", "attach-draw:done",
       "plan:view", "plan:pdf",
     ]);
   }
@@ -459,7 +461,8 @@ function applyReply(reply) {
       (prevMode === "draw" && sketchMode !== "draw") ||
       sketchMode === "measure" ||
       sketchMode === "floor" ||
-      sketchMode === "review"
+      sketchMode === "review" ||
+      sketchMode === "attach-draw"
     ) {
       fitToView();
     } else {
@@ -539,8 +542,15 @@ function fitToView() {
   drawRoom();
 }
 
+function hasFloorGhosts() {
+  return (session.rooms || []).some(
+    (r) => r.status === "done" && r.worldPolygon?.length >= 3
+      && r.floorId === (session.rooms.find((x) => x.id === session.currentRoomId)?.floorId || r.floorId)
+  );
+}
+
 function isFloorView() {
-  return sketchMode === "floor" || sketchMode === "review";
+  return sketchMode === "floor" || sketchMode === "review" || hasFloorGhosts();
 }
 
 function getPoly() {
@@ -561,12 +571,16 @@ function computeBaseLayout() {
   const H = els.canvas.height;
   const pad = 52;
   let poly = getPoly();
-  if (isFloorView()) {
+  if (isFloorView() || hasFloorGhosts()) {
     const parts = getFloorPolys().flatMap((x) => x.poly);
+    // Include in-progress local poly mapped roughly if no world yet
+    if (poly.length >= 3 && !getFloorPolys().some((x) => x.active)) {
+      parts.push(...poly);
+    }
     if (parts.length) poly = parts;
   }
-  // Stable world during freehand draw so adding corners doesn't jump the view
-  if (sketchMode === "draw" || !poly.length) {
+  // Stable world during freehand of the FIRST room only
+  if ((sketchMode === "draw" && !hasFloorGhosts()) || !poly.length) {
     const span = 10;
     const scale = Math.min((W - pad * 2) / span, (H - pad * 2) / span);
     return { minX: 0, minY: 0, maxX: span, maxY: span, scale, ox: pad, oy: pad, width: span, depth: span };
@@ -726,10 +740,10 @@ function showSketchPanel() {
   }
 
   const showTools = sketchMode === "points" || sketchMode === "openings";
-  const showDrawEdit = sketchMode === "draw" || sketchMode === "measure";
+  const showDrawEdit = (sketchMode === "draw" || sketchMode === "attach-draw") || sketchMode === "measure";
   els.tools.style.display = showTools ? "flex" : "none";
   if (showTools) buildToolButtons();
-  els.btnUndo.classList.toggle("on", sketchMode === "draw");
+  els.btnUndo.classList.toggle("on", (sketchMode === "draw" || sketchMode === "attach-draw"));
   els.btnClearDraw.classList.toggle("on", showDrawEdit);
   if (els.btnClearDraw) els.btnClearDraw.textContent = sketchMode === "measure" ? "Recommencer" : "Effacer";
   updatePropsPanel();
@@ -831,6 +845,16 @@ function undoLastCorner() {
     toast("Rien à annuler");
     return;
   }
+  if (sketchMode === "attach-draw" || session.dimensions?.sharedEdgeLocked) {
+    // Keep the shared wall (first 2 points); drop only the missing walls
+    const seed = poly.slice(0, 2);
+    session.dimensions.polygon = seed.length === 2 ? seed.map((p) => ({ x: p.x, y: p.y })) : [];
+    session.dimensions.templatePolygon = null;
+    session.dimensions.edgeLengths = null;
+    fitToView();
+    toast("Murs manquants annulés — mitoyen conservé");
+    return;
+  }
   // Freehand = one whole shape: undo clears it
   session.dimensions.polygon = [];
   session.dimensions.templatePolygon = null;
@@ -846,12 +870,18 @@ function clearDrawing() {
     return;
   }
   if (session.dimensions) {
-    session.dimensions.polygon = [];
+    if (sketchMode === "attach-draw" || session.dimensions.sharedEdgeLocked) {
+      const seed = (session.dimensions.polygon || []).slice(0, 2);
+      session.dimensions.polygon = seed.length === 2 ? seed.map((p) => ({ x: p.x, y: p.y })) : [];
+      toast("Murs manquants effacés — mitoyen conservé");
+    } else {
+      session.dimensions.polygon = [];
+      toast("Dessin effacé — tu peux redessiner");
+    }
     session.dimensions.templatePolygon = null;
     session.dimensions.edgeLengths = null;
   }
   fitToView();
-  toast("Dessin effacé — tu peux redessiner");
 }
 
 els.btnUndo.addEventListener("click", (e) => {
@@ -992,9 +1022,18 @@ function drawRoom() {
     ctx.stroke();
   }
 
-  if (isFloorView() && getFloorPolys().length) {
+  if (hasFloorGhosts() || (isFloorView() && getFloorPolys().length)) {
     drawFloorPlanRooms(ctx);
-  } else if (poly.length >= 1) {
+    // Current room still editable in local coords when not yet locked in world
+    const cur = session.rooms?.find((r) => r.id === session.currentRoomId);
+    if (poly.length >= 1 && sketchMode !== "floor" && sketchMode !== "review" && !cur?.worldPolygon?.length) {
+      // fall through to local overlay below
+    } else if (sketchMode === "floor" || sketchMode === "review" || cur?.worldPolygon?.length) {
+      // floor view already shows current via worldPolygon — skip local re-draw
+      // still draw openings/points for current in local if needed at end
+    }
+  }
+  if (poly.length >= 1 && !(hasFloorGhosts() && (sketchMode === "floor" || sketchMode === "review" || session.rooms?.find((r) => r.id === session.currentRoomId)?.worldPolygon?.length))) {
     ctx.beginPath();
     const first = worldToScreen(poly[0].x, poly[0].y);
     ctx.moveTo(first.sx, first.sy);
@@ -1026,7 +1065,7 @@ function drawRoom() {
       const c = worldToScreen(v.x, v.y);
       ctx.beginPath();
       ctx.fillStyle = i === 0 ? "#f5a623" : "#3ee0c5";
-      ctx.arc(c.sx, c.sy, sketchMode === "draw" ? 9 : 6, 0, Math.PI * 2);
+      ctx.arc(c.sx, c.sy, (sketchMode === "draw" || sketchMode === "attach-draw") ? 9 : 6, 0, Math.PI * 2);
       ctx.fill();
       if (sketchMode === "draw") {
         ctx.fillStyle = "#04201a";
@@ -1524,6 +1563,16 @@ function finishFreehand() {
       source: "drawn", chimney: null,
     };
   }
+  if (sketchMode === "attach-draw" || session.dimensions?.sharedEdgeLocked) {
+    const seed = (session.dimensions.polygon || []).slice(0, 2);
+    session.dimensions.polygon = mergeAttachDrawStroke(seed, poly);
+    session.dimensions.templatePolygon = null;
+    session.dimensions.edgeLengths = null;
+    fitToView();
+    toast(`Murs manquants capturés (${session.dimensions.polygon.length} coins) — Terminer les murs manquants`);
+    drawRoom();
+    return;
+  }
   session.dimensions.polygon = poly;
   session.dimensions.templatePolygon = null;
   session.dimensions.edgeLengths = null;
@@ -1869,13 +1918,14 @@ async function saveDevis() {
       deplacement: quote.totaux.deplacement,
     },
     voltSummary: quote,
+    plan: buildPlanSnapshot(session),
   };
 
   try {
     const ref = await addDoc(collection(db, "devis"), payload);
     toast("Devis enregistré ✓");
     addBubble(
-      `Devis sauvegardé ! Réf. ${ref.id.slice(0, 8).toUpperCase()}. Tu le retrouves dans « Mes devis ».`,
+      `Devis sauvegardé ! Réf. ${ref.id.slice(0, 8).toUpperCase()}.\nTu le retrouves dans « Mes devis », et le plan est ouvrable plus tard dans l'atelier plan (A4, symboles, peaufinage client).`,
       "bot"
     );
     if (voiceOn) speak("Devis sauvegardé. Tu le retrouves dans Mes devis.");
@@ -1884,6 +1934,7 @@ async function saveDevis() {
       els.actions,
       [
         { id: "goto", label: "Voir mes devis", primary: true },
+        { id: "plan", label: "Atelier plan (plus tard)" },
         { id: "restart", label: "Nouveau devis" },
       ],
       ["goto"]
@@ -1892,6 +1943,7 @@ async function saveDevis() {
       const label = btn.textContent || "";
       btn.onclick = () => {
         if (label.includes("Voir")) window.location.href = "mes-devis.html";
+        else if (label.includes("Atelier") || label.includes("plan")) window.location.href = `plan-atelier.html?devis=${ref.id}`;
         else handleUser("Recommencer", "restart");
       };
     });
